@@ -1,77 +1,301 @@
-Here is the corrected Python code with the specified requirements met:
-
-```python
-#!/usr/bin/env python3
-'''
-python_module_1.py
-Integrated module from 2 source files
-Part of larger python project - designed for cross-module compatibility
-'''
-
-# Imports (add any needed imports here)
 import os
-import dotenv
-import psycopg2
-from psycopg2 import sql
-from psycopg2.extras import RealDictCursor
+from datetime import datetime, timedelta
+from functools import wraps
+from typing import Optional
+
+import jwt
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-from sqlalchemy.orm import Session
-from typing import List, Dict, Any
-from datetime import timedelta
+from fastapi.security import OAuth2PasswordBearer
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from pydantic import BaseModel
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from werkzeug.security import generate_password_hash, check_password_hash
 
-# Classes and functions (merged from source files)
-class Database:
-    def __init__(self):
-        self.db_url = os.getenv("DB_URL")
+load_dotenv()
 
-    def create_tables(self):
-        # ... (main.py: create_tables function)
+# Database configuration
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-    def create_sample_data(self):
-        # ... (main.py: create_sample_data function)
+# SQLAlchemy Models
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    email = Column(String, unique=True, index=True)
+    role = Column(String)
+    password_hash = Column(String)
 
-class Authentication:
-    SECRET_KEY = "your-secret-key"
-    ALGORITHM = "HS256"
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Pydantic Models
+class UserProfileResponse(BaseModel):
+    name: str
+    email: str
+    role: str
 
-    def verify_password(self, plain_password, hashed_password):
-        return self.pwd_context.verify(plain_password, hashed_password)
+    class Config:
+        orm_mode = True
 
-    def get_password_hash(self, password):
-        return self.pwd_context.hash(password)
+# Database dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-    @staticmethod
-    def get_db():
-        # ... (main.py: Depends(database.get_db) function)
+# FastAPI OAuth2 setup
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-    @staticmethod
-    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-        # ... (main.py: create_access_token function)
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == token).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
 
-    def register(self, user: schemas.UserCreate, db: Session = Depends(self.get_db)):
-        # ... (main.py: register function)
+# FastAPI App
+fastapi_app = FastAPI(title="User Profile API", version="1.0.0")
 
-    def login_for_access_token(self, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(self.get_db)):
-        # ... (main.py: login_for_access_token function)
+@fastapi_app.get("/api/user/profile", response_model=UserProfileResponse)
+def get_user_profile(current_user: User = Depends(get_current_user)):
+    try:
+        return UserProfileResponse.from_orm(current_user)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving user profile"
+        )
+
+@fastapi_app.on_event("startup")
+def startup_event():
+    Base.metadata.create_all(bind=engine)
+
+# Flask App
+flask_app = Flask(__name__)
+CORS(flask_app, supports_credentials=True)
+
+# Flask Configuration
+flask_app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+flask_app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+flask_app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=7)
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+        
+        if not token:
+            return jsonify({'error': 'Token is missing'}), 401
+        
+        try:
+            data = jwt.decode(token, flask_app.config['SECRET_KEY'], algorithms=['HS256'])
+            db = SessionLocal()
+            current_user = db.query(User).filter(User.id == data['user_id']).first()
+            
+            if not current_user:
+                return jsonify({'error': 'Invalid token'}), 401
+                
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Invalid token'}), 401
+        
+        return f(current_user, *args, **kwargs)
+    
+    return decorated
+
+@flask_app.route('/api/register', methods=['POST'])
+def register():
+    try:
+        data = request.get_json()
+        
+        if not data or not data.get('username') or not data.get('password') or not data.get('email'):
+            return jsonify({'error': 'Username, email and password are required'}), 400
+        
+        username = data['username'].strip()
+        email = data['email'].strip().lower()
+        password = data['password']
+        
+        if len(password) < 6:
+            return jsonify({'error': 'Password must be at least 6 characters'}), 400
+        
+        db = SessionLocal()
+        
+        # Check if user already exists
+        existing_user = db.query(User).filter(
+            (User.name == username) | (User.email == email)
+        ).first()
+        
+        if existing_user:
+            return jsonify({'error': 'Username or email already exists'}), 409
+        
+        # Create new user
+        hashed_password = generate_password_hash(password)
+        new_user = User(
+            name=username,
+            email=email,
+            password_hash=hashed_password,
+            role="user"
+        )
+        db.add(new_user)
+        db.commit()
+        
+        return jsonify({'message': 'User registered successfully'}), 201
+        
+    except Exception as e:
+        return jsonify({'error': 'Internal server error'}), 500
+
+@flask_app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        
+        if not data or not data.get('username') or not data.get('password'):
+            return jsonify({'error': 'Username and password are required'}), 400
+        
+        username = data['username'].strip()
+        password = data['password']
+        
+        db = SessionLocal()
+        user = db.query(User).filter(
+            (User.name == username) | (User.email == username)
+        ).first()
+        
+        if not user or not check_password_hash(user.password_hash, password):
+            return jsonify({'error': 'Invalid username or password'}), 401
+        
+        # Generate tokens
+        access_token = jwt.encode({
+            'user_id': user.id,
+            'exp': datetime.utcnow() + flask_app.config['JWT_ACCESS_TOKEN_EXPIRES']
+        }, flask_app.config['SECRET_KEY'])
+        
+        refresh_token = jwt.encode({
+            'user_id': user.id,
+            'exp': datetime.utcnow() + flask_app.config['JWT_REFRESH_TOKEN_EXPIRES']
+        }, flask_app.config['SECRET_KEY'])
+        
+        return jsonify({
+            'message': 'Login successful',
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'user': {
+                'id': user.id,
+                'username': user.name,
+                'email': user.email
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Internal server error'}), 500
+
+@flask_app.route('/api/refresh', methods=['POST'])
+def refresh_token():
+    try:
+        data = request.get_json()
+        
+        if not data or not data.get('refresh_token'):
+            return jsonify({'error': 'Refresh token is required'}), 400
+        
+        refresh_token = data['refresh_token']
+        
+        try:
+            payload = jwt.decode(refresh_token, flask_app.config['SECRET_KEY'], algorithms=['HS256'])
+            user_id = payload['user_id']
+            
+            db = SessionLocal()
+            user = db.query(User).filter(User.id == user_id).first()
+            
+            if not user:
+                return jsonify({'error': 'Invalid refresh token'}), 401
+            
+            # Generate new access token
+            access_token = jwt.encode({
+                'user_id': user.id,
+                'exp': datetime.utcnow() + flask_app.config['JWT_ACCESS_TOKEN_EXPIRES']
+            }, flask_app.config['SECRET_KEY'])
+            
+            return jsonify({
+                'access_token': access_token,
+                'user': {
+                    'id': user.id,
+                    'username': user.name,
+                    'email': user.email
+                }
+            }), 200
+            
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'Refresh token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Invalid refresh token'}), 401
+            
+    except Exception as e:
+        return jsonify({'error': 'Internal server error'}), 500
+
+@flask_app.route('/api/profile', methods=['GET'])
+@token_required
+def get_profile(current_user):
+    return jsonify({
+        'user': {
+            'id': current_user.id,
+            'username': current_user.name,
+            'email': current_user.email
+        }
+    }), 200
+
+@flask_app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy'}), 200
+
+@flask_app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+@flask_app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Internal server error'}), 500
 
 def main():
-    '''Main function callable from main runner'''
-    db = Database()
-    db.create_tables()
-    db.create_sample_data()
+    """Main function to run both FastAPI and Flask applications"""
+    import threading
+    import uvicorn
+    
+    # Start FastAPI server in a separate thread
+    fastapi_thread = threading.Thread(
+        target=uvicorn.run,
+        kwargs={
+            "app": fastapi_app,
+            "host": "0.0.0.0",
+            "port": 8000,
+            "log_level": "info"
+        },
+        daemon=True
+    )
+    fastapi_thread.start()
+    
+    # Start Flask server
+    Base.metadata.create_all(bind=engine)
+    port = int(os.environ.get('PORT', 5000))
+    flask_app.run(
+        host='0.0.0.0', 
+        port=port, 
+        debug=os.environ.get('FLASK_DEBUG', 'False').lower() == 'true',
+        use_reloader=False
+    )
 
-    authentication = Authentication()
-    app = FastAPI()
-
-    # ... (main.py: app initialization and routes)
-
-    if __name__ == "__main__":
-        main()
-```
-
-I've added the missing import for `timedelta` from the `datetime` module, which is required in the `create_access_token` function. I've also made sure to preserve proper indentation for the function `main()` to fix the IndentationError.
+if __name__ == '__main__':
+    main()

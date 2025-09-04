@@ -1,182 +1,83 @@
-#!/usr/bin/env python3
-'''
-python_module_2.py
-Integrated module from 2 source files
-Part of larger python project - designed for cross-module compatibility
-'''
-
-# Imports (add any needed imports here)
 import os
-import sys
-from typing import List, Dict, Any
-from flask import Flask, request, jsonify, make_response
-from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
-from flask_migrate import Migrate
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.engine.url import URL
+from flask import Flask, render_template, jsonify
+from flask_cors import CORS
+import requests
+from dotenv import load_dotenv
 
-# Constants
-DB_URL = "sqlite+aiosqlite:///./user_profiles.db"
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///roles.db'
-app.config['JWT_SECRET_KEY'] = 'your-secret-key'
+CORS(app)
 
-db = SQLAlchemy(app)
-jwt = JWTManager(app)
-migrate = Migrate(app, db)
+# Configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
+API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:5001/api')
 
-Base = declarative_base()
+class APIError(Exception):
+    """Custom exception for API errors"""
+    pass
 
-# Modified from main.py - AEP-3 - Role-Based Access Control (RBAC)
-roles_table = db.Table('roles',
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
-    db.Column('role_id', db.Integer, db.ForeignKey('role.id'), primary_key=True)
-)
+def fetch_user_profile():
+    """
+    Fetch user profile from API with error handling
+    """
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/user/profile",
+            timeout=10,
+            headers={'Content-Type': 'application/json'}
+        )
+        
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 401:
+            raise APIError("Authentication failed. Please log in again.")
+        elif response.status_code == 404:
+            raise APIError("User profile not found.")
+        else:
+            response.raise_for_status()
+            
+    except requests.exceptions.Timeout:
+        raise APIError("Request timed out. Please try again.")
+    except requests.exceptions.ConnectionError:
+        raise APIError("Unable to connect to the server. Please check your connection.")
+    except requests.exceptions.RequestException as e:
+        raise APIError(f"An error occurred: {str(e)}")
 
-roles = db.Table('roles',
-    db.Column('role_id', db.Integer, primary_key=True),
-    db.Column('name', db.String(50), unique=True)
-)
+@app.route('/')
+def dashboard():
+    """
+    Main dashboard route
+    """
+    try:
+        user_data = fetch_user_profile()
+        return render_template('dashboard.html', user=user_data)
+    except APIError as e:
+        return render_template('error.html', error_message=str(e)), 500
+    except Exception as e:
+        app.logger.error(f"Unexpected error in dashboard: {str(e)}")
+        return render_template('error.html', error_message="An unexpected error occurred."), 500
 
-users = db.Table('users',
-    db.Column('id', db.Integer, primary_key=True),
-    db.Column('username', db.String(80), unique=True),
-    db.Column('password', db.String(120)),
-    db.Column('active', db.Boolean(), default=True)
-)
+@app.route('/health')
+def health_check():
+    """
+    Health check endpoint
+    """
+    return jsonify({"status": "healthy", "service": "user-dashboard"})
 
-roles_users = db.Table('roles_users',
-    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
-    db.Column('role_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True)
-)
+@app.errorhandler(404)
+def not_found(error):
+    return render_template('error.html', error_message="Page not found."), 404
 
-class Role(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True)
-    users = db.relationship('User', secondary=roles_users, backref=db.backref('roles', lazy='dynamic'))
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True)
-    password = db.Column(db.String(120))
-    active = db.Column(db.Boolean(), default=True)
-    roles = db.relationship('Role', secondary=roles, backref=db.backref('users', lazy='dynamic'))
-
-@jwt.token_in_blocklist_loader
-def check_if_token_in_blacklist(jwt_header, jwt_payload):
-    jti = jwt_payload["jti"]
-    return jti in current_app.config["JWT_BLACKLISTED_TOKENS"]
-
-@jwt.user_identity_loader
-def user_identity_lookup(user):
-    return user.id
-
-@jwt.user_lookup_loader
-def user_lookup_callback(jwt_header, jwt_payload):
-    user_id = int(jwt_payload["identity"])
-    return User.query.get(user_id)
-
-@jwt.user_identity_loader
-def user_identity_lookup(user):
-    return user.id
-
-@jwt.user_lookup_loader
-def user_lookup_callback(jwt_header, jwt_payload):
-    user_id = int(jwt_payload["identity"])
-    return User.query.get(user_id)
-
-@app.before_request
-def before_request():
-    if not current_user.is_authenticated:
-        return jsonify({"error": "Unauthorized"}), 401
-
-@app.route('/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    if not data or not data['username'] or not data['password']:
-        return jsonify({"error": "Invalid data"}), 400
-
-    user = User.query.filter_by(username=data['username']).first()
-    if user is not None:
-        return jsonify({"error": "Username already exists"}), 400
-
-    new_user = User(username=data['username'], password=data['password'])
-    db.session.add(new_user)
-    db.session.commit()
-
-    return jsonify({"message": "User created"}), 201
-
-@app.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    if not data or not data['username'] or not data['password']:
-        return jsonify({"error": "Invalid data"}), 400
-
-    user = User.query.filter_by(username=data['username']).first()
-    if user is None or not user.password == data['password']:
-        return jsonify({"error": "Invalid credentials"}), 401
-
-    access_token = create_access_token(identity=user.id)
-    return jsonify({"access_token": access_token}), 200
-
-# Modified from main.py - AEP-4 - Basic User Profile API
-engine = create_engine(DB_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-class UserProfile(Base):
-    __tablename__ = "user_profiles"
-
-    id = column(Integer, primary_key=True, index=True)
-    name = column(String, index=True)
-    email = column(String, unique=True, index=True)
-    role = column(String)
-
-@app.get("/profile", response_model=UserProfileResponse)
-def read_user_profile():
-    db = SessionLocal()
-    user = db.query(UserProfile).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {
-        "id": user.id,
-        "name": user.name,
-        "email": user.email,
-        "role": user.role
-    }
-
-@app.on_event("startup")
-def setup_db():
-    Base.metadata.create_all(bind=engine)
-
-@app.on_event("shutdown")
-def shutdown_db():
-    db = SessionLocal()
-    db.close()
-
-class UserProfileResponse(BaseModel):
-    id: Optional[int] = None
-    name: str
-    email: str
-    role: Optional[str] = None
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('error.html', error_message="Internal server error."), 500
 
 def main():
-    '''Main function callable from main runner'''
-    from sqlalchemy import create_engine, reflect
+    """Main function to run the Flask application"""
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=port, debug=debug)
 
-    # Initialize the Flask app
-    app.run(debug=True)
-
-    # Create a SQLAlchemy engine for the user_profiles database
-    user_profiles_engine = create_engine(DB_URL)
-
-    # Reflect the UserProfile table from the user_profiles database
-    Base.metadata.reflect(bind=user_profiles_engine)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -1,27 +1,18 @@
-#!/usr/bin/env python3
-'''
-python_module_2.py
-Integrated module from 2 source files
-Part of larger python project - designed for cross-module compatibility
-'''
-
-# Imports (add any needed imports here)
 from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 import databases
 import sqlalchemy
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Table
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, Session
+from sqlalchemy.orm import sessionmaker, Session
 import os
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 import uuid
-from logging import getLogger
-from logging.config import dictConfig
-from log_config import LogConfig
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -30,263 +21,281 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-logger = getLogger(__name__)
-
+# Create database and engine
 database = databases.Database(DATABASE_URL)
-metadata = sqlalchemy.MetaData()
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL, 
+    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # Security
 security = HTTPBearer()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Database Models
-user_role_association = Table(
-    'user_role_association',
-    Base.metadata,
-    Column('user_id', Integer, ForeignKey('users.id')),
-    Column('role_id', Integer, ForeignKey('roles.id'))
-)
+# Logger setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+# Models
 class Role(Base):
     __tablename__ = "roles"
-
+    
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    permissions = Column(String)  # Comma-separated permissions
-
-    users = relationship("User", secondary=user_role_association, back_populates="roles")
+    permissions = Column(String)  # JSON string of permissions
 
 class User(Base):
     __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    role_id = Column(Integer, ForeignKey("roles.id"))
+    is_active = Column(Boolean, default=True)
+    name = Column(String(50))
+    created_at = Column(DateTime, server_default=sqlalchemy.func.now())
 
-    roles = relationship("Role", secondary=user_role_association, back_populates="users")
-
-# Pydantic Models
-class RoleCreate(BaseModel):
-    name: str
-    permissions: str
-
+# Pydantic models
 class UserCreate(BaseModel):
     username: str
     email: str
     password: str
-    role_ids: List[int]
-
-class TokenData(BaseModel):
-    username: Optional[str] = None
-    roles: List[str] = []
+    role_id: int
+    name: str
 
 class UserResponse(BaseModel):
-    id: int
+    id: str
     username: str
     email: str
-    roles: List[str]
+    role_id: int
+    is_active: bool
+    name: str
+
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: str
+    role: str
+
+class UserProfile(BaseModel):
+    name: str
+    email: str
+    role: str
+
+    class Config:
+        from_attributes = True
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
-# Utility functions
-def verify_password(plain_password, hashed_password):
-    # In production, use proper password hashing like bcrypt
-    return plain_password == hashed_password
+# App
+app = FastAPI(title="RBAC System with User Profiles", version="1.0.0")
 
-def get_password_hash(password):
-    # In production, use proper password hashing
-    return password
-
-def create_access_token(data: Dict[str, Any]):
-    to_encode = data.copy()
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
+# Dependency
+def get_db():
+    db = SessionLocal()
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username, roles=payload.get("roles", []))
-    except JWTError:
-        raise credentials_exception
+        yield db
+    finally:
+        db.close()
 
-    user = db.query(User).filter(User.username == token_data.username).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-def has_permission(user: User, required_permission: str):
-    user_permissions = set()
-    for role in user.roles:
-        if role.permissions:
-            user_permissions.update(role.permissions.split(','))
-    return required_permission in user_permissions
-
-def role_required(required_role: str):
-    def role_checker(user: User = Depends(get_current_user)):
-        user_roles = [role.name for role in user.roles]
-        if required_role not in user_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Requires {required_role} role"
-            )
-        return user
-    return role_checker
-
-def permission_required(required_permission: str):
-    def permission_checker(user: User = Depends(get_current_user)):
-        if not has_permission(user, required_permission):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Requires {required_permission} permission"
-            )
-        return user
-    return permission_checker
-
-# Routes
-def register_user(app: FastAPI, db: Session = Depends(get_db)):
-    @app.post("/register", response_model=UserResponse)
-    async def register_user(user: UserCreate, db: Session = Depends(get_db)):
-        db_user = db.query(User).filter(User.username == user.username).first()
-        if db_user:
-            raise HTTPException(status_code=400, detail="Username already registered")
-
-        roles = db.query(Role).filter(Role.id.in_(user.role_ids)).all()
-        if len(roles) != len(user.role_ids):
-            raise HTTPException(status_code=400, detail="One or more roles not found")
-
-        hashed_password = get_password_hash(user.password)
-        db_user = User(
-            username=user.username,
-            email=user.email,
-            hashed_password=hashed_password,
-            roles=roles
-        )
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-
-        return UserResponse(
-            id=db_user.id,
-            username=db_user.username,
-            email=db_user.email,
-            roles=[role.name for role in db_user.roles]
-        )
-
-def login(app: FastAPI, db: Session = Depends(get_db)):
-    @app.post("/login")
-    async def login(username: str, password: str, db: Session = Depends(get_db)):
-        user = db.query(User).filter(User.username == username).first()
-        if not user or not verify_password(password, user.hashed_password):
+# RBAC Middleware
+class RBAC:
+    def __init__(self, allowed_roles: List[str]):
+        self.allowed_roles = allowed_roles
+    
+    def __call__(self, credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+        try:
+            token = credentials.credentials
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            role: str = payload.get("role")
+            
+            if username is None or role is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid authentication credentials",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            if role not in self.allowed_roles:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not enough permissions",
+                )
+            
+            return TokenData(username=username, role=role)
+            
+        except JWTError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
+                detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        access_token = create_access_token(
-            data={
-                "sub": user.username,
-                "roles": [role.name for role in user.roles]
-            }
+# Utility functions
+def verify_password(plain_password, hashed_password):
+    return plain_password == hashed_password  # Replace with real hashing
+
+def get_password_hash(password):
+    return password  # Replace with real hashing
+
+def authenticate_user(db: Session, username: str, password: str):
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not verify_password(password, user.hashed_password):
+        return False
+    return user
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+# Dependency to get current user
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    try:
+        user = db.query(User).filter(User.email == token).first()
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user
+    except Exception as e:
+        logger.error(f"Error getting current user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving user information",
         )
-        return {"access_token": access_token, "token_type": "bearer"}
 
-def create_role(app: FastAPI, db: Session = Depends(get_db)):
-    @app.post("/roles", dependencies=[Depends(role_required("admin"))])
-    async def create_role(role: RoleCreate, db: Session = Depends(get_db)):
-        db_role = db.query(Role).filter(Role.name == role.name).first()
-        if db_role:
-            raise HTTPException(status_code=400, detail="Role already exists")
+# Routes
+@app.post("/token", response_model=Token)
+async def login_for_access_token(form_data: dict, db: Session = Depends(get_db)):
+    username = form_data.get("username")
+    password = form_data.get("password")
+    
+    user = authenticate_user(db, username, password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Get role name
+    role = db.query(Role).filter(Role.id == user.role_id).first()
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User role not found",
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username, "role": role.name}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
-        db_role = Role(name=role.name, permissions=role.permissions)
-        db.add(db_role)
-        db.commit()
-        db.refresh(db_role)
-        return {"message": "Role created successfully", "role": db_role.name}
+@app.post("/users/", response_model=UserResponse)
+async def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    hashed_password = get_password_hash(user.password)
+    db_user = User(
+        username=user.username,
+        email=user.email,
+        hashed_password=hashed_password,
+        role_id=user.role_id,
+        name=user.name
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
 
-def employee_dashboard(app: FastAPI, db: Session = Depends(get_db)):
-    @app.get("/employee/dashboard", dependencies=[Depends(permission_required("view_dashboard"))])
-    async def employee_dashboard():
-        return {"message": "Welcome to Employee Dashboard"}
+@app.get("/employee/dashboard")
+async def employee_dashboard(current_user: TokenData = Depends(RBAC(["employee", "manager", "admin"]))):
+    return {"message": f"Welcome to employee dashboard, {current_user.username}!"}
 
-def manager_dashboard(app: FastAPI, db: Session = Depends(get_db)):
-    @app.get("/manager/dashboard", dependencies=[Depends(role_required("manager"))])
-    async def manager_dashboard():
-        return {"message": "Welcome to Manager Dashboard"}
+@app.get("/manager/dashboard")
+async def manager_dashboard(current_user: TokenData = Depends(RBAC(["manager", "admin"]))):
+    return {"message": f"Welcome to manager dashboard, {current_user.username}!"}
 
-def admin_dashboard(app: FastAPI, db: Session = Depends(get_db)):
-    @app.get("/admin/dashboard", dependencies=[Depends(role_required("admin"))])
-    async def admin_dashboard():
-        return {"message": "Welcome to Admin Dashboard"}
+@app.get("/admin/dashboard")
+async def admin_dashboard(current_user: TokenData = Depends(RBAC(["admin"]))):
+    return {"message": f"Welcome to admin dashboard, {current_user.username}!"}
 
-def read_users_me(app: FastAPI, db: Session = Depends(get_db)):
-    @app.get("/users/me", response_model=UserResponse)
-    async def read_users_me(current_user: User = Depends(get_current_user)):
-        return UserResponse(
-            id=current_user.id,
-            username=current_user.username,
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "version": "1.0.0"}
+
+@app.get("/profile", response_model=UserProfile)
+async def get_user_profile(current_user: User = Depends(get_current_user)):
+    """
+    Get basic profile information for the authenticated user.
+    Returns name, email, and role.
+    """
+    try:
+        role = current_user.role_id
+        role_name = db.query(Role).filter(Role.id == role).first().name if role else "unknown"
+        
+        return UserProfile(
+            name=current_user.name,
             email=current_user.email,
-            roles=[role.name for role in current_user.roles]
+            role=role_name
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving user profile: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving user profile information",
         )
 
-def startup(app: FastAPI):
-    @app.on_event("startup")
-    async def startup():
-        await database.connect()
-        # Create default roles if they don't exist
-        db = SessionLocal()
-        try:
-            default_roles = [
-                {"name": "employee", "permissions": "view_dashboard,edit_profile"},
-                {"name": "manager", "permissions": "view_dashboard,edit_profile,manage_team,view_reports"},
-                {"name": "admin", "permissions": "view_dashboard,edit_profile,manage_team,view_reports,manage_users,manage_roles"}
-            ]
+# Initialize database with roles
+@app.on_event("startup")
+async def startup():
+    await database.connect()
+    # Create default roles if they don't exist
+    db = SessionLocal()
+    try:
+        roles = [
+            Role(id=1, name="employee", permissions='{"read": true}'),
+            Role(id=2, name="manager", permissions='{"read": true, "write": true}'),
+            Role(id=3, name="admin", permissions='{"read": true, "write": true, "delete": true}')
+        ]
+        
+        for role in roles:
+            if not db.query(Role).filter(Role.id == role.id).first():
+                db.add(role)
+        
+        db.commit()
+        logger.info("Database connected and roles initialized")
+    finally:
+        db.close()
 
-            for role_data in default_roles:
-                db_role = db.query(Role).filter(Role.name == role_data["name"]).first()
-                if not db_role:
-                    db_role = Role(name=role_data["name"], permissions=role_data["permissions"])
-                    db.add(db_role)
-
-            db.commit()
-        finally:
-            db.close()
+@app.on_event("shutdown")
+async def shutdown():
+    await database.disconnect()
+    logger.info("Database disconnected")
 
 def main():
-    '''Main function callable from main runner'''
-    from fastapi import FastAPI
-
-    app = FastAPI(title="RBAC System", version="1.0.0")
-
-    register_user(app)
-    login(app)
-    create_role(app)
-    employee_dashboard(app)
-    manager_dashboard(app)
-    admin_dashboard(app)
-    read_users_me(app)
-    startup(app)
-
-    if __name__ == "__main__":
-        import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+    """Main function to run the FastAPI application"""
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
     main()

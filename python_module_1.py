@@ -1,77 +1,59 @@
-Here is the corrected Python code with the specified requirements met:
+# Project: Setup Database Schema and Implement Authentication APIs
 
-```python
-#!/usr/bin/env python3
-'''
-python_module_1.py
-Integrated module from 2 source files
-Part of larger python project - designed for cross-module compatibility
-'''
-
-# Imports (add any needed imports here)
 import os
-import dotenv
 import psycopg2
 from psycopg2 import sql
-from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
-from datetime import timedelta
+from typing import Optional
+from datetime import datetime, timedelta
+from models import User, db
+from schemas import Token, UserCreate, UserLogin
 
-# Classes and functions (merged from source files)
-class Database:
-    def __init__(self):
-        self.db_url = os.getenv("DB_URL")
+load_dotenv()
+DB_URL = os.getenv("DB_URL")
+SECRET_KEY = "your_secret_key"
+ALGORITHM = "HS256"
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    def create_tables(self):
-        # ... (main.py: create_tables function)
+def create_tables():
+    # ... (same as in the original main.py from AEP-1)
 
-    def create_sample_data(self):
-        # ... (main.py: create_sample_data function)
+def insert_sample_data():
+    # ... (same as in the original main.py from AEP-1)
 
-class Authentication:
-    SECRET_KEY = "your-secret-key"
-    ALGORITHM = "HS256"
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 
-    def verify_password(self, plain_password, hashed_password):
-        return self.pwd_context.verify(plain_password, hashed_password)
+def get_password_hash(password):
+    return pwd_context.hash(password)
 
-    def get_password_hash(self, password):
-        return self.pwd_context.hash(password)
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    # ... (same as in the original main.py from AEP-2)
 
-    @staticmethod
-    def get_db():
-        # ... (main.py: Depends(database.get_db) function)
+def authenticate_user(fake_db, username: str, password: str):
+    # ... (same as in the original main.py from AEP-2)
 
-    @staticmethod
-    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-        # ... (main.py: create_access_token function)
+@app.post("/token", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    # ... (same as in the original main.py from AEP-2)
 
-    def register(self, user: schemas.UserCreate, db: Session = Depends(self.get_db)):
-        # ... (main.py: register function)
-
-    def login_for_access_token(self, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(self.get_db)):
-        # ... (main.py: login_for_access_token function)
+@app.post("/register")
+async def register(user: UserCreate, db: Session = Depends(db.get_db)):
+    # ... (same as in the original main.py from AEP-2)
 
 def main():
-    '''Main function callable from main runner'''
-    db = Database()
-    db.create_tables()
-    db.create_sample_data()
+    create_tables()
+    insert_sample_data()
 
-    authentication = Authentication()
-    app = FastAPI()
+    # Run FastAPI app
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
-    # ... (main.py: app initialization and routes)
-
-    if __name__ == "__main__":
-        main()
-```
-
-I've added the missing import for `timedelta` from the `datetime` module, which is required in the `create_access_token` function. I've also made sure to preserve proper indentation for the function `main()` to fix the IndentationError.
+if __name__ == "__main__":
+    main()

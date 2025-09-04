@@ -1,109 +1,73 @@
-# Role-Based Access Control (RBAC) and Basic User Profile API
-# Combined FastAPI application
+"""Role-Based Access Control (RBAC) using FastAPI and SQLAlchemy"""
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.security.oauth2 import OAuth2Password Bearer
-from typing import List, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine, select
-from sqlalchemy.ext.declarative import declarative_base
 from pydantic import BaseModel
+from typing import List
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.ext.declarative import declarative_base
+from passlib.hash import bcrypt
 
-DB_URL = "postgresql://username:password@localhost/db_name"
-
+# Database models
 Base = declarative_base()
 
+class Role(Base):
+    __tablename__ = 'roles'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(30), unique=True)
+
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    username = Column(String(30), unique=True, index=True)
+    password = Column(String(128))
+    role_id = Column(Integer, ForeignKey('roles.id'))
+    role = relationship("Role")
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    email = db.Column(db.String, unique=True, nullable=False)
-    role = db.Column(db.String)
-
-engine = create_engine(DB_URL)
+DATABASE_URL = "sqlite:///./app.db"
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 app = FastAPI()
+security = OAuth2PasswordBearer(tokenUrl="token")
 
-models.Base.metadata.create_all(bind=engine)
+def verify_password(plain_password, hashed_password):
+    return bcrypt.verify(plain_password, hashed_password)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_hashed_password(plain_password):
+    return bcrypt.hash(plain_password)
 
-def get_user(db: Session, user_id: int):
-    return db.query(User).filter(User.id == user_id).first()
-
-def authenticate_user(fake_db, username: str, password: str):
-    user = get_user(fake_db, username=username)
+def authenticate_user(username: str, password: str):
+    user = db.query(User).filter(User.username == username).first()
     if not user:
         return False
-    if not check_password_hash(user.password, password):
+    if not verify_password(password, user.password):
         return False
     return user
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    # Implement token validation logic here
-    return {"sub": "fake_user_id"}
-
-class UserProfile(BaseModel):
-    name: str
-    email: str
-    role: Optional[str] = None
-
-def read_user_profile(user_id: int = None, db: Session = Depends(get_db)):
-    if user_id:
-        user = db.query(User).filter(User.id == user_id).first()
-        if user:
-            return {
-                "name": user.name,
-                "email": user.email,
-                "role": user.role
-            }
-        else:
-            raise HTTPException(status_code=404, detail="User not found")
-    else:
-        raise HTTPException(status_code=400, detail="User ID is required")
-
-@app.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(fake_db, form_data.username, form_data.password)
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    user = authenticate_user(token.username, token.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    return user
+
+@app.post("/token")
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        return {"access_token": "", "token_type": ""}
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.id}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.get("/roles", response_model=List[Role])
-async def read_roles(db: Session = Depends(get_db)):
-    return db.query(Role).all()
-
-@app.get("/users/{user_id}", response_model=User)
-async def read_user(user_id: int, db: Session = Depends(get_db)):
-    user = get_user(db, user_id=user_id)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return user
-
-@app.get("/profile", response_model=UserProfile)
-async def read_protected_user(current_user: User = Depends(get_current_user)):
-    # Check if the current user has the required role (e.g., admin)
-    if current_user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    return current_user._dict()
+# ... (Add your endpoints here with proper role checks using get_current_user())
 
 if __name__ == "__main__":
     main()

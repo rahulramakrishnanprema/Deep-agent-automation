@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Basic User Dashboard UI</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<div class="container">
+		<header>
+			<h1>Basic User Dashboard UI</h1>
+			<nav>
+				<ul>
+					<li><a href="#">Home</a></li>
+					<li><a href="#">About</a></li>
+					<li><a href="#">Contact</a></li>
+				</ul>
+			</nav>
+		</header>
+		<main>
+			<div class="profile-info">
+				<h2>Hello, {{ name }}!</h2>
+				<p>You are currently logged in as {{ email }}.</p>
+				<p>Your role is {{ role }}.</p>
+			</div>
+		</main>
+	</div>
+</body>
+</html>

@@ -9,7 +9,6 @@ Part of larger python project - designed for cross-module compatibility
 """
 ication APIs: token_required decorator)
 
-# Registration endpoint
 @app.route('/api/register', methods=['POST'])
 def register():
     # ... (AEP-2 - Implement Authentication APIs: registration endpoint)

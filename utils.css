@@ -1,0 +1,70 @@
+/*
+ * Shared Utilities for Integrated Application
+ * 
+ * File: utils.css
+ * Purpose: Shared utility functions
+ * Language: css
+ * Generated: 2025-09-06T09:28:12.234374
+ */
+
+// Configuration management
+const configManager = {
+    config: {
+        appName: "Integrated Application",
+        version: "1.0.0",
+        debug: true,
+        createdAt: new Date().toISOString()
+    },
+
+    get(key, defaultValue = null) {
+        return this.config[key] || defaultValue;
+    },
+
+    set(key, value) {
+        this.config[key] = value;
+    }
+};
+
+// Data processing utilities
+const dataProcessor = {
+    validateInput(data) {
+        if (data === null || data === undefined) return false;
+        if (typeof data === 'string' && data.trim() === '') return false;
+        if (Array.isArray(data) && data.length === 0) return false;
+        if (typeof data === 'object' && Object.keys(data).length === 0) return false;
+        return true;
+    },
+
+    safeJsonParse(jsonString) {
+        try {
+            return JSON.parse(jsonString);
+        } catch (error) {
+            console.error("JSON parsing failed:", error);
+            return null;
+        }
+    }
+};
+
+// Logging utilities
+const loggingHelper = {
+    logInfo(message) {
+        console.log(`[INFO] ${new Date().toISOString()}: ${message}`);
+    },
+
+    logError(message) {
+        console.error(`[ERROR] ${new Date().toISOString()}: ${message}`);
+    },
+
+    logWarning(message) {
+        console.warn(`[WARNING] ${new Date().toISOString()}: ${message}`);
+    }
+};
+
+// Export for Node.js if available
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        configManager,
+        dataProcessor,
+        loggingHelper
+    };
+}

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard - AEP-5</title>
+    
+    <!-- Company Theme Styles -->
+    <link rel="stylesheet" href="styles/company-theme.css">
+    <link rel="stylesheet" href="styles/dashboard.css">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* AEP-5 Dashboard Specific Styles */
+        :root {
+            --company-primary: #2563eb;
+            --company-secondary: #64748b;
+            --company-accent: #f59e0b;
+            --company-background: #f8fafc;
+            --company-card-bg: #ffffff;
+            --company-text: #1e293b;
+            --company-border: #e2e8f0;
+            --company-error: #ef4444;
+            --company-success: #10b981;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--company-background);
+            color: var(--company-text);
+            line-height: 1.6;
+        }
+        
+        .aep5-dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .aep5-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .aep5-header h1 {
+            color: var(--company-primary);
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .aep5-header p {
+            color: var(--company-secondary);
+            font-size: 1.1rem;
+        }
+        
+        .aep5-profile-card {
+            background: var(--company-card-bg);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--company-border);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .aep5-profile-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        
+        .aep5-profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--company-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: 600;
+            margin-right: 1.5rem;
+        }
+        
+        .aep5-profile-info h2 {
+            color: var(--company-primary);
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .aep5-profile-details {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .aep5-detail-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            background: var(--company-background);
+            border-radius: 8px;
+            border-left: 4px solid var(--company-primary);
+        }
+        
+        .aep5-detail-icon {
+            margin-right: 1rem;
+            color: var(--company-primary);
+            font-size: 1.2rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        .aep5-detail-content h3 {
+            font-size: 0.875rem;
+            color: var(--company-secondary);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .aep5-detail-content p {
+            font-size: 1rem;
+            color: var(--company-text);
+            font-weight: 500;
+        }
+        
+        .aep5-role-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--company-accent);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+        
+        .aep5-loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--company-secondary);
+        }
+        
+        .aep5-loading-spinner {
+            border: 3px solid var(--company-border);
+            border-top: 3px solid var(--company-primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: aep5-spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes aep5-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .aep5-error {
+            background: #fef2f2;
+            border: 1px solid var(--company-error);
+            color: var(--company-error);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 1rem 0;
+        }
+        
+        .aep5-retry-btn {
+            background: var(--company-primary);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 1rem;
+            font-family: inherit;
+        }
+        
+        .aep5-retry-btn:hover {
+            background: #1d4ed8;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .aep5-dashboard-container {
+                padding: 1rem;
+            }
+            
+            .aep5-header h1 {
+                font-size: 2rem;
+            }
+            
+            .aep5-profile-card {
+                padding: 1.5rem;
+            }
+            
+            .aep5-profile-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .aep5-profile-avatar {
+                margin-right: 0;
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- AEP-5 User Dashboard Component -->
+    <div class="aep5-dashboard-container" id="aep5-dashboard">
+        <header class="aep5-header">
+            <h1>User Dashboard</h1>
+            <p>Welcome to your personal account dashboard</p>
+        </header>
+        
+        <main>
+            <div class="aep5-profile-card">
+                <div id="aep5-loading" class="aep5-loading">
+                    <div class="aep5-loading-spinner"></div>
+                    <p>Loading your profile...</p>
+                </div>
+                
+                <div id="aep5-error" class="aep5-error" style="display: none;">
+                    <p>Failed to load profile information. Please try again.</p>
+                    <button class="aep5-retry-btn" onclick="aep5LoadUserProfile()">Retry</button>
+                </div>
+                
+                <div id="aep5-profile-content" style="display: none;">
+                    <div class="aep5-profile-header">
+                        <div class="aep5-profile-avatar" id="aep5-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="aep5-profile-info">
+                            <h2 id="aep5-user-name">Loading...</h2>
+                        </div>
+                    </div>
+                    
+                    <div class="aep5-profile-details">
+                        <div class="aep5-detail-item">
+                            <div class="aep5-detail-icon">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div class="aep5-detail-content">
+                                <h3>Email Address</h3>
+                                <p id="aep5-user-email">loading...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="aep5-detail-item">
+                            <div class="aep5-detail-icon">
+                                <i class="fas fa-briefcase"></i>
+                            </div>
+                            <div class="aep5-detail-content">
+                                <h3>Role</h3>
+                                <p id="aep5-user-role">loading...</p>
+                                <span class="aep5-role-badge" id="aep5-role-badge">user</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // AEP-5 Dashboard JavaScript
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('AEP-5 Dashboard initialized');
+            aep5LoadUserProfile();
+        });
+
+        /**
+         * Loads user profile data from API
+         * Implements error handling and retry mechanism
+         */
+        function aep5LoadUserProfile() {
+            const loadingEl = document.getElementById('aep5-loading');
+            const errorEl = document.getElementById('aep5-error');
+            const contentEl = document.getElementById('aep5-profile-content');
+            
+            // Show loading state
+            loadingEl.style.display = 'block';
+            errorEl.style.display = 'none';
+            contentEl.style.display = 'none';
+            
+            console.log('AEP-5: Fetching user profile data...');
+            
+            // API endpoint for user profile (to be integrated with actual backend)
+            const apiEndpoint = '/api/user/profile';
+            
+            fetch(apiEndpoint, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                },
+                credentials: 'include'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('AEP-5: Profile data received', data);
+                aep5UpdateProfileUI(data);
+                
+                // Show content, hide loading and error
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('AEP-5: Error loading profile:', error);
+                
+                // Show error state
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.querySelector('p').textContent = `Failed to load profile: ${error.message}`;
+                
+                // Log error for monitoring
+                aep5LogError('ProfileLoadError', error);
+            });
+        }
+
+        /**
+         * Updates the UI with user profile data
+         * @param {Object} userData - User profile data from API
+         */
+        function aep5UpdateProfileUI(userData) {
+            try {
+                // Update user name
+                const userNameEl = document.getElementById('aep5-user-name');
+                userNameEl.textContent = userData.name || 'Unknown User';
+                
+                // Update avatar with initials if available
+                const avatarEl = document.getElementById('aep5-avatar');
+                if (userData.name) {
+                    const initials = userData.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                    avatarEl.innerHTML = initials;
+                }
+                
+                // Update email
+                const userEmailEl = document.getElementById('aep5-user-email');
+                userEmailEl.textContent = userData.email || 'No email provided';
+                
+                // Update role
+                const userRoleEl = document.getElementById('aep5-user-role');
+                const roleBadgeEl = document.getElementById('aep5-role-badge');
+                if (userData.role) {
+                    userRoleEl.textContent = userData.role;
+                    roleBadgeEl.textContent = userData.role;
+                    
+                    // Apply different colors based on role
+                    switch(userData.role.toLowerCase()) {
+                        case 'admin':
+                            roleBadgeEl.style.background = '#ef4444';
+                            break;
+                        case 'moderator':
+                            roleBadgeEl.style.background = '#8b5cf6';
+                            break;
+                        case 'user':
+                        default:
+                            roleBadgeEl.style.background = '#10b981';
+                    }
+                } else {
+                    userRoleEl.textContent = 'No role assigned';
+                    roleBadgeEl.style.display = 'none';
+                }
+                
+                console.log('AEP-5: UI updated with profile data');
+            } catch (error) {
+                console.error('AEP-5: Error updating UI:', error);
+                aep5LogError('UIUpdateError', error);
+            }
+        }
+
+        /**
+         * Retrieves authentication token from storage
+         * @returns {string} Auth token
+         */
+        function getAuthToken() {
+            // Implementation depends on your auth system
+            // This is a placeholder - replace with actual token retrieval
+            return localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+        }

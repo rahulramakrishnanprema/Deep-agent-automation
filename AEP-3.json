@@ -1,0 +1,275 @@
+{
+  "issueKey": "AEP-3",
+  "summary": "Role-Based Access Control (RBAC)",
+  "description": "As a system admin, I want role-based permissions (employee, manager, admin) so that users only access features they are authorized for.",
+  "acceptanceCriteria": [
+    "Roles stored in DB",
+    "APIs enforce access based on role",
+    "Attempt to access unauthorized routes returns error",
+    "Tests confirm correct role enforcement"
+  ],
+  "subtasks": [
+    {
+      "id": 1,
+      "description": "Define roles in DB",
+      "status": "completed",
+      "databaseSchema": {
+        "roles": {
+          "tableName": "roles",
+          "columns": [
+            {
+              "name": "id",
+              "type": "integer",
+              "primaryKey": true,
+              "autoIncrement": true
+            },
+            {
+              "name": "name",
+              "type": "varchar(50)",
+              "unique": true,
+              "notNull": true
+            },
+            {
+              "name": "description",
+              "type": "text",
+              "nullable": true
+            },
+            {
+              "name": "permissions",
+              "type": "json",
+              "default": "[]"
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp",
+              "default": "CURRENT_TIMESTAMP"
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp",
+              "default": "CURRENT_TIMESTAMP",
+              "onUpdate": "CURRENT_TIMESTAMP"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_roles_name",
+              "columns": ["name"],
+              "unique": true
+            }
+          ]
+        },
+        "user_roles": {
+          "tableName": "user_roles",
+          "columns": [
+            {
+              "name": "user_id",
+              "type": "integer",
+              "foreignKey": {
+                "table": "users",
+                "column": "id",
+                "onDelete": "CASCADE"
+              }
+            },
+            {
+              "name": "role_id",
+              "type": "integer",
+              "foreignKey": {
+                "table": "roles",
+                "column": "id",
+                "onDelete": "CASCADE"
+              }
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp",
+              "default": "CURRENT_TIMESTAMP"
+            }
+          ],
+          "primaryKey": ["user_id", "role_id"],
+          "indexes": [
+            {
+              "name": "idx_user_roles_user_id",
+              "columns": ["user_id"]
+            },
+            {
+              "name": "idx_user_roles_role_id",
+              "columns": ["role_id"]
+            }
+          ]
+        }
+      },
+      "defaultRoles": [
+        {
+          "name": "admin",
+          "description": "System Administrator with full access",
+          "permissions": ["*"]
+        },
+        {
+          "name": "manager",
+          "description": "Manager with elevated privileges",
+          "permissions": ["read:*", "write:own", "manage:team"]
+        },
+        {
+          "name": "employee",
+          "description": "Regular employee with basic access",
+          "permissions": ["read:own", "write:own"]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "description": "Add middleware for RBAC",
+      "status": "completed",
+      "middleware": {
+        "name": "rbacMiddleware",
+        "requiredPermissions": {
+          "admin": ["*"],
+          "manager": ["read:*", "write:own", "manage:team"],
+          "employee": ["read:own", "write:own"]
+        },
+        "errorHandling": {
+          "unauthorized": {
+            "statusCode": 403,
+            "message": "Access denied. Insufficient permissions."
+          },
+          "invalidRole": {
+            "statusCode": 400,
+            "message": "Invalid user role."
+          },
+          "missingAuth": {
+            "statusCode": 401,
+            "message": "Authentication required."
+          }
+        },
+        "logging": {
+          "level": "warn",
+          "messageFormat": "RBAC violation - User: {userId}, Route: {route}, Required: {requiredPermission}, Actual: {userPermissions}"
+        }
+      },
+      "routeProtection": {
+        "highSensitivity": ["/admin/*", "/api/system/*", "/api/users/*"],
+        "mediumSensitivity": ["/api/management/*", "/api/reports/*"],
+        "lowSensitivity": ["/api/profile/*", "/api/documents/own"]
+      }
+    },
+    {
+      "id": 3,
+      "description": "Test endpoints with different roles",
+      "status": "in-progress",
+      "testCases": [
+        {
+          "name": "Admin access to protected routes",
+          "role": "admin",
+          "routes": ["/admin/users", "/api/system/config", "/api/reports/all"],
+          "expectedStatus": 200
+        },
+        {
+          "name": "Manager access to management routes",
+          "role": "manager",
+          "routes": ["/api/management/team", "/api/reports/department", "/api/profile"],
+          "expectedStatus": 200
+        },
+        {
+          "name": "Employee access to own resources",
+          "role": "employee",
+          "routes": ["/api/profile", "/api/documents/own"],
+          "expectedStatus": 200
+        },
+        {
+          "name": "Employee denied admin access",
+          "role": "employee",
+          "routes": ["/admin/users", "/api/system/config"],
+          "expectedStatus": 403
+        },
+        {
+          "name": "Manager denied system admin access",
+          "role": "manager",
+          "routes": ["/api/system/*", "/admin/*"],
+          "expectedStatus": 403
+        },
+        {
+          "name": "Unauthenticated user access",
+          "role": null,
+          "routes": ["/admin/users", "/api/profile"],
+          "expectedStatus": 401
+        }
+      ],
+      "testData": {
+        "adminUser": {
+          "id": 1,
+          "username": "admin_user",
+          "roles": ["admin"]
+        },
+        "managerUser": {
+          "id": 2,
+          "username": "manager_user",
+          "roles": ["manager"]
+        },
+        "employeeUser": {
+          "id": 3,
+          "username": "employee_user",
+          "roles": ["employee"]
+        }
+      }
+    }
+  ],
+  "implementationDetails": {
+    "databaseMigrations": [
+      {
+        "version": "1.0",
+        "description": "Initial RBAC schema setup",
+        "sqlFiles": ["migrations/001_create_roles_table.sql", "migrations/002_create_user_roles_table.sql"]
+      }
+    ],
+    "apiEndpoints": {
+      "roleManagement": [
+        {
+          "endpoint": "GET /api/roles",
+          "requiredRole": "admin",
+          "description": "Get all available roles"
+        },
+        {
+          "endpoint": "POST /api/roles",
+          "requiredRole": "admin",
+          "description": "Create new role"
+        },
+        {
+          "endpoint": "PUT /api/roles/:id",
+          "requiredRole": "admin",
+          "description": "Update role permissions"
+        },
+        {
+          "endpoint": "GET /api/users/:id/roles",
+          "requiredRole": ["admin", "manager"],
+          "description": "Get user roles"
+        },
+        {
+          "endpoint": "POST /api/users/:id/roles",
+          "requiredRole": "admin",
+          "description": "Assign roles to user"
+        }
+      ]
+    },
+    "securityConsiderations": {
+      "roleEscalationPrevention": "Middleware prevents users from assigning roles higher than their own",
+      "permissionValidation": "All permissions are validated against the database-stored role definitions",
+      "auditLogging": "All role changes and permission violations are logged for security auditing"
+    },
+    "integrationPoints": {
+      "authenticationService": "Requires JWT token with user roles in payload",
+      "userService": "User role assignments stored in user_roles table",
+      "loggingService": "RBAC violations logged to security audit log"
+    }
+  },
+  "metadata": {
+    "created": "2024-01-15T10:00:00Z",
+    "lastUpdated": "2024-01-15T14:30:00Z",
+    "version": "1.0.0",
+    "dependencies": [
+      "authentication-service",
+      "database-service",
+      "logging-service"
+    ]
+  }
+}

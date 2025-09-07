@@ -1,0 +1,349 @@
+{
+  "issueKey": "AEP-3",
+  "summary": "Role-Based Access Control (RBAC)",
+  "description": "As a system admin, I want role-based permissions (employee, manager, admin) so that users only access features they are authorized for.",
+  "acceptanceCriteria": [
+    "Roles stored in DB",
+    "APIs enforce access based on role",
+    "Attempt to access unauthorized routes returns error",
+    "Tests confirm correct role enforcement",
+    "Permission-based authorization enforced for granular access control"
+  ],
+  "subtasks": [
+    {
+      "id": 1,
+      "description": "Define roles in DB",
+      "status": "completed",
+      "databaseSchema": {
+        "roles": {
+          "tableName": "roles",
+          "columns": [
+            {
+              "name": "id",
+              "type": "uuid",
+              "primaryKey": true,
+              "default": "uuid_generate_v4()"
+            },
+            {
+              "name": "name",
+              "type": "varchar(50)",
+              "unique": true,
+              "notNull": true
+            },
+            {
+              "name": "description",
+              "type": "text",
+              "nullable": true
+            },
+            {
+              "name": "permissions",
+              "type": "json",
+              "default": "[]"
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp",
+              "default": "CURRENT_TIMESTAMP"
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp",
+              "default": "CURRENT_TIMESTAMP"
+            },
+            {
+              "name": "is_active",
+              "type": "boolean",
+              "default": true,
+              "notNull": true
+            }
+          ]
+        },
+        "user_roles": {
+          "tableName": "user_roles",
+          "columns": [
+            {
+              "name": "user_id",
+              "type": "uuid",
+              "foreignKey": {
+                "table": "users",
+                "column": "id",
+                "onUpdate": "CASCADE",
+                "onDelete": "CASCADE"
+              }
+            },
+            {
+              "name": "role_id",
+              "type": "uuid",
+              "foreignKey": {
+                "table": "roles",
+                "column": "id",
+                "onUpdate": "CASCADE",
+                "onDelete": "CASCADE"
+              }
+            },
+            {
+              "name": "assigned_at",
+              "type": "timestamp",
+              "default": "CURRENT_TIMESTAMP"
+            },
+            {
+              "name": "assigned_by",
+              "type": "uuid",
+              "foreignKey": {
+                "table": "users",
+                "column": "id"
+              }
+            }
+          ],
+          "compositePrimaryKey": ["user_id", "role_id"],
+          "indexes": [
+            {
+              "name": "idx_user_roles_user_id",
+              "columns": ["user_id"]
+            },
+            {
+              "name": "idx_user_roles_role_id",
+              "columns": ["role_id"]
+            }
+          ]
+        }
+      },
+      "predefinedRoles": [
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440001",
+          "name": "employee",
+          "description": "Basic user with limited access",
+          "permissions": [
+            "read_own_profile",
+            "update_own_profile",
+            "view_own_tasks",
+            "create_own_tasks"
+          ]
+        },
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440002",
+          "name": "manager",
+          "description": "Can manage team members and projects",
+          "permissions": [
+            "read_own_profile",
+            "update_own_profile",
+            "view_team_tasks",
+            "assign_tasks",
+            "review_team_performance",
+            "create_projects"
+          ]
+        },
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440003",
+          "name": "admin",
+          "description": "Full system access and administration",
+          "permissions": [
+            "read_all_profiles",
+            "update_all_profiles",
+            "manage_users",
+            "manage_roles",
+            "system_configuration",
+            "audit_logs",
+            "all_read",
+            "all_write"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "description": "Add middleware for RBAC",
+      "status": "completed",
+      "middleware": {
+        "name": "rbacMiddleware",
+        "requiredParameters": ["requiredRole", "requiredPermissions"],
+        "errorResponses": {
+          "missingToken": {
+            "status": 401,
+            "message": "Authentication token required"
+          },
+          "invalidToken": {
+            "status": 401,
+            "message": "Invalid or expired token"
+          },
+          "insufficientPermissions": {
+            "status": 403,
+            "message": "Insufficient permissions to access this resource"
+          },
+          "roleRequired": {
+            "status": 403,
+            "message": "Required role not found"
+          },
+          "noRolesAssigned": {
+            "status": 403,
+            "message": "User has no roles assigned"
+          },
+          "databaseError": {
+            "status": 500,
+            "message": "Internal server error"
+          }
+        },
+        "validationRules": {
+          "checkRole": "User must have at least one of the required roles",
+          "checkPermissions": "User must have all required permissions",
+          "inputValidation": "Validate requiredRoles parameter format",
+          "handleNoRoles": "Handle cases where user has no roles assigned"
+        },
+        "securityMeasures": {
+          "inputValidation": "Validate UUID format for requiredRoles",
+          "rateLimiting": "Implement rate limiting on authentication attempts",
+          "auditLogging": "Log user ID in all authorization attempts",
+          "errorHandling": "Handle database query failures gracefully"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "description": "Test endpoints with different roles",
+      "status": "completed",
+      "testCases": [
+        {
+          "endpoint": "/api/users",
+          "method": "GET",
+          "requiredRole": "admin",
+          "testUsers": [
+            {
+              "role": "employee",
+              "expectedStatus": 403,
+              "description": "Employee should not access user list"
+            },
+            {
+              "role": "manager",
+              "expectedStatus": 403,
+              "description": "Manager should not access user list"
+            },
+            {
+              "role": "admin",
+              "expectedStatus": 200,
+              "description": "Admin should access user list"
+            },
+            {
+              "role": null,
+              "expectedStatus": 403,
+              "description": "User with no roles should be denied"
+            }
+          ]
+        },
+        {
+          "endpoint": "/api/tasks",
+          "method": "POST",
+          "requiredPermissions": ["create_tasks"],
+          "testUsers": [
+            {
+              "role": "employee",
+              "expectedStatus": 200,
+              "description": "Employee with create_tasks permission should create tasks"
+            },
+            {
+              "role": "employee",
+              "permissions": [],
+              "expectedStatus": 403,
+              "description": "Employee without create_tasks permission should be denied"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "apiEndpoints": {
+    "roleManagement": [
+      {
+        "path": "/api/roles",
+        "method": "GET",
+        "requiredRole": "admin",
+        "description": "Get all roles"
+      },
+      {
+        "path": "/api/roles/:id",
+        "method": "GET",
+        "requiredRole": "admin",
+        "description": "Get specific role"
+      },
+      {
+        "path": "/api/roles",
+        "method": "POST",
+        "requiredRole": "admin",
+        "description": "Create new role"
+      },
+      {
+        "path": "/api/roles/:id",
+        "method": "PUT",
+        "requiredRole": "admin",
+        "description": "Update role"
+      },
+      {
+        "path": "/api/roles/:id",
+        "method": "DELETE",
+        "requiredRole": "admin",
+        "description": "Delete role"
+      },
+      {
+        "path": "/api/users/:userId/roles",
+        "method": "POST",
+        "requiredRole": "admin",
+        "description": "Assign role to user"
+      },
+      {
+        "path": "/api/users/:userId/roles/:roleId",
+        "method": "DELETE",
+        "requiredRole": "admin",
+        "description": "Remove role from user"
+      }
+    ]
+  },
+  "errorHandling": {
+    "logLevels": {
+      "authenticationFailure": "WARN",
+      "authorizationFailure": "WARN",
+      "databaseError": "ERROR",
+      "validationError": "INFO"
+    },
+    "errorCodes": {
+      "RBAC_001": "Role not found",
+      "RBAC_002": "Permission denied",
+      "RBAC_003": "Invalid role assignment",
+      "RBAC_004": "Role already exists",
+      "RBAC_005": "User has no roles assigned",
+      "RBAC_006": "Database query failed"
+    },
+    "loggingRequirements": {
+      "includeUserId": true,
+      "includeTimestamp": true,
+      "includeEndpoint": true,
+      "includeUserIP": true
+    }
+  },
+  "integrationPoints": {
+    "authenticationService": "Requires JWT token validation",
+    "userService": "Requires user role and permission data",
+    "auditService": "Logs authorization attempts and failures with user ID",
+    "database": "MySQL/PostgreSQL with roles and user_roles tables"
+  },
+  "documentation": {
+    "apiEndpoints": "Detailed documentation for all role management endpoints",
+    "usageExamples": "Code examples for implementing RBAC middleware",
+    "migrationScripts": "Database migration scripts for schema changes",
+    "testCoverage": "Test files with comprehensive coverage verification"
+  },
+  "security": {
+    "inputValidation": "UUID validation for role parameters",
+    "rateLimiting": "Implemented on authentication endpoints",
+    "auditTrail": "Complete audit logging with user context",
+    "vulnerabilityPrevention": "NoSQL injection protection and input sanitization"
+  },
+  "version": "1.0.0",
+  "lastUpdated": "2024-01-15T10:30:00Z",
+  "dependencies": [
+    "jsonwebtoken",
+    "bcryptjs",
+    "express",
+    "sequelize",
+    "winston",
+    "express-rate-limit"
+  ]
+}

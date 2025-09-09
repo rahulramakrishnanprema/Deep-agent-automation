@@ -1,0 +1,18 @@
+{
+  "issue": "AEP-4",
+  "summary": "Basic User Profile API",
+  "description": "As a logged-in user, I want to view my basic profile info (name, email, role) so that I can confirm my account details.",
+  "acceptanceCriteria": [
+    "API returns user profile data from DB.",
+    "Profile data matches DB records.",
+    "API passes unit tests."
+  ],
+  "subtasks": [
+    "Create user profile API.",
+    "Connect API to DB schema.",
+    "Write unit tests."
+  ],
+  "file": "AEP-4_json.json",
+  "project": "Basic User Profile API",
+  "context": "Multi-file project - ensure integration"
+}

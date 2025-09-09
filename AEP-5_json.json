@@ -1,0 +1,131 @@
+{
+  "issueKey": "AEP-5",
+  "summary": "Basic User Dashboard UI",
+  "description": "As a logged-in user I want to see a simple dashboard with my profile info So that I know I’m logged into my account.",
+  "acceptanceCriteria": [
+    "Frontend shows profile details (name, email, role)",
+    "UI styled with company theme",
+    "API integrated with frontend",
+    "Dashboard loads without errors across browsers"
+  ],
+  "subtasks": [
+    {
+      "id": 1,
+      "description": "Create frontend dashboard component",
+      "status": "completed",
+      "files": [
+        "src/components/Dashboard/Dashboard.jsx",
+        "src/components/Dashboard/Dashboard.css"
+      ]
+    },
+    {
+      "id": 2,
+      "description": "Integrate user profile API",
+      "status": "completed",
+      "files": [
+        "src/services/userService.js",
+        "src/hooks/useUserProfile.js"
+      ]
+    },
+    {
+      "id": 3,
+      "description": "Apply basic UI styling",
+      "status": "completed",
+      "files": [
+        "src/styles/theme.css",
+        "src/components/Dashboard/Dashboard.css"
+      ]
+    },
+    {
+      "id": 4,
+      "description": "Cross-browser testing",
+      "status": "in-progress",
+      "testResults": {
+        "chrome": "passed",
+        "firefox": "passed",
+        "safari": "pending",
+        "edge": "passed"
+      }
+    }
+  ],
+  "apiEndpoints": {
+    "userProfile": "/api/user/profile",
+    "method": "GET",
+    "expectedResponse": {
+      "name": "string",
+      "email": "string",
+      "role": "string",
+      "avatar": "string (optional)"
+    }
+  },
+  "stylingRequirements": {
+    "theme": "company-brand",
+    "colors": {
+      "primary": "#2c5aa0",
+      "secondary": "#f8f9fa",
+      "accent": "#ff6b35"
+    },
+    "typography": {
+      "fontFamily": "'Inter', sans-serif",
+      "fontSizes": {
+        "heading": "2rem",
+        "subheading": "1.25rem",
+        "body": "1rem"
+      }
+    }
+  },
+  "errorHandling": {
+    "apiErrors": {
+      "timeout": 5000,
+      "retryAttempts": 3,
+      "fallbackUI": "src/components/ErrorFallback/ErrorFallback.jsx"
+    },
+    "validation": {
+      "requiredFields": ["name", "email", "role"],
+      "emailFormat": "RFC 5322 compliant"
+    }
+  },
+  "browserSupport": {
+    "minimumVersions": {
+      "chrome": "80",
+      "firefox": "78",
+      "safari": "13",
+      "edge": "80"
+    },
+    "polyfills": ["fetch", "promise", "object-assign"]
+  },
+  "logging": {
+    "levels": ["error", "warn", "info"],
+    "events": [
+      "dashboard_loaded",
+      "profile_api_call",
+      "api_error",
+      "render_error"
+    ]
+  },
+  "performance": {
+    "maxLoadTime": 2000,
+    "lazyLoading": true,
+    "caching": {
+      "profileData": 300000
+    }
+  },
+  "security": {
+    "authentication": "Bearer token required",
+    "dataSanitization": true,
+    "xssProtection": true
+  },
+  "testCoverage": {
+    "unitTests": "src/__tests__/Dashboard.test.js",
+    "integrationTests": "src/__tests__/DashboardIntegration.test.js",
+    "coverageThreshold": 80
+  },
+  "dependencies": {
+    "frontend": ["react", "axios", "styled-components"],
+    "backend": ["express", "cors", "helmet"]
+  },
+  "lastUpdated": "2024-01-15T10:30:00Z",
+  "version": "1.0.0",
+  "status": "ready-for-qa",
+  "notes": "Ensure API endpoint /api/user/profile returns proper CORS headers and authentication middleware is implemented"
+}

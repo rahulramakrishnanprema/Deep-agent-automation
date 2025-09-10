@@ -1,0 +1,21 @@
+AEP-1:
+  summary: Setup Database Schema
+  description: |
+    As a developer
+    I want to design and implement the database schema
+    So that user, skills, and training data can be stored and retrieved efficiently.
+  acceptance_criteria:
+    - Database tables (users, roles, training_needs, courses) created.
+    - Migration scripts written and tested.
+    - Sample data inserted for testing.
+  subtasks:
+    - Implement schema in DB, DB_URL = "postgresql://admin:admin@localhost:5432/training_db"
+    - Write migration scripts.
+    - Validate schema with test data.
+  file: AEP-1_yaml.yml
+  project: Setting up a database schema for storing user, skills, and training data efficiently.
+  context: Multi-file project - ensure integration
+
+# Implement schema in DB, AEP-1
+# Write migration scripts, AEP-1
+# Validate schema with test data, AEP-1

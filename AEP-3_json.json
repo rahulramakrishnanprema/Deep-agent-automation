@@ -2,144 +2,24 @@
   "issue": "AEP-3",
   "summary": "Role-Based Access Control (RBAC)",
   "description": "As a system admin, I want role-based permissions (employee, manager, admin) so that users only access features they are authorized for.",
-  "acceptance_criteria": [
-    "Roles stored in DB",
-    "APIs enforce access based on role",
-    "Attempt to access unauthorized routes returns error",
-    "Tests confirm correct role enforcement"
-  ],
+  "acceptanceCriteria": {
+    "rolesStoredInDB": true,
+    "APIsEnforceAccessBasedOnRole": true,
+    "unauthorizedRouteErrorHandling": true,
+    "testsConfirmRoleEnforcement": true
+  },
   "subtasks": [
     {
-      "id": 1,
-      "description": "Define roles in DB",
-      "status": "completed",
-      "implementation_details": {
-        "database_schema": {
-          "roles": [
-            {
-              "id": 1,
-              "name": "employee",
-              "permissions": ["read_own_data", "update_own_profile", "access_basic_features"]
-            },
-            {
-              "id": 2,
-              "name": "manager",
-              "permissions": ["read_team_data", "approve_requests", "manage_team_members", "generate_reports"]
-            },
-            {
-              "id": 3,
-              "name": "admin",
-              "permissions": ["manage_all_users", "system_configuration", "audit_logs", "full_system_access"]
-            }
-          ],
-          "users_roles": {
-            "user_id": "foreign_key_to_users",
-            "role_id": "foreign_key_to_roles"
-          }
-        }
-      }
+      "task": "Define roles in DB"
     },
     {
-      "id": 2,
-      "description": "Add middleware for RBAC",
-      "status": "completed",
-      "implementation_details": {
-        "middleware_function": "rbacMiddleware(requiredPermissions)",
-        "error_responses": {
-          "unauthorized": {
-            "status": 403,
-            "message": "Access forbidden: insufficient permissions",
-            "code": "FORBIDDEN_ACCESS"
-          },
-          "invalid_token": {
-            "status": 401,
-            "message": "Invalid or expired authentication token",
-            "code": "INVALID_TOKEN"
-          }
-        },
-        "logging": {
-          "level": "warn",
-          "message_format": "Unauthorized access attempt by user {userId} for route {route} with required permissions {permissions}"
-        }
-      }
+      "task": "Add middleware for RBAC"
     },
     {
-      "id": 3,
-      "description": "Test endpoints with different roles",
-      "status": "completed",
-      "test_cases": [
-        {
-          "test_case": "Employee accessing employee-only endpoint",
-          "expected_result": "Success (200)"
-        },
-        {
-          "test_case": "Employee accessing admin-only endpoint",
-          "expected_result": "Forbidden (403)"
-        },
-        {
-          "test_case": "Manager accessing manager endpoints",
-          "expected_result": "Success (200)"
-        },
-        {
-          "test_case": "Admin accessing all endpoints",
-          "expected_result": "Success (200)"
-        },
-        {
-          "test_case": "Unauthenticated user accessing protected endpoint",
-          "expected_result": "Unauthorized (401)"
-        }
-      ]
+      "task": "Test endpoints with different roles"
     }
   ],
-  "api_endpoints": {
-    "protected_routes": {
-      "/api/admin/users": ["admin"],
-      "/api/admin/system-config": ["admin"],
-      "/api/manager/reports": ["manager", "admin"],
-      "/api/manager/team": ["manager", "admin"],
-      "/api/user/profile": ["employee", "manager", "admin"],
-      "/api/user/data": ["employee", "manager", "admin"]
-    }
-  },
-  "error_handling": {
-    "validation_errors": {
-      "missing_permissions": "Required permissions parameter missing in middleware",
-      "invalid_role": "User role not found in database",
-      "database_error": "Failed to retrieve user roles from database"
-    },
-    "fallback_response": {
-      "status": 500,
-      "message": "Internal server error in authorization system",
-      "code": "AUTHORIZATION_SYSTEM_ERROR"
-    }
-  },
-  "production_considerations": {
-    "performance": {
-      "role_caching": true,
-      "cache_ttl": 300,
-      "database_indexing": ["users_roles(user_id)", "roles(id)"]
-    },
-    "security": {
-      "least_privilege": true,
-      "permission_validation": "strict_mode",
-      "log_sensitive_data": false
-    },
-    "maintenance": {
-      "role_management_api": true,
-      "permission_audit_logs": true,
-      "versioning_support": true
-    }
-  },
-  "integration_points": {
-    "authentication_service": "JWT token validation",
-    "user_service": "User role retrieval",
-    "logging_service": "Security event logging",
-    "database_service": "Role and permission storage"
-  },
-  "version": "1.0.0",
-  "last_updated": "2024-01-15T10:30:00Z",
-  "compliance": {
-    "gdpr": true,
-    "access_control_standard": "NIST-800-53"
-  }
+  "file": "AEP-3_json.json",
+  "project": "Implementing Role-Based Access Control (RBAC) in a system",
+  "context": "Multi-file project - ensure integration"
 }

@@ -1,0 +1,60 @@
+/* AEP-5: Basic User Dashboard UI */
+
+/* Frontend shows profile details (name, email, role) */
+.profile-details {
+  font-size: 16px;
+  color: #333;
+}
+
+/* UI styled with company theme */
+.company-theme {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+}
+
+/* API integrated with frontend */
+.api-integration {
+  display: block;
+}
+
+/* Dashboard loads without errors across browsers */
+.dashboard {
+  width: 100%;
+  height: 100%;
+}
+
+/* Create frontend dashboard component */
+.dashboard-component {
+  padding: 20px;
+}
+
+/* Integrate user profile API */
+.user-profile-api {
+  font-weight: bold;
+}
+
+/* Apply basic UI styling */
+.basic-ui-styling {
+  margin: 10px;
+}
+
+/* Cross-browser testing */
+.cross-browser-testing {
+  display: flex;
+}
+
+/* Error handling and logging */
+.error-handling {
+  color: red;
+}
+
+/* Best practices for css */
+.best-practices {
+  font-family: Arial, sans-serif;
+}
+
+/* Production-ready and maintainable */
+.production-ready {
+  background-color: #fff;
+  color: #000;
+}

@@ -1,43 +1,24 @@
 -- AEP-3: Role-Based Access Control (RBAC) SQL Implementation
--- Project: Web Application RBAC System
--- Description: Creates database schema for role-based access control with proper constraints and relationships
+-- This file creates the database schema for RBAC functionality
 
 BEGIN TRANSACTION;
 
--- Create roles table to store different user roles
+-- Create roles table to store predefined roles
 CREATE TABLE IF NOT EXISTS roles (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create users table with role reference
-CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(100) NOT NULL UNIQUE,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    role_id INTEGER NOT NULL REFERENCES roles(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE,
-    CONSTRAINT fk_user_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT
-);
-
--- Create permissions table to define specific access rights
+-- Create permissions table to define individual permissions
 CREATE TABLE IF NOT EXISTS permissions (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
+    code VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
-    resource VARCHAR(100) NOT NULL,
-    action VARCHAR(50) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_permission_resource_action UNIQUE (resource, action)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create junction table for role-permission relationships
@@ -46,92 +27,73 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     permission_id INTEGER NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_role_permission UNIQUE (role_id, permission_id)
+    UNIQUE(role_id, permission_id)
 );
 
--- Create audit log table for tracking access attempts
-CREATE TABLE IF NOT EXISTS access_audit_log (
+-- Create user_roles table to assign roles to users
+CREATE TABLE IF NOT EXISTS user_roles (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    role_id INTEGER REFERENCES roles(id) ON DELETE SET NULL,
-    endpoint VARCHAR(255) NOT NULL,
-    method VARCHAR(10) NOT NULL,
-    attempted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    success BOOLEAN NOT NULL,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    error_message TEXT
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, role_id)
 );
 
--- Insert default roles
-INSERT INTO roles (name, description) VALUES 
-('admin', 'System administrator with full access to all features and user management'),
-('manager', 'Manager role with access to team management and reporting features'),
-('employee', 'Basic employee role with limited access to specific features')
-ON CONFLICT (name) DO NOTHING;
+-- Insert predefined roles
+INSERT INTO roles (name, description) VALUES
+('employee', 'Standard user with basic access rights'),
+('manager', 'User with elevated permissions for managing resources'),
+('admin', 'System administrator with full access rights')
+ON CONFLICT (name) DO UPDATE SET
+description = EXCLUDED.description,
+updated_at = CURRENT_TIMESTAMP;
 
 -- Insert common permissions
-INSERT INTO permissions (name, description, resource, action) VALUES
--- User management permissions
-('view_users', 'View user profiles and lists', 'users', 'read'),
-('create_users', 'Create new user accounts', 'users', 'create'),
-('update_users', 'Modify existing user accounts', 'users', 'update'),
-('delete_users', 'Delete user accounts', 'users', 'delete'),
+INSERT INTO permissions (code, description) VALUES
+('users:read', 'Read access to user data'),
+('users:write', 'Write access to user data'),
+('users:delete', 'Delete access to user data'),
+('reports:read', 'Read access to reports'),
+('reports:write', 'Write access to reports'),
+('settings:read', 'Read access to system settings'),
+('settings:write', 'Write access to system settings'),
+('admin:full', 'Full administrative access')
+ON CONFLICT (code) DO UPDATE SET
+description = EXCLUDED.description,
+updated_at = CURRENT_TIMESTAMP;
 
--- Role management permissions
-('view_roles', 'View role definitions and assignments', 'roles', 'read'),
-('assign_roles', 'Assign roles to users', 'roles', 'update'),
-
--- Content permissions
-('view_content', 'View application content', 'content', 'read'),
-('create_content', 'Create new content', 'content', 'create'),
-('update_content', 'Modify existing content', 'content', 'update'),
-('delete_content', 'Delete content', 'content', 'delete'),
-
--- Report permissions
-('view_reports', 'Access reporting features', 'reports', 'read'),
-('generate_reports', 'Generate new reports', 'reports', 'create')
-ON CONFLICT (resource, action) DO NOTHING;
-
--- Assign permissions to admin role
+-- Assign permissions to employee role
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'admin'
+FROM roles r, permissions p
+WHERE r.name = 'employee'
+AND p.code IN ('users:read', 'reports:read')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign permissions to manager role
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
+FROM roles r, permissions p
 WHERE r.name = 'manager'
-AND p.resource IN ('users', 'content', 'reports')
-AND p.action IN ('read', 'create', 'update')
-AND p.name != 'delete_users'
+AND p.code IN ('users:read', 'users:write', 'reports:read', 'reports:write', 'settings:read')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- Assign permissions to employee role
+-- Assign permissions to admin role
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'employee'
-AND p.resource IN ('content')
-AND p.action IN ('read', 'create')
+FROM roles r, permissions p
+WHERE r.name = 'admin'
+AND p.code IN ('users:read', 'users:write', 'users:delete', 'reports:read', 'reports:write', 'settings:read', 'settings:write', 'admin:full')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions(role_id);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON role_permissions(permission_id);
-CREATE INDEX IF NOT EXISTS idx_access_audit_log_user_id ON access_audit_log(user_id);
-CREATE INDEX IF NOT EXISTS idx_access_audit_log_role_id ON access_audit_log(role_id);
-CREATE INDEX IF NOT EXISTS idx_access_audit_log_success ON access_audit_log(success);
-CREATE INDEX IF NOT EXISTS idx_access_audit_log_attempted_at ON access_audit_log(attempted_at);
+CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON user_roles(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles(role_id);
+CREATE INDEX IF NOT EXISTS idx_roles_name ON roles(name);
+CREATE INDEX IF NOT EXISTS idx_permissions_code ON permissions(code);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -140,126 +102,108 @@ BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ language 'plpgsql';
 
--- Create triggers for updated_at
-CREATE TRIGGER update_roles_updated_at
-    BEFORE UPDATE ON roles
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- Create triggers for automatic updated_at updates
+CREATE TRIGGER update_roles_updated_at 
+    BEFORE UPDATE ON roles 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_users_updated_at
-    BEFORE UPDATE ON users
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_permissions_updated_at 
+    BEFORE UPDATE ON permissions 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_permissions_updated_at
-    BEFORE UPDATE ON permissions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_roles_updated_at 
+    BEFORE UPDATE ON user_roles 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Create view for user permissions
 CREATE OR REPLACE VIEW user_permissions AS
 SELECT 
     u.id as user_id,
-    u.username,
-    u.email,
-    r.id as role_id,
     r.name as role_name,
-    p.id as permission_id,
-    p.name as permission_name,
-    p.resource,
-    p.action
+    p.code as permission_code,
+    p.description as permission_description
 FROM users u
-JOIN roles r ON u.role_id = r.id
+JOIN user_roles ur ON u.id = ur.user_id
+JOIN roles r ON ur.role_id = r.id
 JOIN role_permissions rp ON r.id = rp.role_id
-JOIN permissions p ON rp.permission_id = p.id
-WHERE u.is_active = TRUE AND r.is_active = TRUE;
+JOIN permissions p ON rp.permission_id = p.id;
 
--- Create function to check user permission
-CREATE OR REPLACE FUNCTION check_user_permission(
-    p_user_id INTEGER,
-    p_resource VARCHAR,
-    p_action VARCHAR
-) RETURNS BOOLEAN AS $$
+-- Create function to check if user has permission
+CREATE OR REPLACE FUNCTION has_permission(user_id INTEGER, permission_code VARCHAR)
+RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (
-        SELECT 1
-        FROM user_permissions
-        WHERE user_id = p_user_id
-        AND resource = p_resource
-        AND action = p_action
+        SELECT 1 
+        FROM user_permissions 
+        WHERE user_id = $1 AND permission_code = $2
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create function to log access attempts
-CREATE OR REPLACE FUNCTION log_access_attempt(
-    p_user_id INTEGER,
-    p_role_id INTEGER,
-    p_endpoint VARCHAR,
-    p_method VARCHAR,
-    p_success BOOLEAN,
-    p_ip_address VARCHAR,
-    p_user_agent TEXT,
-    p_error_message TEXT DEFAULT NULL
-) RETURNS VOID AS $$
-BEGIN
-    INSERT INTO access_audit_log (
-        user_id, role_id, endpoint, method, success, 
-        ip_address, user_agent, error_message
-    ) VALUES (
-        p_user_id, p_role_id, p_endpoint, p_method, p_success,
-        p_ip_address, p_user_agent, p_error_message
-    );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Create function to get user role and permissions
-CREATE OR REPLACE FUNCTION get_user_permissions(p_user_id INTEGER)
-RETURNS TABLE (
-    user_id INTEGER,
-    username VARCHAR,
-    role_id INTEGER,
-    role_name VARCHAR,
-    permission_id INTEGER,
-    permission_name VARCHAR,
-    resource VARCHAR,
-    action VARCHAR
-) AS $$
+-- Create function to get user roles
+CREATE OR REPLACE FUNCTION get_user_roles(user_id INTEGER)
+RETURNS TABLE(role_name VARCHAR) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
-        up.user_id,
-        up.username,
-        up.role_id,
-        up.role_name,
-        up.permission_id,
-        up.permission_name,
-        up.resource,
-        up.action
-    FROM user_permissions up
-    WHERE up.user_id = p_user_id
-    ORDER BY up.resource, up.action;
+    SELECT r.name
+    FROM user_roles ur
+    JOIN roles r ON ur.role_id = r.id
+    WHERE ur.user_id = $1;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Create audit table for permission changes
+CREATE TABLE IF NOT EXISTS role_audit_log (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(10) NOT NULL,
+    table_name VARCHAR(50) NOT NULL,
+    record_id INTEGER,
+    old_values JSONB,
+    new_values JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create function to log role changes
+CREATE OR REPLACE FUNCTION log_role_changes()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (TG_OP = 'DELETE') THEN
+        INSERT INTO role_audit_log (user_id, action, table_name, record_id, old_values)
+        VALUES (NULL, 'DELETE', TG_TABLE_NAME, OLD.id, row_to_json(OLD));
+    ELSIF (TG_OP = 'UPDATE') THEN
+        INSERT INTO role_audit_log (user_id, action, table_name, record_id, old_values, new_values)
+        VALUES (NULL, 'UPDATE', TG_TABLE_NAME, NEW.id, row_to_json(OLD), row_to_json(NEW));
+    ELSIF (TG_OP = 'INSERT') THEN
+        INSERT INTO role_audit_log (user_id, action, table_name, record_id, new_values)
+        VALUES (NULL, 'INSERT', TG_TABLE_NAME, NEW.id, row_to_json(NEW));
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for auditing
+CREATE TRIGGER audit_roles_changes
+    AFTER INSERT OR UPDATE OR DELETE ON roles
+    FOR EACH ROW EXECUTE FUNCTION log_role_changes();
+
+CREATE TRIGGER audit_user_roles_changes
+    AFTER INSERT OR UPDATE OR DELETE ON user_roles
+    FOR EACH ROW EXECUTE FUNCTION log_role_changes();
+
+CREATE TRIGGER audit_role_permissions_changes
+    AFTER INSERT OR UPDATE OR DELETE ON role_permissions
+    FOR EACH ROW EXECUTE FUNCTION log_role_changes();
+
 -- Add comments for documentation
-COMMENT ON TABLE roles IS 'Stores user roles with their descriptions and active status';
-COMMENT ON TABLE users IS 'Stores user accounts with role assignments and authentication details';
-COMMENT ON TABLE permissions IS 'Defines specific access rights for different resources and actions';
-COMMENT ON TABLE role_permissions IS 'Junction table linking roles to their assigned permissions';
-COMMENT ON TABLE access_audit_log IS 'Audit trail for tracking access attempts and authorization results';
-
-COMMENT ON COLUMN roles.name IS 'Unique role identifier name';
-COMMENT ON COLUMN users.role_id IS 'Foreign key reference to roles table';
-COMMENT ON COLUMN permissions.resource IS 'The resource/entity being accessed';
-COMMENT ON COLUMN permissions.action IS 'The action being performed on the resource';
-
--- Create constraints for data integrity
-ALTER TABLE users ADD CONSTRAINT chk_users_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
-ALTER TABLE users ADD CONSTRAINT chk_users_username_length CHECK (LENGTH(username) BETWEEN 3 AND 100);
-ALTER TABLE roles ADD CONSTRAINT chk_roles_name_length CHECK (LENGTH(name) BETWEEN 2 AND 50);
-ALTER TABLE permissions ADD CONSTRAINT chk_permissions_name_length CHECK (LENGTH(name) BETWEEN 3 AND 100);
+COMMENT ON TABLE roles IS 'Stores system roles for RBAC implementation';
+COMMENT ON TABLE permissions IS 'Stores individual permission codes for RBAC';
+COMMENT ON TABLE role_permissions IS 'Junction table linking roles to their permissions';
+COMMENT ON TABLE user_roles IS 'Assigns roles to specific users';
+COMMENT ON VIEW user_permissions IS 'View showing all permissions for each user';
+COMMENT ON FUNCTION has_permission IS 'Checks if a user has a specific permission';
+COMMENT ON FUNCTION get_user_roles IS 'Returns all roles assigned to a user';
 
 COMMIT TRANSACTION;

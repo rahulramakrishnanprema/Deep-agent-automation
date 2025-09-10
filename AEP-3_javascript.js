@@ -1,176 +1,412 @@
-/**
- * AEP-3: Role-Based Access Control (RBAC) Middleware
- * 
- * This module provides role-based access control middleware for Express.js routes.
- * It validates user roles against required permissions for API endpoints.
- */
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const { Pool } = require('pg');
+const winston = require('winston');
 
-const logger = require('../utils/logger');
-const { User, Role } = require('../models'); // Assuming Sequelize models
+// AEP-3: Role-Based Access Control Implementation
 
-/**
- * RBAC Middleware Factory
- * Creates middleware that checks if user has required role(s)
- * @param {string|Array<string>} allowedRoles - Single role or array of roles that can access the route
- * @returns {Function} Express middleware function
- */
-const requireRole = (allowedRoles) => {
+// Configure logging
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json()
+    ),
+    transports: [
+        new winston.transports.File({ filename: 'error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'combined.log' })
+    ]
+});
+
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new winston.transports.Console({
+        format: winston.format.simple()
+    }));
+}
+
+// Database connection pool
+const pool = new Pool({
+    user: process.env.DB_USER || 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    database: process.env.DB_NAME || 'rbac_db',
+    password: process.env.DB_PASSWORD || 'password',
+    port: process.env.DB_PORT || 5432,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+});
+
+// Role definitions
+const ROLES = {
+    EMPLOYEE: 'employee',
+    MANAGER: 'manager',
+    ADMIN: 'admin'
+};
+
+// Permission matrix
+const PERMISSIONS = {
+    [ROLES.EMPLOYEE]: [
+        'read:own_profile',
+        'update:own_profile',
+        'read:own_tasks'
+    ],
+    [ROLES.MANAGER]: [
+        'read:own_profile',
+        'update:own_profile',
+        'read:team_profiles',
+        'create:tasks',
+        'read:tasks',
+        'update:tasks',
+        'delete:tasks'
+    ],
+    [ROLES.ADMIN]: [
+        'read:*',
+        'update:*',
+        'create:*',
+        'delete:*',
+        'manage:users',
+        'manage:roles'
+    ]
+};
+
+// Initialize database with roles
+async function initializeRoles() {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Create roles table if not exists
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS roles (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(50) UNIQUE NOT NULL,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create user_roles junction table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS user_roles (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                role_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+                UNIQUE(user_id, role_id)
+            )
+        `);
+
+        // Insert default roles if they don't exist
+        for (const [roleKey, roleName] of Object.entries(ROLES)) {
+            const result = await client.query(
+                'SELECT id FROM roles WHERE name = $1',
+                [roleName]
+            );
+            
+            if (result.rows.length === 0) {
+                await client.query(
+                    'INSERT INTO roles (name, description) VALUES ($1, $2)',
+                    [roleName, `${roleName} role`]
+                );
+                logger.info(`Created role: ${roleName}`);
+            }
+        }
+
+        await client.query('COMMIT');
+        logger.info('Database roles initialized successfully');
+    } catch (error) {
+        await client.query('ROLLBACK');
+        logger.error('Failed to initialize roles:', error);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+// RBAC Middleware
+function requireRole(allowedRoles) {
     return async (req, res, next) => {
         try {
-            // Ensure user is authenticated first
-            if (!req.user || !req.user.id) {
-                logger.warn('RBAC: Unauthenticated access attempt', { path: req.path });
+            if (!Array.isArray(allowedRoles)) {
+                allowedRoles = [allowedRoles];
+            }
+
+            const token = req.headers.authorization?.replace('Bearer ', '');
+            if (!token) {
+                logger.warn('Access attempt without token');
                 return res.status(401).json({
-                    success: false,
-                    error: 'Authentication required'
+                    error: 'Authentication required',
+                    code: 'AUTH_REQUIRED'
                 });
             }
 
-            // Convert single role to array for consistent handling
-            const requiredRoles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
-            
-            // Get user with role information (assuming eager loading or separate query)
-            const userWithRole = await User.findByPk(req.user.id, {
-                include: [{
-                    model: Role,
-                    as: 'role',
-                    attributes: ['name', 'permissions']
-                }]
-            });
-
-            if (!userWithRole || !userWithRole.role) {
-                logger.error('RBAC: User role not found', { userId: req.user.id });
-                return res.status(403).json({
-                    success: false,
-                    error: 'Access denied: No role assigned'
+            let decoded;
+            try {
+                decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+            } catch (jwtError) {
+                logger.warn('Invalid token provided');
+                return res.status(401).json({
+                    error: 'Invalid token',
+                    code: 'INVALID_TOKEN'
                 });
             }
 
-            const userRole = userWithRole.role.name;
-
-            // Check if user's role is in the allowed roles list
-            if (!requiredRoles.includes(userRole)) {
-                logger.warn('RBAC: Insufficient permissions', {
-                    userId: req.user.id,
-                    userRole,
-                    requiredRoles,
-                    path: req.path
+            const userId = decoded.userId;
+            if (!userId) {
+                logger.warn('Token missing userId');
+                return res.status(401).json({
+                    error: 'Invalid token payload',
+                    code: 'INVALID_TOKEN_PAYLOAD'
                 });
+            }
+
+            const client = await pool.connect();
+            try {
+                const userRolesResult = await client.query(`
+                    SELECT r.name 
+                    FROM user_roles ur
+                    JOIN roles r ON ur.role_id = r.id
+                    WHERE ur.user_id = $1
+                `, [userId]);
+
+                const userRoles = userRolesResult.rows.map(row => row.name);
                 
-                return res.status(403).json({
-                    success: false,
-                    error: 'Access denied: Insufficient permissions'
-                });
+                if (userRoles.length === 0) {
+                    logger.warn(`User ${userId} has no roles assigned`);
+                    return res.status(403).json({
+                        error: 'No roles assigned',
+                        code: 'NO_ROLES'
+                    });
+                }
+
+                const hasRequiredRole = userRoles.some(role => 
+                    allowedRoles.includes(role) || role === ROLES.ADMIN
+                );
+
+                if (!hasRequiredRole) {
+                    logger.warn(`User ${userId} with roles [${userRoles}] attempted to access ${req.method} ${req.path} requiring roles [${allowedRoles}]`);
+                    return res.status(403).json({
+                        error: 'Insufficient permissions',
+                        code: 'INSUFFICIENT_PERMISSIONS',
+                        requiredRoles: allowedRoles,
+                        userRoles: userRoles
+                    });
+                }
+
+                req.user = {
+                    id: userId,
+                    roles: userRoles
+                };
+
+                logger.info(`User ${userId} with roles [${userRoles}] authorized for ${req.method} ${req.path}`);
+                next();
+            } finally {
+                client.release();
             }
-
-            // Add role information to request object for downstream use
-            req.user.role = userRole;
-            req.user.permissions = userWithRole.role.permissions;
-
-            logger.debug('RBAC: Access granted', {
-                userId: req.user.id,
-                userRole,
-                path: req.path
-            });
-
-            next();
         } catch (error) {
-            logger.error('RBAC: Middleware error', {
-                error: error.message,
-                stack: error.stack,
-                userId: req.user?.id
-            });
-            
-            return res.status(500).json({
-                success: false,
-                error: 'Internal server error during authorization check'
+            logger.error('RBAC middleware error:', error);
+            res.status(500).json({
+                error: 'Internal server error',
+                code: 'RBAC_ERROR'
             });
         }
     };
-};
+}
 
-/**
- * Permission-based middleware for fine-grained access control
- * @param {string} requiredPermission - Specific permission required
- * @returns {Function} Express middleware function
- */
-const requirePermission = (requiredPermission) => {
+// Permission checker middleware
+function requirePermission(requiredPermission) {
     return async (req, res, next) => {
         try {
-            if (!req.user || !req.user.permissions) {
-                logger.warn('Permission check: No permissions found', { path: req.path });
-                return res.status(403).json({
-                    success: false,
-                    error: 'Access denied: No permissions assigned'
+            if (!req.user || !req.user.roles) {
+                logger.warn('Permission check without user context');
+                return res.status(401).json({
+                    error: 'Authentication required',
+                    code: 'AUTH_REQUIRED'
                 });
             }
 
-            const userPermissions = req.user.permissions;
+            const userPermissions = new Set();
+            
+            for (const role of req.user.roles) {
+                if (PERMISSIONS[role]) {
+                    PERMISSIONS[role].forEach(permission => userPermissions.add(permission));
+                }
+            }
 
-            if (!userPermissions.includes(requiredPermission)) {
-                logger.warn('Permission check: Insufficient permissions', {
-                    userId: req.user.id,
-                    requiredPermission,
-                    userPermissions,
-                    path: req.path
-                });
-                
+            const hasPermission = userPermissions.has(requiredPermission) ||
+                                userPermissions.has('*') ||
+                                req.user.roles.includes(ROLES.ADMIN);
+
+            if (!hasPermission) {
+                logger.warn(`User ${req.user.id} missing permission ${requiredPermission} for ${req.method} ${req.path}`);
                 return res.status(403).json({
-                    success: false,
-                    error: 'Access denied: Missing required permission'
+                    error: 'Insufficient permissions',
+                    code: 'INSUFFICIENT_PERMISSIONS',
+                    requiredPermission: requiredPermission
                 });
             }
 
-            logger.debug('Permission check: Granted', {
-                userId: req.user.id,
-                permission: requiredPermission,
-                path: req.path
-            });
-
+            logger.info(`User ${req.user.id} authorized with permission ${requiredPermission} for ${req.method} ${req.path}`);
             next();
         } catch (error) {
-            logger.error('Permission check: Error', {
-                error: error.message,
-                stack: error.stack,
-                userId: req.user?.id
-            });
-            
-            return res.status(500).json({
-                success: false,
-                error: 'Internal server error during permission check'
+            logger.error('Permission middleware error:', error);
+            res.status(500).json({
+                error: 'Internal server error',
+                code: 'PERMISSION_ERROR'
             });
         }
     };
-};
+}
 
-/**
- * Pre-defined role checkers for common use cases
- */
-const rbac = {
-    // Role-specific middleware
-    requireEmployee: requireRole('employee'),
-    requireManager: requireRole('manager'),
-    requireAdmin: requireRole('admin'),
+// Role management functions
+async function assignRoleToUser(userId, roleName) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const roleResult = await client.query(
+            'SELECT id FROM roles WHERE name = $1',
+            [roleName]
+        );
+
+        if (roleResult.rows.length === 0) {
+            throw new Error(`Role ${roleName} not found`);
+        }
+
+        const roleId = roleResult.rows[0].id;
+
+        await client.query(
+            'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT (user_id, role_id) DO NOTHING',
+            [userId, roleId]
+        );
+
+        await client.query('COMMIT');
+        logger.info(`Assigned role ${roleName} to user ${userId}`);
+        
+        return { success: true, message: `Role ${roleName} assigned to user ${userId}` };
+    } catch (error) {
+        await client.query('ROLLBACK');
+        logger.error(`Failed to assign role ${roleName} to user ${userId}:`, error);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function removeRoleFromUser(userId, roleName) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const roleResult = await client.query(
+            'SELECT id FROM roles WHERE name = $1',
+            [roleName]
+        );
+
+        if (roleResult.rows.length === 0) {
+            throw new Error(`Role ${roleName} not found`);
+        }
+
+        const roleId = roleResult.rows[0].id;
+
+        await client.query(
+            'DELETE FROM user_roles WHERE user_id = $1 AND role_id = $2',
+            [userId, roleId]
+        );
+
+        await client.query('COMMIT');
+        logger.info(`Removed role ${roleName} from user ${userId}`);
+        
+        return { success: true, message: `Role ${roleName} removed from user ${userId}` };
+    } catch (error) {
+        await client.query('ROLLBACK');
+        logger.error(`Failed to remove role ${roleName} from user ${userId}:`, error);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserRoles(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(`
+            SELECT r.name 
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = $1
+        `, [userId]);
+
+        return result.rows.map(row => row.name);
+    } catch (error) {
+        logger.error(`Failed to get roles for user ${userId}:`, error);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+// Health check endpoint
+function createHealthCheck() {
+    return async (req, res) => {
+        try {
+            const client = await pool.connect();
+            await client.query('SELECT 1');
+            client.release();
+            
+            res.json({
+                status: 'healthy',
+                timestamp: new Date().toISOString(),
+                roles: Object.values(ROLES),
+                db: 'connected'
+            });
+        } catch (error) {
+            logger.error('Health check failed:', error);
+            res.status(500).json({
+                status: 'unhealthy',
+                timestamp: new Date().toISOString(),
+                error: 'Database connection failed'
+            });
+        }
+    };
+}
+
+// Error handling middleware
+function errorHandler(err, req, res, next) {
+    logger.error('Unhandled error:', err);
     
-    // Multi-role access
-    requireManagerOrAdmin: requireRole(['manager', 'admin']),
-    requireEmployeeOrManager: requireRole(['employee', 'manager']),
-    
-    // Permission-based access
+    if (err.name === 'JsonWebTokenError') {
+        return res.status(401).json({
+            error: 'Invalid token',
+            code: 'INVALID_TOKEN'
+        });
+    }
+
+    if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({
+            error: 'Token expired',
+            code: 'TOKEN_EXPIRED'
+        });
+    }
+
+    res.status(500).json({
+        error: 'Internal server error',
+        code: 'INTERNAL_ERROR'
+    });
+}
+
+module.exports = {
+    initializeRoles,
+    requireRole,
     requirePermission,
-    
-    // Raw middleware for custom role configurations
-    requireRole
+    assignRoleToUser,
+    removeRoleFromUser,
+    getUserRoles,
+    createHealthCheck,
+    errorHandler,
+    ROLES,
+    PERMISSIONS,
+    pool
 };
-
-module.exports = rbac;
-
-/**
- * Usage examples in route definitions:
- * 
- * router.get('/admin/dashboard', rbac.requireAdmin, adminController.getDashboard);
- * router.post('/manager/reports', rbac.requireManager, reportsController.generateReport);
- * router.get('/employee/profile', rbac.requireEmployee, profileController.getProfile);
- * router.put('/user/:id', rbac.requireManagerOrAdmin, userController.updateUser);
- * router.delete('/data/:id', rbac.requirePermission('delete_data'), dataController.deleteData);
- */

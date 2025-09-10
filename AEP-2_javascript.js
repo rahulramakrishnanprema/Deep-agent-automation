@@ -1,111 +1,99 @@
-/**
- * AEP-2 Authentication API Implementation
- * Handles user registration, login, and JWT token management
- */
-
-const jwt = require('jsonwebtoken');
+const express = require('express');
 const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
-const { validationResult } = require('express-validator');
+const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
+const { v4: uuidv4 } = require('uuid');
 
-// In production, use environment variables with proper fallbacks
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS) || 12;
+const router = express.Router();
 
-// Mock database - replace with actual database implementation
+// In-memory storage for demo purposes (replace with database in production)
 const users = new Map();
 const loginAttempts = new Map();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
 
-class AuthenticationError extends Error {
-    constructor(message, code = 'AUTH_ERROR') {
-        super(message);
-        this.name = 'AuthenticationError';
-        this.code = code;
+// JWT configuration
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '1h';
+
+// AEP-2: Authentication API implementation
+class AuthenticationService {
+    static validateUserInput(req) {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return { valid: false, errors: errors.array() };
+        }
+        return { valid: true };
+    }
+
+    static checkLoginAttempts(email) {
+        const attemptData = loginAttempts.get(email);
+        if (attemptData && attemptData.lockedUntil > Date.now()) {
+            return { locked: true, remainingTime: attemptData.lockedUntil - Date.now() };
+        }
+        return { locked: false };
+    }
+
+    static recordFailedAttempt(email) {
+        const currentAttempts = loginAttempts.get(email) || { count: 0, lockedUntil: 0 };
+        currentAttempts.count += 1;
+        
+        if (currentAttempts.count >= MAX_LOGIN_ATTEMPTS) {
+            currentAttempts.lockedUntil = Date.now() + LOCKOUT_DURATION;
+            currentAttempts.count = 0; // Reset count after lockout
+        }
+        
+        loginAttempts.set(email, currentAttempts);
+        return currentAttempts.count;
+    }
+
+    static resetLoginAttempts(email) {
+        loginAttempts.delete(email);
+    }
+
+    static generateToken(user) {
+        const payload = {
+            userId: user.id,
+            email: user.email,
+            role: user.role || 'user'
+        };
+        
+        return jwt.sign(payload, JWT_SECRET, { 
+            expiresIn: JWT_EXPIRY,
+            jwtid: uuidv4()
+        });
+    }
+
+    static async hashPassword(password) {
+        const saltRounds = 12;
+        return await bcrypt.hash(password, saltRounds);
+    }
+
+    static async verifyPassword(plainPassword, hashedPassword) {
+        return await bcrypt.compare(plainPassword, hashedPassword);
     }
 }
 
-/**
- * Generate JWT token for authenticated user
- */
-const generateToken = (userId, email) => {
-    return jwt.sign(
-        { 
-            userId, 
-            email,
-            iat: Math.floor(Date.now() / 1000)
-        },
-        JWT_SECRET,
-        { expiresIn: JWT_EXPIRES_IN }
-    );
-};
-
-/**
- * Validate user login attempts and prevent brute force attacks
- */
-const validateLoginAttempts = (email) => {
-    const attemptData = loginAttempts.get(email);
-    
-    if (attemptData) {
-        const { count, lockedUntil } = attemptData;
-        
-        if (lockedUntil && Date.now() < lockedUntil) {
-            const remainingTime = Math.ceil((lockedUntil - Date.now()) / 1000 / 60);
-            throw new AuthenticationError(
-                `Account temporarily locked. Try again in ${remainingTime} minutes.`,
-                'ACCOUNT_LOCKED'
-            );
-        }
-        
-        if (count >= MAX_LOGIN_ATTEMPTS) {
-            loginAttempts.set(email, {
-                count,
-                lockedUntil: Date.now() + LOCKOUT_DURATION
-            });
-            throw new AuthenticationError(
-                'Too many failed attempts. Account locked for 15 minutes.',
-                'ACCOUNT_LOCKED'
-            );
-        }
-    }
-};
-
-/**
- * Increment failed login attempts
- */
-const incrementFailedAttempts = (email) => {
-    const currentAttempts = loginAttempts.get(email) || { count: 0 };
-    const newCount = currentAttempts.count + 1;
-    
-    loginAttempts.set(email, {
-        count: newCount,
-        lockedUntil: currentAttempts.lockedUntil
-    });
-    
-    return newCount;
-};
-
-/**
- * Reset login attempts on successful login
- */
-const resetLoginAttempts = (email) => {
-    loginAttempts.delete(email);
-};
-
-/**
- * User registration handler
- */
-const register = async (req, res) => {
+// AEP-2: Registration API
+router.post('/register', [
+    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('password')
+        .isLength({ min: 8 })
+        .withMessage('Password must be at least 8 characters')
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+        .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
+    body('firstName').trim().isLength({ min: 1, max: 50 }).withMessage('First name is required'),
+    body('lastName').trim().isLength({ min: 1, max: 50 }).withMessage('Last name is required')
+], async (req, res) => {
     try {
-        // Validate request body
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
+        console.log('Registration attempt:', { email: req.body.email });
+        
+        const validation = AuthenticationService.validateUserInput(req);
+        if (!validation.valid) {
             return res.status(400).json({
                 success: false,
-                error: 'Validation failed',
-                details: errors.array()
+                message: 'Validation failed',
+                errors: validation.errors
             });
         }
 
@@ -115,41 +103,30 @@ const register = async (req, res) => {
         if (users.has(email)) {
             return res.status(409).json({
                 success: false,
-                error: 'User already exists with this email address'
-            });
-        }
-
-        // Validate password strength
-        if (password.length < 8) {
-            return res.status(400).json({
-                success: false,
-                error: 'Password must be at least 8 characters long'
+                message: 'User already exists'
             });
         }
 
         // Hash password
-        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+        const hashedPassword = await AuthenticationService.hashPassword(password);
 
-        // Create user object
+        // Create user
         const user = {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             email,
             password: hashedPassword,
-            firstName,
-            lastName,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            role: 'user',
             createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            isActive: true
+            updatedAt: new Date().toISOString()
         };
 
-        // Store user (in production, use database)
         users.set(email, user);
+        console.log('User registered successfully:', { userId: user.id, email });
 
-        // Generate JWT token
-        const token = generateToken(user.id, user.email);
-
-        // Log successful registration
-        console.log(`User registered successfully: ${email}`);
+        // Generate token
+        const token = AuthenticationService.generateToken(user);
 
         res.status(201).json({
             success: true,
@@ -160,7 +137,8 @@ const register = async (req, res) => {
                     id: user.id,
                     email: user.email,
                     firstName: user.firstName,
-                    lastName: user.lastName
+                    lastName: user.lastName,
+                    role: user.role
                 }
             }
         });
@@ -169,81 +147,68 @@ const register = async (req, res) => {
         console.error('Registration error:', error);
         res.status(500).json({
             success: false,
-            error: 'Internal server error during registration'
+            message: 'Internal server error during registration'
         });
     }
-};
+});
 
-/**
- * User login handler
- */
-const login = async (req, res) => {
+// AEP-2: Login API
+router.post('/login', [
+    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('password').notEmpty().withMessage('Password is required')
+], async (req, res) => {
     try {
-        // Validate request body
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
+        console.log('Login attempt:', { email: req.body.email });
+        
+        const validation = AuthenticationService.validateUserInput(req);
+        if (!validation.valid) {
             return res.status(400).json({
                 success: false,
-                error: 'Validation failed',
-                details: errors.array()
+                message: 'Validation failed',
+                errors: validation.errors
             });
         }
 
         const { email, password } = req.body;
 
         // Check login attempts
-        try {
-            validateLoginAttempts(email);
-        } catch (error) {
+        const attemptCheck = AuthenticationService.checkLoginAttempts(email);
+        if (attemptCheck.locked) {
             return res.status(429).json({
                 success: false,
-                error: error.message,
-                code: error.code
+                message: 'Account temporarily locked due to too many failed attempts',
+                retryAfter: Math.ceil(attemptCheck.remainingTime / 1000)
             });
         }
 
         // Find user
         const user = users.get(email);
         if (!user) {
-            incrementFailedAttempts(email);
+            AuthenticationService.recordFailedAttempt(email);
             return res.status(401).json({
                 success: false,
-                error: 'Invalid email or password'
-            });
-        }
-
-        // Check if user is active
-        if (!user.isActive) {
-            return res.status(403).json({
-                success: false,
-                error: 'Account is deactivated'
+                message: 'Invalid credentials'
             });
         }
 
         // Verify password
-        const isValidPassword = await bcrypt.compare(password, user.password);
+        const isValidPassword = await AuthenticationService.verifyPassword(password, user.password);
         if (!isValidPassword) {
-            const attemptsLeft = MAX_LOGIN_ATTEMPTS - incrementFailedAttempts(email);
-            
+            const remainingAttempts = MAX_LOGIN_ATTEMPTS - AuthenticationService.recordFailedAttempt(email);
             return res.status(401).json({
                 success: false,
-                error: 'Invalid email or password',
-                attemptsLeft: attemptsLeft > 0 ? attemptsLeft : 0
+                message: 'Invalid credentials',
+                remainingAttempts
             });
         }
 
-        // Reset login attempts on success
-        resetLoginAttempts(email);
+        // Reset login attempts on successful login
+        AuthenticationService.resetLoginAttempts(email);
 
-        // Generate JWT token
-        const token = generateToken(user.id, user.email);
-
-        // Update last login
-        user.lastLogin = new Date().toISOString();
-        users.set(email, user);
-
-        // Log successful login
-        console.log(`User logged in successfully: ${email}`);
+        // Generate token
+        const token = AuthenticationService.generateToken(user);
+        
+        console.log('Login successful:', { userId: user.id, email });
 
         res.json({
             success: true,
@@ -254,7 +219,8 @@ const login = async (req, res) => {
                     id: user.id,
                     email: user.email,
                     firstName: user.firstName,
-                    lastName: user.lastName
+                    lastName: user.lastName,
+                    role: user.role
                 }
             }
         });
@@ -263,93 +229,56 @@ const login = async (req, res) => {
         console.error('Login error:', error);
         res.status(500).json({
             success: false,
-            error: 'Internal server error during login'
+            message: 'Internal server error during login'
         });
     }
-};
+});
 
-/**
- * Verify JWT token middleware
- */
-const verifyToken = (req, res, next) => {
-    try {
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-        
-        if (!token) {
-            return res.status(401).json({
-                success: false,
-                error: 'Access denied. No token provided.'
-            });
-        }
+// AEP-2: Token verification middleware (for other routes)
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({
-                success: false,
-                error: 'Token expired'
-            });
-        }
-        
-        if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid token'
-            });
-        }
-
-        console.error('Token verification error:', error);
-        res.status(500).json({
+    if (!token) {
+        return res.status(401).json({
             success: false,
-            error: 'Token verification failed'
+            message: 'Access token required'
         });
     }
-};
 
-/**
- * Get current user profile
- */
-const getProfile = (req, res) => {
-    try {
-        const userEmail = req.user.email;
-        const user = users.get(userEmail);
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(403).json({
+                success: false,
+                message: 'Invalid or expired token'
+            });
+        }
         
+        const user = users.get(decoded.email);
         if (!user) {
-            return res.status(404).json({
+            return res.status(403).json({
                 success: false,
-                error: 'User not found'
+                message: 'User not found'
             });
         }
 
-        res.json({
-            success: true,
-            data: {
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    createdAt: user.createdAt,
-                    lastLogin: user.lastLogin
-                }
-            }
-        });
-
-    } catch (error) {
-        console.error('Profile fetch error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Internal server error'
-        });
-    }
+        req.user = user;
+        next();
+    });
 };
 
+// AEP-2: Health check endpoint
+router.get('/health', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Authentication service is running',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// AEP-2: Export router and authentication middleware
 module.exports = {
-    register,
-    login,
-    verifyToken,
-    getProfile,
-    AuthenticationError
+    router,
+    authenticateToken,
+    AuthenticationService
 };

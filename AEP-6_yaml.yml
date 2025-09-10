@@ -1,0 +1,23 @@
+---
+issue: AEP-6
+summary: DevOps & Environment Setup (Infra Story)
+description: |
+  *As a* developer
+  *I want* a working dev environment (repo, CI/CD, staging DB)
+  *So that* I can build and test features collaboratively.
+
+acceptance_criteria:
+  - Git repo created and shared.
+  - CI/CD pipeline configured.
+  - Staging DB instance available.
+  - Team members able to run project locally.
+
+subtasks:
+  - Setup Git repository.
+  - Configure CI/CD pipeline.
+  - Provision staging DB.
+  - Document environment setup steps.
+
+file: AEP-6_yaml.yml
+project: DevOps & Environment Setup for a collaborative development project
+context: Multi-file project - ensure integration

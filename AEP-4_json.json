@@ -1,0 +1,167 @@
+{
+  "AEP-4": {
+    "summary": "Basic User Profile API",
+    "description": "API endpoint for authenticated users to retrieve their basic profile information (name, email, role) from the database",
+    "endpoint": "/api/user/profile",
+    "method": "GET",
+    "authentication": {
+      "required": true,
+      "type": "Bearer Token"
+    },
+    "request": {
+      "headers": {
+        "Authorization": "Bearer <jwt_token>"
+      },
+      "body": {}
+    },
+    "response": {
+      "success": {
+        "status": 200,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "success": {
+              "type": "boolean",
+              "example": true
+            },
+            "data": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string",
+                  "example": "user_12345"
+                },
+                "name": {
+                  "type": "string",
+                  "example": "John Doe"
+                },
+                "email": {
+                  "type": "string",
+                  "example": "john.doe@example.com"
+                },
+                "role": {
+                  "type": "string",
+                  "example": "user"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2024-01-15T10:30:00Z"
+                },
+                "lastLogin": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2024-01-20T14:25:00Z"
+                }
+              },
+              "required": ["userId", "name", "email", "role"]
+            }
+          }
+        }
+      },
+      "error": {
+        "unauthorized": {
+          "status": 401,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean",
+                "example": false
+              },
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "example": "UNAUTHORIZED"
+                  },
+                  "message": {
+                    "type": "string",
+                    "example": "Authentication required"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "not_found": {
+          "status": 404,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean",
+                "example": false
+              },
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "example": "USER_NOT_FOUND"
+                  },
+                  "message": {
+                    "type": "string",
+                    "example": "User profile not found"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "server_error": {
+          "status": 500,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean",
+                "example": false
+              },
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "example": "INTERNAL_SERVER_ERROR"
+                  },
+                  "message": {
+                    "type": "string",
+                    "example": "An unexpected error occurred"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "database": {
+      "query": "SELECT user_id, full_name, email_address, user_role, created_at, last_login FROM users WHERE user_id = $1",
+      "parameters": ["authenticated_user_id"],
+      "validation": {
+        "required_fields": ["user_id", "full_name", "email_address", "user_role"],
+        "email_validation": true,
+        "role_validation": ["admin", "user", "moderator"]
+      }
+    },
+    "logging": {
+      "level": "info",
+      "events": ["authentication_success", "profile_fetch_success", "profile_fetch_failure", "database_error"],
+      "fields": ["userId", "timestamp", "endpoint", "response_time_ms"]
+    },
+    "security": {
+      "rate_limiting": {
+        "max_requests": 100,
+        "time_window": "15 minutes"
+      },
+      "sensitive_data": {
+        "mask_email": false,
+        "expose_role": true
+      }
+    },
+    "version": "1.0.0",
+    "last_updated": "2024-01-20"
+  }
+}

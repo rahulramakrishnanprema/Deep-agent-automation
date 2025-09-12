@@ -1,191 +1,203 @@
 {
-  "issue": "AEP-2",
-  "summary": "Implement Authentication APIs",
-  "description": "As a user I want to log in securely so that I can access my personalized dashboard.",
-  "acceptance_criteria": [
-    "Login and registration APIs created",
-    "JWT/session tokens issued after authentication",
-    "Invalid login attempts return error messages",
-    "API passes unit tests"
-  ],
-  "subtasks": [
-    {
-      "id": 1,
-      "title": "Create login API",
-      "status": "completed",
-      "endpoints": [
-        {
-          "method": "POST",
-          "path": "/api/auth/login",
-          "description": "Authenticate user and return JWT token",
-          "request": {
-            "content-type": "application/json",
+  "AEP-2": {
+    "summary": "Implement Authentication APIs",
+    "description": "As a user I want to log in securely so that I can access my personalized dashboard.",
+    "acceptance_criteria": [
+      "Login and registration APIs created",
+      "JWT/session tokens issued after authentication",
+      "Invalid login attempts return error messages",
+      "API passes unit tests"
+    ],
+    "apis": {
+      "login": {
+        "endpoint": "/api/auth/login",
+        "method": "POST",
+        "request": {
+          "email": {
+            "type": "string",
+            "required": true,
+            "validation": "email_format",
+            "max_length": 255
+          },
+          "password": {
+            "type": "string",
+            "required": true,
+            "min_length": 8,
+            "max_length": 128
+          }
+        },
+        "response": {
+          "success": {
+            "status": 200,
             "body": {
-              "email": "string",
-              "password": "string"
+              "token": "jwt_token_string",
+              "expires_in": 3600,
+              "token_type": "Bearer",
+              "user": {
+                "id": "user_uuid",
+                "email": "user_email",
+                "name": "user_full_name"
+              }
             }
           },
-          "response": {
-            "success": {
-              "status": 200,
-              "body": {
-                "token": "jwt_token_string",
-                "user": {
-                  "id": "user_id",
-                  "email": "user_email",
-                  "name": "user_name"
-                }
-              }
-            },
-            "error": {
-              "status": 401,
-              "body": {
-                "error": "Invalid credentials",
-                "message": "The email or password you entered is incorrect"
-              }
+          "error": {
+            "status": 401,
+            "body": {
+              "error": "Invalid credentials",
+              "message": "The provided email or password is incorrect"
+            }
+          },
+          "validation_error": {
+            "status": 400,
+            "body": {
+              "error": "Validation failed",
+              "details": ["field_validation_errors"]
             }
           }
         }
-      ]
-    },
-    {
-      "id": 2,
-      "title": "Create registration API",
-      "status": "completed",
-      "endpoints": [
-        {
-          "method": "POST",
-          "path": "/api/auth/register",
-          "description": "Register new user and return JWT token",
-          "request": {
-            "content-type": "application/json",
+      },
+      "register": {
+        "endpoint": "/api/auth/register",
+        "method": "POST",
+        "request": {
+          "email": {
+            "type": "string",
+            "required": true,
+            "validation": "email_format",
+            "max_length": 255
+          },
+          "password": {
+            "type": "string",
+            "required": true,
+            "min_length": 8,
+            "max_length": 128,
+            "validation": "password_strength"
+          },
+          "name": {
+            "type": "string",
+            "required": true,
+            "min_length": 2,
+            "max_length": 100
+          }
+        },
+        "response": {
+          "success": {
+            "status": 201,
             "body": {
-              "email": "string",
-              "password": "string",
-              "name": "string",
-              "confirmPassword": "string"
+              "token": "jwt_token_string",
+              "expires_in": 3600,
+              "token_type": "Bearer",
+              "user": {
+                "id": "user_uuid",
+                "email": "user_email",
+                "name": "user_full_name"
+              }
             }
           },
-          "response": {
-            "success": {
-              "status": 201,
-              "body": {
-                "token": "jwt_token_string",
-                "user": {
-                  "id": "user_id",
-                  "email": "user_email",
-                  "name": "user_name"
-                }
-              }
-            },
-            "error": {
-              "status": 400,
-              "body": {
-                "error": "Registration failed",
-                "message": "User already exists or validation failed"
-              }
+          "error": {
+            "status": 409,
+            "body": {
+              "error": "User already exists",
+              "message": "A user with this email already exists"
+            }
+          },
+          "validation_error": {
+            "status": 400,
+            "body": {
+              "error": "Validation failed",
+              "details": ["field_validation_errors"]
             }
           }
         }
-      ]
-    },
-    {
-      "id": 3,
-      "title": "Implement JWT/session handling",
-      "status": "completed",
-      "implementation": {
-        "token_type": "JWT",
-        "algorithm": "HS256",
-        "expiration": "24h",
-        "refresh_token": true,
-        "secure_cookies": true,
-        "http_only": true
       }
     },
-    {
-      "id": 4,
-      "title": "Write API test cases",
-      "status": "completed",
-      "test_cases": [
+    "jwt_config": {
+      "secret_key": "env.JWT_SECRET_KEY",
+      "algorithm": "HS256",
+      "expiration_time": 3600,
+      "issuer": "auth_service",
+      "audience": "dashboard_app"
+    },
+    "security": {
+      "password_hashing": "bcrypt",
+      "salt_rounds": 12,
+      "rate_limiting": {
+        "max_attempts": 5,
+        "lockout_time": 900
+      },
+      "token_blacklisting": true
+    },
+    "error_handling": {
+      "invalid_credentials": {
+        "http_status": 401,
+        "message": "Invalid email or password"
+      },
+      "user_exists": {
+        "http_status": 409,
+        "message": "User already exists with this email"
+      },
+      "validation_error": {
+        "http_status": 400,
+        "message": "Request validation failed"
+      },
+      "server_error": {
+        "http_status": 500,
+        "message": "Internal server error"
+      }
+    },
+    "logging": {
+      "level": "info",
+      "events": ["login_attempt", "registration", "token_issue", "error"]
+    },
+    "test_cases": {
+      "login": [
         {
-          "name": "Successful login",
-          "endpoint": "/api/auth/login",
-          "method": "POST",
+          "name": "valid_credentials",
+          "input": {"email": "test@example.com", "password": "validPassword123"},
           "expected_status": 200,
-          "expects_token": true
+          "expected_fields": ["token", "user"]
         },
         {
-          "name": "Invalid login credentials",
-          "endpoint": "/api/auth/login",
-          "method": "POST",
+          "name": "invalid_password",
+          "input": {"email": "test@example.com", "password": "wrongpassword"},
           "expected_status": 401,
-          "expects_error": true
+          "expected_fields": ["error", "message"]
         },
         {
-          "name": "Successful registration",
-          "endpoint": "/api/auth/register",
-          "method": "POST",
+          "name": "nonexistent_user",
+          "input": {"email": "nonexistent@example.com", "password": "anypassword"},
+          "expected_status": 401,
+          "expected_fields": ["error", "message"]
+        }
+      ],
+      "register": [
+        {
+          "name": "new_user",
+          "input": {"email": "new@example.com", "password": "ValidPass123", "name": "New User"},
           "expected_status": 201,
-          "expects_token": true
+          "expected_fields": ["token", "user"]
         },
         {
-          "name": "Duplicate registration",
-          "endpoint": "/api/auth/register",
-          "method": "POST",
+          "name": "existing_user",
+          "input": {"email": "existing@example.com", "password": "ValidPass123", "name": "Existing User"},
+          "expected_status": 409,
+          "expected_fields": ["error", "message"]
+        },
+        {
+          "name": "invalid_email",
+          "input": {"email": "invalid-email", "password": "ValidPass123", "name": "Test User"},
           "expected_status": 400,
-          "expects_error": true
+          "expected_fields": ["error", "details"]
         }
       ]
-    }
-  ],
-  "error_handling": {
-    "invalid_credentials": {
-      "code": "AUTH_001",
-      "message": "Invalid email or password"
     },
-    "user_exists": {
-      "code": "AUTH_002",
-      "message": "User already exists with this email"
+    "dependencies": {
+      "database": "users_db",
+      "hashing_library": "bcrypt",
+      "jwt_library": "jsonwebtoken",
+      "validation_library": "validator"
     },
-    "validation_error": {
-      "code": "AUTH_003",
-      "message": "Input validation failed"
-    },
-    "token_expired": {
-      "code": "AUTH_004",
-      "message": "JWT token has expired"
-    }
-  },
-  "security": {
-    "password_hashing": "bcrypt",
-    "salt_rounds": 12,
-    "rate_limiting": {
-      "login_attempts": 5,
-      "lockout_duration": "15 minutes"
-    },
-    "cors": {
-      "origins": ["https://yourdomain.com"],
-      "methods": ["POST", "GET", "OPTIONS"],
-      "headers": ["Content-Type", "Authorization"]
-    }
-  },
-  "logging": {
-    "level": "info",
-    "format": "json",
-    "log_events": [
-      "login_attempt",
-      "login_success",
-      "login_failure",
-      "registration",
-      "token_refresh"
-    ]
-  },
-  "dependencies": [
-    "jsonwebtoken",
-    "bcryptjs",
-    "express-validator",
-    "express-rate-limit"
-  ],
-  "version": "1.0.0",
-  "last_updated": "2024-01-15T10:30:00Z"
+    "version": "1.0.0",
+    "last_updated": "2024-01-20"
+  }
 }

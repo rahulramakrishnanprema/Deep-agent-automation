@@ -1,5 +1,5 @@
 {
-  "issue": "AEP-2",
+  "issue_key": "AEP-2",
   "summary": "Implement Authentication APIs",
   "description": "As a user I want to log in securely so that I can access my personalized dashboard.",
   "acceptance_criteria": [
@@ -9,183 +9,130 @@
     "API passes unit tests"
   ],
   "subtasks": [
-    {
-      "id": 1,
-      "title": "Create login API",
-      "status": "completed",
-      "endpoints": [
-        {
-          "method": "POST",
-          "path": "/api/auth/login",
-          "description": "Authenticate user and return JWT token",
-          "request": {
-            "content-type": "application/json",
-            "body": {
-              "email": "string",
-              "password": "string"
-            }
-          },
-          "response": {
-            "success": {
-              "status": 200,
-              "body": {
-                "token": "jwt_token_string",
-                "user": {
-                  "id": "user_id",
-                  "email": "user_email",
-                  "name": "user_name"
-                }
-              }
-            },
-            "error": {
-              "status": 401,
-              "body": {
-                "error": "Invalid credentials",
-                "message": "The email or password you entered is incorrect"
-              }
-            }
-          }
+    "Create login API",
+    "Create registration API",
+    "Implement JWT/session handling",
+    "Write API test cases"
+  ],
+  "api_endpoints": {
+    "login": {
+      "path": "/api/auth/login",
+      "method": "POST",
+      "request_body": {
+        "email": "string",
+        "password": "string"
+      },
+      "response_success": {
+        "status": 200,
+        "body": {
+          "token": "jwt_token_string",
+          "expires_in": 3600,
+          "user_id": "string"
         }
-      ]
-    },
-    {
-      "id": 2,
-      "title": "Create registration API",
-      "status": "completed",
-      "endpoints": [
-        {
-          "method": "POST",
-          "path": "/api/auth/register",
-          "description": "Register new user and return JWT token",
-          "request": {
-            "content-type": "application/json",
-            "body": {
-              "email": "string",
-              "password": "string",
-              "name": "string",
-              "confirmPassword": "string"
-            }
-          },
-          "response": {
-            "success": {
-              "status": 201,
-              "body": {
-                "token": "jwt_token_string",
-                "user": {
-                  "id": "user_id",
-                  "email": "user_email",
-                  "name": "user_name"
-                }
-              }
-            },
-            "error": {
-              "status": 400,
-              "body": {
-                "error": "Registration failed",
-                "message": "User already exists or validation failed"
-              }
-            }
-          }
+      },
+      "response_error": {
+        "status": 401,
+        "body": {
+          "error": "Invalid credentials",
+          "message": "Email or password is incorrect"
         }
-      ]
-    },
-    {
-      "id": 3,
-      "title": "Implement JWT/session handling",
-      "status": "completed",
-      "implementation": {
-        "token_type": "JWT",
-        "algorithm": "HS256",
-        "expiration": "24h",
-        "refresh_token": true,
-        "secure_cookies": true,
-        "http_only": true
+      },
+      "validation_rules": {
+        "email": "required|email",
+        "password": "required|min:8"
       }
     },
-    {
-      "id": 4,
-      "title": "Write API test cases",
-      "status": "completed",
-      "test_cases": [
-        {
-          "name": "Successful login",
-          "endpoint": "/api/auth/login",
-          "method": "POST",
-          "expected_status": 200,
-          "expects_token": true
-        },
-        {
-          "name": "Invalid login credentials",
-          "endpoint": "/api/auth/login",
-          "method": "POST",
-          "expected_status": 401,
-          "expects_error": true
-        },
-        {
-          "name": "Successful registration",
-          "endpoint": "/api/auth/register",
-          "method": "POST",
-          "expected_status": 201,
-          "expects_token": true
-        },
-        {
-          "name": "Duplicate registration",
-          "endpoint": "/api/auth/register",
-          "method": "POST",
-          "expected_status": 400,
-          "expects_error": true
+    "register": {
+      "path": "/api/auth/register",
+      "method": "POST",
+      "request_body": {
+        "email": "string",
+        "password": "string",
+        "name": "string"
+      },
+      "response_success": {
+        "status": 201,
+        "body": {
+          "token": "jwt_token_string",
+          "expires_in": 3600,
+          "user_id": "string",
+          "message": "User registered successfully"
         }
-      ]
+      },
+      "response_error": {
+        "status": 400,
+        "body": {
+          "error": "Registration failed",
+          "message": "Email already exists or validation failed"
+        }
+      },
+      "validation_rules": {
+        "email": "required|email|unique:users",
+        "password": "required|min:8|confirmed",
+        "name": "required|min:2|max:100"
+      }
     }
-  ],
-  "error_handling": {
-    "invalid_credentials": {
-      "code": "AUTH_001",
-      "message": "Invalid email or password"
-    },
-    "user_exists": {
-      "code": "AUTH_002",
-      "message": "User already exists with this email"
-    },
-    "validation_error": {
-      "code": "AUTH_003",
-      "message": "Input validation failed"
-    },
-    "token_expired": {
-      "code": "AUTH_004",
-      "message": "JWT token has expired"
-    }
+  },
+  "jwt_config": {
+    "secret_key": "env:JWT_SECRET",
+    "algorithm": "HS256",
+    "expiration_time": 3600,
+    "issuer": "auth_service",
+    "audience": "web_app"
   },
   "security": {
     "password_hashing": "bcrypt",
     "salt_rounds": 12,
-    "rate_limiting": {
-      "login_attempts": 5,
-      "lockout_duration": "15 minutes"
-    },
-    "cors": {
-      "origins": ["https://yourdomain.com"],
-      "methods": ["POST", "GET", "OPTIONS"],
-      "headers": ["Content-Type", "Authorization"]
-    }
+    "max_login_attempts": 5,
+    "lockout_time": 900,
+    "token_refresh": true
+  },
+  "error_messages": {
+    "invalid_credentials": "Invalid email or password",
+    "email_exists": "Email already registered",
+    "validation_failed": "Please check your input data",
+    "account_locked": "Account temporarily locked due to multiple failed attempts"
   },
   "logging": {
     "level": "info",
-    "format": "json",
-    "log_events": [
-      "login_attempt",
-      "login_success",
-      "login_failure",
-      "registration",
-      "token_refresh"
-    ]
+    "login_success": "User logged in successfully",
+    "login_failure": "Failed login attempt",
+    "registration_success": "New user registered",
+    "registration_failure": "User registration failed"
   },
-  "dependencies": [
-    "jsonwebtoken",
-    "bcryptjs",
-    "express-validator",
-    "express-rate-limit"
-  ],
-  "version": "1.0.0",
-  "last_updated": "2024-01-15T10:30:00Z"
+  "test_cases": {
+    "login_success": {
+      "description": "Successful login with valid credentials",
+      "expected_status": 200,
+      "expected_fields": ["token", "expires_in", "user_id"]
+    },
+    "login_failure": {
+      "description": "Failed login with invalid credentials",
+      "expected_status": 401,
+      "expected_fields": ["error", "message"]
+    },
+    "register_success": {
+      "description": "Successful user registration",
+      "expected_status": 201,
+      "expected_fields": ["token", "expires_in", "user_id", "message"]
+    },
+    "register_duplicate": {
+      "description": "Registration with existing email",
+      "expected_status": 400,
+      "expected_fields": ["error", "message"]
+    }
+  },
+  "dependencies": {
+    "required": ["express", "jsonwebtoken", "bcryptjs", "validator", "winston"],
+    "dev_dependencies": ["jest", "supertest", "mongodb-memory-server"]
+  },
+  "implementation_notes": [
+    "Use environment variables for JWT secret",
+    "Implement rate limiting for login attempts",
+    "Validate email format and password strength",
+    "Use async/await for database operations",
+    "Implement proper error handling middleware",
+    "Include request validation middleware",
+    "Use secure cookies for token storage if needed"
+  ]
 }

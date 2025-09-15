@@ -1,0 +1,30 @@
+# Issue: AEP-6
+# Generated: 2025-09-15T09:47:50.885219
+# Thread: 70aa205d-EP-6
+# Enhanced: DeepSeek model code generation
+# AI Model: deepseek/deepseek-chat-v3.1:free
+# Max Length: 8000 characters
+# Agent: Developer Agent for Development Domain
+
+    git clone https://github.com/your-org/your-project.git
+    cd your-project
+    ```
+    
+    2. Start local database:
+    ```bash
+    docker-compose up -d postgres
+    ```
+    
+    3. Run database migrations:
+    ```bash
+    kubectl apply -f db-migration-job.yaml
+    ```
+    
+    4. Start application:
+    ```bash
+    docker-compose up -d app
+    ```
+    
+    5. Verify setup:
+    ```bash
+    curl http://localhost:3000/health

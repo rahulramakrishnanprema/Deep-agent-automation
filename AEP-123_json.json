@@ -1,0 +1,34 @@
+{
+  "issue_key": "AEP-123",
+  "file_name": "AEP-123_json.json",
+  "code": {
+    "imports": {
+      "fastapi": "from fastapi import FastAPI, HTTPException",
+      "sqlalchemy": "from sqlalchemy import create_engine, Column, Integer, String, DateTime",
+      "jwt": "import jwt",
+      "pytest": "import pytest",
+      "logging": "import logging"
+    },
+    "app_setup": {
+      "app": "app = FastAPI()",
+      "engine": "engine = create_engine('postgresql://user:password@localhost/db')"
+    },
+    "database_model": {
+      "class_definition": "class User(Base):\n    __tablename__ = 'users'\n    id = Column(Integer, primary_key=True)\n    username = Column(String, unique=True)\n    password = Column(String)"
+    },
+    "authentication_middleware": {
+      "auth_function": "def authenticate_user(username: str, password: str) -> bool:\n    # Authentication logic here",
+      "get_current_user": "def get_current_user(token: str = Depends(oauth2_scheme)) -> User:\n    # Get current user logic here"
+    },
+    "error_handling": {
+      "error_response": "def get_error_response(status_code: int, message: str) -> dict:\n    return {'status_code': status_code, 'message': message}"
+    },
+    "logging_config": {
+      "logging_setup": "logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')"
+    },
+    "unit_tests": {
+      "test_authentication": "def test_authentication():\n    # Authentication test logic here",
+      "test_database_integration": "def test_database_integration():\n    # Database integration test logic here"
+    }
+  }
+}

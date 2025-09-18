@@ -1,0 +1,46 @@
+{
+  "issue_key": "AEP-123",
+  "file_name": "AEP-123_json.json",
+  "code": {
+    "endpoints": {
+      "GET /items": {
+        "description": "Get all items",
+        "implementation": "Retrieve all items from the database"
+      },
+      "POST /items": {
+        "description": "Create a new item",
+        "implementation": "Add a new item to the database"
+      },
+      "GET /items/{item_id}": {
+        "description": "Get item by ID",
+        "implementation": "Retrieve a specific item by ID from the database"
+      },
+      "PUT /items/{item_id}": {
+        "description": "Update item",
+        "implementation": "Update a specific item in the database"
+      },
+      "DELETE /items/{item_id}": {
+        "description": "Delete item",
+        "implementation": "Delete a specific item from the database"
+      }
+    },
+    "database_integration": {
+      "implementation": "Connect to PostgreSQL database and perform CRUD operations"
+    },
+    "authentication_middleware": {
+      "implementation": "Implement JWT authentication for secure access to endpoints"
+    },
+    "error_handling": {
+      "implementation": "Handle errors gracefully with appropriate status codes and messages"
+    },
+    "logging": {
+      "implementation": "Implement structured logging in JSON format throughout the application"
+    },
+    "unit_tests": {
+      "implementation": "Write comprehensive unit tests using Pytest framework"
+    },
+    "clean_code_principles": {
+      "implementation": "Follow clean code principles for readable and maintainable code"
+    }
+  }
+}

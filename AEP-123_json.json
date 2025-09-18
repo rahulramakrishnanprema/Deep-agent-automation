@@ -1,0 +1,23 @@
+{
+  "project": "AEP",
+  "issue_key": "AEP-123",
+  "summary": "Implement core functionality for AEP",
+  "description": "Create a complete implementation for the AEP project",
+  "requirements": {
+    "rest_api_endpoints": true,
+    "database_integration": true,
+    "authentication_middleware": true,
+    "error_handling": true,
+    "logging": true,
+    "unit_tests": true,
+    "clean_code_principles": true
+  },
+  "technical_specifications": {
+    "language": "Python",
+    "framework": "FastAPI",
+    "database": "PostgreSQL",
+    "authentication": "JWT",
+    "testing": "Pytest",
+    "logging_format": "JSON"
+  }
+}

@@ -1,0 +1,323 @@
+/* 
+ * BC-2 Main Stylesheet
+ * A simple web application to subtract two numbers and display the result
+ * Implements responsive design and UI styling for the subtraction calculator
+ */
+
+/* ===== BASE STYLES & RESET ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    line-height: 1.6;
+}
+
+/* ===== CALCULATOR CONTAINER ===== */
+.calculator-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 2.5rem;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 450px;
+    backdrop-filter: blur(10px);
+}
+
+.calculator-title {
+    text-align: center;
+    color: #333;
+    margin-bottom: 2rem;
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+/* ===== INPUT FIELDS ===== */
+.input-group {
+    margin-bottom: 1.5rem;
+}
+
+.input-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #555;
+    font-weight: 500;
+    font-size: 1.1rem;
+}
+
+.number-input {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid #e1e5e9;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.number-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.number-input.invalid {
+    border-color: #e74c3c;
+    background-color: rgba(231, 76, 60, 0.05);
+}
+
+/* ===== BUTTONS ===== */
+.button-group {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.calc-button {
+    flex: 1;
+    min-width: 120px;
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.subtract-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.subtract-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.reset-btn {
+    background: #95a5a6;
+    color: white;
+}
+
+.reset-btn:hover {
+    background: #7f8c8d;
+    transform: translateY(-2px);
+}
+
+.calc-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* ===== RESULT DISPLAY ===== */
+.result-container {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid #667eea;
+}
+
+.result-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #555;
+    font-weight: 500;
+}
+
+.result-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #2c3e50;
+    text-align: center;
+    min-height: 2.5rem;
+}
+
+/* ===== ERROR MESSAGES ===== */
+.error-container {
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid #e74c3c;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    color: #c0392b;
+    font-weight: 500;
+    display: none;
+}
+
+.error-container.visible {
+    display: block;
+    animation: slideIn 0.3s ease;
+}
+
+.error-message {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.result-value {
+    animation: fadeIn 0.5s ease;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+    .calculator-container {
+        padding: 2rem;
+        margin: 1rem;
+    }
+    
+    .calculator-title {
+        font-size: 1.75rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .calc-button {
+        min-width: auto;
+    }
+    
+    .result-value {
+        font-size: 1.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .calculator-container {
+        padding: 1.5rem;
+    }
+    
+    .calculator-title {
+        font-size: 1.5rem;
+    }
+    
+    .number-input {
+        padding: 0.875rem;
+        font-size: 1rem;
+    }
+    
+    .calc-button {
+        padding: 0.875rem 1.25rem;
+        font-size: 1rem;
+    }
+    
+    .result-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+.number-input:focus,
+.calc-button:focus {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* ===== HIGH CONTRAST MODE SUPPORT ===== */
+@media (prefers-contrast: high) {
+    .number-input {
+        border-width: 3px;
+    }
+    
+    .error-container {
+        border-width: 2px;
+    }
+}
+
+/* ===== DARK MODE SUPPORT ===== */
+@media (prefers-color-scheme: dark) {
+    .calculator-container {
+        background: rgba(45, 45, 60, 0.95);
+        color: #ffffff;
+    }
+    
+    .calculator-title {
+        color: #ffffff;
+    }
+    
+    .input-label {
+        color: #cccccc;
+    }
+    
+    .number-input {
+        background: #2a2a3a;
+        border-color: #444;
+        color: #ffffff;
+    }
+    
+    .number-input:focus {
+        border-color: #667eea;
+    }
+    
+    .result-container {
+        background: #2a2a3a;
+        color: #ffffff;
+    }
+    
+    .result-value {
+        color: #ffffff;
+    }
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    
+    .calculator-container {
+        box-shadow: none;
+        background: white;
+        border: 2px solid black;
+    }
+    
+    .calc-button {
+        display: none;
+    }
+}

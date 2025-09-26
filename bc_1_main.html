@@ -25,7 +25,7 @@
             background: white;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            padding: 30px;
+            padding: 40px;
             width: 100%;
             max-width: 400px;
         }
@@ -34,7 +34,8 @@
             text-align: center;
             color: #333;
             margin-bottom: 30px;
-            font-size: 24px;
+            font-size: 28px;
+            font-weight: 600;
         }
 
         .form-group {
@@ -44,13 +45,13 @@
         label {
             display: block;
             margin-bottom: 8px;
+            font-weight: 500;
             color: #555;
-            font-weight: 600;
         }
 
         input[type="number"] {
             width: 100%;
-            padding: 12px;
+            padding: 12px 15px;
             border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 16px;
@@ -60,22 +61,27 @@
         input[type="number"]:focus {
             outline: none;
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        input[type="number"].error {
+        input.error {
             border-color: #e74c3c;
         }
 
         .error-message {
             color: #e74c3c;
-            font-size: 12px;
+            font-size: 14px;
             margin-top: 5px;
             display: none;
         }
 
+        .error-message.show {
+            display: block;
+        }
+
         button {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
@@ -95,34 +101,27 @@
         }
 
         .result-container {
-            margin-top: 25px;
+            margin-top: 30px;
             padding: 20px;
             background: #f8f9fa;
             border-radius: 8px;
             text-align: center;
-            display: none;
         }
 
         .result-label {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 10px;
         }
 
         .result-value {
             font-size: 24px;
-            font-weight: bold;
-            color: #333;
+            font-weight: 700;
+            color: #667eea;
         }
 
-        @media (max-width: 480px) {
-            .calculator-container {
-                padding: 20px;
-            }
-            
-            h1 {
-                font-size: 20px;
-            }
+        .hidden {
+            display: none;
         }
     </style>
 </head>
@@ -130,86 +129,111 @@
     <div class="calculator-container">
         <h1>Number Addition Calculator</h1>
         
-        <form id="additionForm">
+        <form id="addition-form">
             <div class="form-group">
                 <label for="number1">First Number:</label>
                 <input type="number" id="number1" placeholder="Enter first number" step="any" required>
-                <div class="error-message" id="error1">Please enter a valid number</div>
+                <div class="error-message" id="error-number1">Please enter a valid number</div>
             </div>
             
             <div class="form-group">
                 <label for="number2">Second Number:</label>
                 <input type="number" id="number2" placeholder="Enter second number" step="any" required>
-                <div class="error-message" id="error2">Please enter a valid number</div>
+                <div class="error-message" id="error-number2">Please enter a valid number</div>
             </div>
             
-            <button type="submit">Add Numbers</button>
+            <button type="submit">Calculate Sum</button>
         </form>
         
-        <div class="result-container" id="resultContainer">
+        <div class="result-container" id="result-container">
             <div class="result-label">Result:</div>
-            <div class="result-value" id="resultValue">0</div>
+            <div class="result-value" id="result-value">0</div>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('additionForm');
-            const resultContainer = document.getElementById('resultContainer');
-            const resultValue = document.getElementById('resultValue');
-            const error1 = document.getElementById('error1');
-            const error2 = document.getElementById('error2');
-            const input1 = document.getElementById('number1');
-            const input2 = document.getElementById('number2');
-
-            // Input validation function
-            function validateInput(input, errorElement) {
-                const value = input.value.trim();
-                
-                if (value === '' || isNaN(parseFloat(value))) {
-                    input.classList.add('error');
-                    errorElement.style.display = 'block';
-                    return false;
-                } else {
-                    input.classList.remove('error');
-                    errorElement.style.display = 'none';
-                    return true;
-                }
-            }
-
-            // Real-time validation
-            input1.addEventListener('input', () => validateInput(input1, error1));
-            input2.addEventListener('input', () => validateInput(input2, error2));
-
-            // Form submission handler
+            const form = document.getElementById('addition-form');
+            const resultContainer = document.getElementById('result-container');
+            const resultValue = document.getElementById('result-value');
+            
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
-                // Validate both inputs
-                const isValid1 = validateInput(input1, error1);
-                const isValid2 = validateInput(input2, error2);
+                // Reset previous errors
+                resetErrors();
                 
-                if (isValid1 && isValid2) {
-                    // Get input values and perform addition
-                    const num1 = parseFloat(input1.value);
-                    const num2 = parseFloat(input2.value);
-                    const sum = num1 + num2;
-                    
-                    // Display result
-                    resultValue.textContent = sum.toLocaleString();
-                    resultContainer.style.display = 'block';
+                // Get input values
+                const number1Input = document.getElementById('number1');
+                const number2Input = document.getElementById('number2');
+                
+                const number1 = number1Input.value.trim();
+                const number2 = number2Input.value.trim();
+                
+                let isValid = true;
+                
+                // Validate inputs
+                if (!isValidNumber(number1)) {
+                    showError('number1', 'Please enter a valid number');
+                    isValid = false;
+                }
+                
+                if (!isValidNumber(number2)) {
+                    showError('number2', 'Please enter a valid number');
+                    isValid = false;
+                }
+                
+                if (!isValid) {
+                    return;
+                }
+                
+                // Perform addition
+                const sum = parseFloat(number1) + parseFloat(number2);
+                
+                // Display result
+                resultValue.textContent = sum;
+                resultContainer.classList.remove('hidden');
+            });
+            
+            function isValidNumber(value) {
+                return value !== '' && !isNaN(parseFloat(value)) && isFinite(value);
+            }
+            
+            function showError(fieldId, message) {
+                const input = document.getElementById(fieldId);
+                const errorDiv = document.getElementById('error-' + fieldId);
+                
+                input.classList.add('error');
+                errorDiv.textContent = message;
+                errorDiv.classList.add('show');
+            }
+            
+            function resetErrors() {
+                const errorMessages = document.querySelectorAll('.error-message');
+                const inputs = document.querySelectorAll('input');
+                
+                errorMessages.forEach(error => {
+                    error.classList.remove('show');
+                });
+                
+                inputs.forEach(input => {
+                    input.classList.remove('error');
+                });
+            }
+            
+            // Add real-time validation on input change
+            document.getElementById('number1').addEventListener('input', function() {
+                if (isValidNumber(this.value)) {
+                    this.classList.remove('error');
+                    document.getElementById('error-number1').classList.remove('show');
                 }
             });
-
-            // Clear validation on input focus
-            input1.addEventListener('focus', () => {
-                input1.classList.remove('error');
-                error1.style.display = 'none';
-            });
-
-            input2.addEventListener('focus', () => {
-                input2.classList.remove('error');
-                error2.style.display = 'none';
+            
+            document.getElementById('number2').addEventListener('input', function() {
+                if (isValidNumber(this.value)) {
+                    this.classList.remove('error');
+                    document.getElementById('error-number2').classList.remove('show');
+                }
             });
         });
     </script>

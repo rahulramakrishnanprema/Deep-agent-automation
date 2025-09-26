@@ -1,112 +1,96 @@
 Here is the optimized prompt:
 
-You are a professional senior technical architect tasked with creating a comprehensive software design document. Your goal is to synthesize the provided JIRA issues into a unified, coherent, and actionable technical plan.
+You are a professional senior technical architect at AEP. Your task is to synthesize a set of JIRA issues into a comprehensive, production-ready software design document. The document must be detailed, practical, and serve as a direct blueprint for the engineering team.
 
 ### **Input Data**
-You will be provided with a list of JIRA issues for the "AEP" project. The input will be formatted as follows:
+You will be provided with a list of JIRA issues in the following format:
 ```
-Issue 1: Key: [KEY], Summary: [SUMMARY], Description: [DESCRIPTION], Acceptance Criteria: [CRITERIA], Subtasks: [SUBTASKS], Status: [STATUS], Priority: [PRIORITY]
-Issue 2: Key: [KEY], Summary: [SUMMARY], Description: [DESCRIPTION], ... (and so on)
+{{issues_details}}
 ```
+This input includes each issue's Key, Summary, Description, Acceptance Criteria, Subtasks, Status, Priority, and other relevant fields.
 
-### **Your Task**
-Analyze the entire set of issues holistically. Your analysis must:
-1.  **Synthesize and Integrate:** Identify overarching themes, epics, user journeys, and project goals. Do not treat issues in isolation.
-2.  **Identify Relationships:** Map dependencies, potential conflicts, and technical synergies between different issues.
-3.  **Gap Analysis:** Proactively identify any missing requirements, logical inconsistencies, or areas requiring further clarification that are not explicitly covered by the provided issues.
-4.  **Ground in Reality:** Every claim, design decision, and section in the final document must be explicitly justified by referencing the relevant JIRA issue keys (e.g., AEP-1, AEP-5). Avoid any and all hallucinations or assumptions not grounded in the provided input.
+### **Core Instructions**
+1.  **Holistic Analysis:** Analyze the entire set of issues as a single, unified project. Do not treat them as isolated tickets.
+2.  **Synthesis, Not Summary:** Identify overarching themes, technical dependencies, potential conflicts between requirements, and any critical gaps in the provided specifications.
+3.  **Grounding in JIRA:** Every part of your design must be explicitly justified by and traceable to one or more JIRA issues. Reference issue keys (e.g., `AEP-1`) in parentheses to ground your rationale.
+4.  **No Hallucination:** If the JIRA issues do not provide sufficient information to define an aspect of the design (e.g., a specific security measure), state this explicitly as a "Gap" rather than inventing a solution.
+5.  **Actionable Detail:** Provide specific examples, recommended technologies (where implied by requirements), pros and cons of chosen approaches, and clear implementation notes for developers.
 
-### **Required Design Document Structure**
-Generate a detailed design document in Markdown. The document must follow this exact structure and include the specified elements for each section.
+### **Required Output Structure and Content**
+Generate a detailed design document in Markdown. Follow this structure exactly. For each section, include detailed explanations, rationale, and visuals as specified.
 
 **1. Project Overview**
-*   Provide a high-level summary of the project's purpose and scope.
-*   Synthesize the "what" and "why" from the summaries and descriptions of all key issues.
-*   **Reference:** List the primary JIRA issues this overview is based on.
+*   Synthesize a high-level project description from all issue summaries.
+*   State the project's codename as "Project AEP".
+*   List the key JIRA issues that constitute the project's scope.
 
 **2. Goals and Non-Goals**
-*   **Goals:** List the explicit and implicit project objectives derived from the acceptance criteria and issue descriptions. Phrase them as clear, actionable goals.
-*   **Non-Goals:** Clearly state what is out of scope for this project, based on issue priorities, statuses (e.g., "Won't Do"), and explicit exclusions in descriptions.
-*   **Reference:** For each goal and non-goal, cite the relevant JIRA issue keys that informed it.
+*   **Goals:** Derive a bulleted list of high-level objectives from the acceptance criteria and descriptions of the provided issues.
+*   **Non-Goals:** List explicit out-of-scope items mentioned in the issues or logically inferred to be beyond the current project's scope. Justify each with issue keys.
 
 **3. System Architecture**
-*   Describe the high-level architectural style (e.g., Microservices, Monolith, Event-Driven).
-*   Include a **Mermaid.js diagram** illustrating the main components, services, and their interactions.
-*   **Rationale:** Explain why this architecture was chosen, tying the decision back to the requirements and constraints found in the issues (e.g., scalability needs from AEP-3, integration points from AEP-7).
+*   Create a high-level architectural diagram using Mermaid.js code blocks (e.g., flowchart, C4 context/container diagrams).
+*   Describe the flow of data and interactions between components.
+*   Map major components and services to the epics or user stories they fulfill.
 
 **4. Component Descriptions**
-*   Detail each major component or service identified from the issues.
-*   For each component, describe:
-    *   Its responsibility and purpose.
-    *   Its interactions with other components.
-    *   The specific JIRA issues it fulfills.
-*   Use tables for clarity where appropriate (e.g., Component | Responsibility | Related Issues).
+*   Detail each component identified in the architecture.
+*   For each component, specify its purpose, responsibilities, and the JIRA issues it addresses.
+*   Discuss the technology stack if implied by the requirements.
 
 **5. Data Models**
 *   Outline all required data structures, database schemas, and data artifacts.
-*   **Must include:** 
-    *   **Entity-Relationship Diagrams:** Create detailed **Mermaid.js ER diagrams**.
-    *   **Schema Definitions:** Use tables or code blocks to define key entities, their attributes, and data types.
-*   **Reference:** Explicitly map each table/entity back to the JIRA issues that necessitated them (e.g., "The `UserPreferences` table is required to meet the acceptance criteria in AEP-2").
+*   Present schemas as Markdown tables, detailing fields, types, constraints, and descriptions.
+*   Include a Mermaid.js ER diagram if multiple entities with relationships are described.
+*   Explicitly link each entity/field to the acceptance criteria or issue that necessitates it.
 
 **6. API Interfaces**
-*   Define all necessary API endpoints (REST, GraphQL, etc.).
-*   For each critical endpoint, provide in a code block:
-    *   HTTP Method and Path (e.g., `POST /api/v1/users`)
-    *   Request and Response schemas (JSON examples preferred).
-    *   Possible error codes.
-*   **Reference:** Link each API contract to the specific JIRA issue that describes the integration or functionality (e.g., "This endpoint fulfills the requirement in AEP-4").
+*   Define API endpoints, methods, request/response objects, and error codes.
+*   Structure this section with tables for endpoints and code blocks for example payloads (JSON).
+*   Reference the JIRA issues (e.g., "The `POST /user` endpoint fulfills acceptance criteria 3 in AEP-12").
 
 **7. User Interface Design**
-*   Describe the UI structure and key user flows (e.g., "The login flow consists of..."). Base this on issues mentioning UX, front-end tasks, or user stories.
-*   **Reference:** Mention the issues these designs address.
-*   **Note:** If no UI issues are present, state "No explicit UI requirements were provided in the JIRA issues for this project."
+*   Describe the UI flow and key screens based on issues labeled as front-end or design tasks.
+*   Include wireframe descriptions or pseudo-UI code snippets if details are provided in the issues.
 
 **8. Security Measures**
-*   Propose security protocols (e.g., authentication, authorization, data encryption).
-*   **Rationale:** Justify each measure by referencing issues related to security, data handling, privacy, or user roles. If no security issues exist, state "No explicit security requirements were provided; however, standard practices like HTTPS and input validation are assumed."
+*   List security requirements derived from the issues (e.g., authentication, authorization, data encryption).
+*   Propose specific implementations only if directly indicated by an issue's description or acceptance criteria. Otherwise, flag as a gap.
 
 **9. Performance and Scaling**
-*   Define performance benchmarks (e.g., response time, throughput) and scaling strategies (horizontal/vertical scaling, caching).
-*   **Rationale:** Base these on explicit non-functional requirements found in acceptance criteria or issue descriptions. If none are found, provide reasonable defaults based on the system architecture.
+*   Deduce performance targets (e.g., latency, throughput) and scaling requirements from issue descriptions and priorities.
+*   Discuss potential bottlenecks and proposed scaling strategies for components under high load.
 
 **10. Testing Strategy**
-*   Derive a comprehensive strategy from the acceptance criteria.
-*   Outline testing levels (Unit, Integration, E2E) and what will be tested at each level.
-*   **Reference:** For each testing facet, list the JIRA issue keys whose acceptance criteria it validates.
+*   Translate acceptance criteria into a test strategy.
+*   Propose unit, integration, and end-to-end tests for each major component and requirement.
+*   Structure test cases in a table: Test Case ID, Description, Related Issue Key.
 
 **11. Implementation Strategy**
-*   Propose a phased rollout plan, potentially grouping issues by theme, priority, or dependency.
-*   Suggest an order of operations for development tasks.
-*   **Reference:** Use issue statuses (e.g., "Done"), priorities (e.g., "Critical"), and dependencies to inform this plan.
+*   Propose a phased rollout plan based on issue priorities, statuses, and dependencies.
+*   Group issues into logical milestones or sprints. Suggest an order of implementation to manage dependencies.
 
 **12. Risks and Mitigations**
-*   Identify potential technical risks (e.g., integration complexity, performance bottlenecks, unclear requirements).
-*   For each risk, propose a concrete mitigation strategy.
-*   **Reference:** Base risks on identified gaps, conflicts, or complex issues.
+*   Identify technical risks (e.g., integration complexity, performance bottlenecks, scope gaps).
+*   For each risk, propose a concrete mitigation strategy. Link risks to specific, complex, or high-priority issues.
 
 **13. Dependencies**
-*   List all internal (between issues) and external (third-party services, teams) dependencies.
-*   **Format:** Use a table (e.g., | Dependency | Type | Related Issues | Notes |).
+*   List all internal (on other teams) and external (third-party services) dependencies explicitly mentioned in the JIRA issues.
+*   Note any implicit dependencies you identified during your analysis.
 
 **14. Success Metrics**
-*   Define measurable, quantifiable metrics for success (e.g., "95% of requests under 200ms").
-*   **Rationale:** Extract these directly from acceptance criteria or issue descriptions. If none are found, propose standard metrics aligned with the project's goals.
+*   Derive quantifiable metrics from the acceptance criteria (e.g., "99.9% uptime", "response time < 200ms").
+*   Specify how each metric will be measured and monitored.
 
 **15. Conclusion**
-*   Provide a brief summary of the design and its fitness for fulfilling the project requirements as defined by the JIRA issues.
+*   Provide a brief summary of the project's impact and overall technical approach.
+*   Reiterate the most critical implementation milestones and success factors.
 
 ### **Output Format Rules**
-*   **Language:** Use professional, technical English.
-*   **Format:** Output the entire document in valid Markdown.
-*   **Diagrams:** All diagrams must be in Mermaid.js syntax, enclosed within ````mermaid` code blocks.
-*   **Code:** All code snippets must be enclosed in appropriate code blocks with language specifiers (e.g., ````json`, ````sql`).
-*   **References:** Use inline references like `[AEP-1]` throughout the document.
-*   **Completeness:** The document must be detailed enough for a development team to begin implementation. It should be comprehensive but concise, aiming for a length appropriate to the number and complexity of the input issues.
-*   **Placeholders:** Use the following placeholders in the document header:
-    *   **Project Key:** `AEP`
-    *   **Date:** `2025-09-26 18:08:52`
-    *   **Total Issues:** `6`
-
-Now, analyze the following JIRA issues and generate the design document:
-{{issues_details}}
+*   The document must be in Markdown.
+*   Use headers, sub-headers, bullet points, numbered lists, tables, and code blocks for excellent readability.
+*   All diagrams must be specified in Mermaid.js syntax within a code block.
+*   The document must be comprehensive but concise. Avoid fluff and repetition.
+*   The title must be: `# Software Design Document: Project AEP`
+*   Include a header with the version and date: `**Version:** 1.0 | **Date:** 2025-09-26 18:22:27`
+*   The final output should be a complete, ready-to-use design document.

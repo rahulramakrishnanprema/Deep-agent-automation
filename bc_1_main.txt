@@ -1,1 +1,206 @@
-Error calling LLM: 429 Client Error: Too Many Requests for url: https://openrouter.ai/api/v1/chat/completions
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Addition Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .calculator-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .error-message {
+            color: #d32f2f;
+            font-size: 14px;
+            margin-top: 5px;
+            min-height: 20px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .result-container {
+            background-color: #e8f5e9;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        
+        .result-label {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        
+        .result-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2e7d32;
+        }
+        
+        .input-error {
+            border-color: #d32f2f;
+            background-color: #ffebee;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <h1>Number Addition Calculator</h1>
+        
+        <form id="additionForm">
+            <div class="input-group">
+                <label for="number1">First Number:</label>
+                <input type="number" id="number1" placeholder="Enter first number" step="any">
+                <div class="error-message" id="error1"></div>
+            </div>
+            
+            <div class="input-group">
+                <label for="number2">Second Number:</label>
+                <input type="number" id="number2" placeholder="Enter second number" step="any">
+                <div class="error-message" id="error2"></div>
+            </div>
+            
+            <button type="button" id="calculateBtn">Calculate Sum</button>
+        </form>
+        
+        <div class="result-container">
+            <div class="result-label">Result:</div>
+            <div class="result-value" id="result">0</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const number1Input = document.getElementById('number1');
+            const number2Input = document.getElementById('number2');
+            const error1Div = document.getElementById('error1');
+            const error2Div = document.getElementById('error2');
+            const calculateBtn = document.getElementById('calculateBtn');
+            const resultDiv = document.getElementById('result');
+            
+            // Function to validate input
+            function validateInput(inputElement, errorElement) {
+                const value = inputElement.value.trim();
+                
+                // Clear previous error
+                errorElement.textContent = '';
+                inputElement.classList.remove('input-error');
+                
+                // Check if empty
+                if (value === '') {
+                    errorElement.textContent = 'Please enter a number';
+                    inputElement.classList.add('input-error');
+                    return false;
+                }
+                
+                // Check if valid number
+                if (isNaN(parseFloat(value))) {
+                    errorElement.textContent = 'Please enter a valid number';
+                    inputElement.classList.add('input-error');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // Function to add two numbers
+            function addNumbers(num1, num2) {
+                return parseFloat(num1) + parseFloat(num2);
+            }
+            
+            // Function to update result display
+            function updateResult(result) {
+                resultDiv.textContent = result;
+            }
+            
+            // Event listeners for input validation
+            number1Input.addEventListener('blur', function() {
+                validateInput(number1Input, error1Div);
+            });
+            
+            number2Input.addEventListener('blur', function() {
+                validateInput(number2Input, error2Div);
+            });
+            
+            // Calculate button click event
+            calculateBtn.addEventListener('click', function() {
+                // Validate both inputs
+                const isValid1 = validateInput(number1Input, error1Div);
+                const isValid2 = validateInput(number2Input, error2Div);
+                
+                if (isValid1 && isValid2) {
+                    // Perform addition
+                    const sum = addNumbers(number1Input.value, number2Input.value);
+                    
+                    // Update result display
+                    updateResult(sum);
+                }
+            });
+            
+            // Allow Enter key to trigger calculation
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    calculateBtn.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

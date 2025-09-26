@@ -1,1 +1,259 @@
-Error calling LLM: Response ended prematurely
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subtraction Calculator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .calculator-container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .buttons-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .calculate-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .calculate-btn:hover {
+            background-color: #45a049;
+        }
+
+        .reset-btn {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .reset-btn:hover {
+            background-color: #da190b;
+        }
+
+        .result-container {
+            background-color: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .result-label {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        #result {
+            font-size: 18px;
+            color: #333;
+            min-height: 24px;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 5px;
+            min-height: 20px;
+        }
+
+        @media (max-width: 480px) {
+            .calculator-container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+            
+            input[type="number"], button {
+                padding: 10px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <h1>Subtraction Calculator</h1>
+        
+        <form id="subtractionForm">
+            <div class="form-group">
+                <label for="number1">First Number:</label>
+                <input type="number" id="number1" step="any" placeholder="Enter first number" required>
+                <div id="error1" class="error-message"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="number2">Second Number:</label>
+                <input type="number" id="number2" step="any" placeholder="Enter second number" required>
+                <div id="error2" class="error-message"></div>
+            </div>
+            
+            <div class="buttons-container">
+                <button type="button" id="calculateBtn" class="calculate-btn">Calculate</button>
+                <button type="button" id="resetBtn" class="reset-btn">Reset</button>
+            </div>
+        </form>
+        
+        <div class="result-container">
+            <div class="result-label">Result:</div>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('subtractionForm');
+            const number1Input = document.getElementById('number1');
+            const number2Input = document.getElementById('number2');
+            const calculateBtn = document.getElementById('calculateBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const resultDisplay = document.getElementById('result');
+            const error1Display = document.getElementById('error1');
+            const error2Display = document.getElementById('error2');
+
+            function validateInputs() {
+                let isValid = true;
+                
+                // Clear previous errors
+                error1Display.textContent = '';
+                error2Display.textContent = '';
+                
+                // Validate first number
+                if (number1Input.value === '') {
+                    error1Display.textContent = 'Please enter the first number';
+                    isValid = false;
+                } else if (isNaN(parseFloat(number1Input.value))) {
+                    error1Display.textContent = 'Please enter a valid number';
+                    isValid = false;
+                }
+                
+                // Validate second number
+                if (number2Input.value === '') {
+                    error2Display.textContent = 'Please enter the second number';
+                    isValid = false;
+                } else if (isNaN(parseFloat(number2Input.value))) {
+                    error2Display.textContent = 'Please enter a valid number';
+                    isValid = false;
+                }
+                
+                return isValid;
+            }
+
+            function performSubtraction() {
+                if (validateInputs()) {
+                    const num1 = parseFloat(number1Input.value);
+                    const num2 = parseFloat(number2Input.value);
+                    const result = num1 - num2;
+                    
+                    resultDisplay.textContent = `${num1} - ${num2} = ${result}`;
+                    resultDisplay.style.color = '#333';
+                } else {
+                    resultDisplay.textContent = 'Calculation failed. Please fix the errors above.';
+                    resultDisplay.style.color = '#dc3545';
+                }
+            }
+
+            function resetForm() {
+                form.reset();
+                error1Display.textContent = '';
+                error2Display.textContent = '';
+                resultDisplay.textContent = '';
+            }
+
+            // Event listeners
+            calculateBtn.addEventListener('click', performSubtraction);
+            
+            resetBtn.addEventListener('click', resetForm);
+            
+            // Allow Enter key to trigger calculation
+            form.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    performSubtraction();
+                }
+            });
+            
+            // Real-time validation on input change
+            number1Input.addEventListener('input', function() {
+                if (number1Input.value !== '' && !isNaN(parseFloat(number1Input.value))) {
+                    error1Display.textContent = '';
+                }
+            });
+            
+            number2Input.addEventListener('input', function() {
+                if (number2Input.value !== '' && !isNaN(parseFloat(number2Input.value))) {
+                    error2Display.textContent = '';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+// Simple Addition Calculator Web Application
+// This script handles the addition calculation functionality and input validation
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Get DOM elements
+    const form = document.getElementById('additionForm');
+    const num1Input = document.getElementById('number1');
+    const num2Input = document.getElementById('number2');
+    const resultDisplay = document.getElementById('result');
+    const errorDisplay = document.getElementById('error');
+
+    // Form submission handler
+    form.addEventListener('submit', function(event) {
+        event.preventDefault(); // Prevent form submission
+        
+        // Clear previous errors
+        errorDisplay.textContent = '';
+        errorDisplay.style.display = 'none';
+        
+        // Get input values
+        const num1Value = num1Input.value.trim();
+        const num2Value = num2Input.value.trim();
+        
+        // Validate inputs
+        if (!validateInput(num1Value, num2Value)) {
+            return;
+        }
+        
+        // Perform addition calculation
+        const result = parseFloat(num1Value) + parseFloat(num2Value);
+        
+        // Display result
+        resultDisplay.textContent = `Result: ${result}`;
+        resultDisplay.style.display = 'block';
+    });
+
+    // Input validation function
+    function validateInput(num1, num2) {
+        // Check for empty inputs
+        if (num1 === '' || num2 === '') {
+            showError('Please enter both numbers');
+            return false;
+        }
+        
+        // Check for non-numeric values
+        if (isNaN(num1) || isNaN(num2)) {
+            showError('Please enter valid numbers only');
+            return false;
+        }
+        
+        return true;
+    }
+
+    // Error display function
+    function showError(message) {
+        errorDisplay.textContent = message;
+        errorDisplay.style.display = 'block';
+        resultDisplay.style.display = 'none';
+    }
+
+    // Input field change handlers for real-time validation
+    num1Input.addEventListener('input', function() {
+        clearErrors();
+    });
+
+    num2Input.addEventListener('input', function() {
+        clearErrors();
+    });
+
+    function clearErrors() {
+        errorDisplay.textContent = '';
+        errorDisplay.style.display = 'none';
+    }
+});

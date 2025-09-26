@@ -1,0 +1,342 @@
+{
+  "schema_version": "1.0",
+  "description": "PostgreSQL database schema configuration for AEP user management and training system",
+  "created_date": "2025-09-26T16:57:50Z",
+  "status": "draft",
+  "database": {
+    "name": "aep_database",
+    "type": "postgresql",
+    "version": "14.0",
+    "connection": {
+      "environment_variable": "DB_URL",
+      "default_value": "postgresql://user:password@localhost:5432/aep_database",
+      "validation_pattern": "^postgresql://[^:]+:[^@]+@[^:]+:[0-9]+/[^/]+$"
+    }
+  },
+  "tables": {
+    "users": {
+      "description": "Stores user information and their role associations",
+      "fields": [
+        {
+          "name": "id",
+          "type": "serial",
+          "primary_key": true,
+          "nullable": false,
+          "constraints": ["PRIMARY KEY"],
+          "description": "Unique identifier for each user"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)",
+          "nullable": false,
+          "description": "Full name of the user"
+        },
+        {
+          "name": "email",
+          "type": "varchar(255)",
+          "nullable": false,
+          "unique": true,
+          "constraints": ["UNIQUE"],
+          "description": "Email address of the user (must be unique)"
+        },
+        {
+          "name": "role_id",
+          "type": "integer",
+          "nullable": false,
+          "foreign_key": {
+            "table": "roles",
+            "field": "id",
+            "on_delete": "RESTRICT",
+            "on_update": "CASCADE"
+          },
+          "description": "Reference to the user's role in the roles table"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Timestamp when the user record was created"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Timestamp when the user record was last updated"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_users_email",
+          "fields": ["email"],
+          "unique": true,
+          "description": "Index for fast email lookup and uniqueness enforcement"
+        },
+        {
+          "name": "idx_users_role_id",
+          "fields": ["role_id"],
+          "description": "Index for foreign key relationship performance"
+        }
+      ]
+    },
+    "roles": {
+      "description": "Defines user roles and their descriptions",
+      "fields": [
+        {
+          "name": "id",
+          "type": "serial",
+          "primary_key": true,
+          "nullable": false,
+          "constraints": ["PRIMARY KEY"],
+          "description": "Unique identifier for each role"
+        },
+        {
+          "name": "name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "unique": true,
+          "constraints": ["UNIQUE"],
+          "description": "Name of the role (e.g., Admin, User, Manager)"
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true,
+          "description": "Detailed description of the role's permissions and responsibilities"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Timestamp when the role was created"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_roles_name",
+          "fields": ["name"],
+          "unique": true,
+          "description": "Index for fast role name lookup"
+        }
+      ]
+    },
+    "training_needs": {
+      "description": "Tracks training requirements and priorities for users",
+      "fields": [
+        {
+          "name": "id",
+          "type": "serial",
+          "primary_key": true,
+          "nullable": false,
+          "constraints": ["PRIMARY KEY"],
+          "description": "Unique identifier for each training need"
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "nullable": false,
+          "foreign_key": {
+            "table": "users",
+            "field": "id",
+            "on_delete": "CASCADE",
+            "on_update": "CASCADE"
+          },
+          "description": "Reference to the user who has this training need"
+        },
+        {
+          "name": "skill",
+          "type": "varchar(255)",
+          "nullable": false,
+          "description": "The specific skill or competency required"
+        },
+        {
+          "name": "priority",
+          "type": "varchar(50)",
+          "nullable": false,
+          "default": "Medium",
+          "check_constraint": "priority IN ('Low', 'Medium', 'High', 'Critical')",
+          "description": "Priority level of the training need"
+        },
+        {
+          "name": "status",
+          "type": "varchar(50)",
+          "nullable": false,
+          "default": "Pending",
+          "check_constraint": "status IN ('Pending', 'In Progress', 'Completed', 'Cancelled')",
+          "description": "Current status of the training need"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Timestamp when the training need was identified"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Timestamp when the training need was last updated"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_training_needs_user_id",
+          "fields": ["user_id"],
+          "description": "Index for foreign key relationship performance"
+        },
+        {
+          "name": "idx_training_needs_priority",
+          "fields": ["priority"],
+          "description": "Index for filtering by priority level"
+        },
+        {
+          "name": "idx_training_needs_status",
+          "fields": ["status"],
+          "description": "Index for filtering by status"
+        }
+      ]
+    },
+    "courses": {
+      "description": "Catalog of available training courses",
+      "fields": [
+        {
+          "name": "id",
+          "type": "serial",
+          "primary_key": true,
+          "nullable": false,
+          "constraints": ["PRIMARY KEY"],
+          "description": "Unique identifier for each course"
+        },
+        {
+          "name": "title",
+          "type": "varchar(255)",
+          "nullable": false,
+          "description": "Title of the course"
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true,
+          "description": "Detailed description of the course content and objectives"
+        },
+        {
+          "name": "duration",
+          "type": "integer",
+          "nullable": false,
+          "description": "Duration of the course in hours"
+        },
+        {
+          "name": "category",
+          "type": "varchar(100)",
+          "nullable": true,
+          "description": "Category or domain of the course"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": false,
+          "default": true,
+          "description": "Indicates if the course is currently available"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Timestamp when the course was created"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "default": "CURRENT_TIMESTAMP",
+          "description": "Timestamp when the course was last updated"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_courses_title",
+          "fields": ["title"],
+          "description": "Index for course title search and filtering"
+        },
+        {
+          "name": "idx_courses_category",
+          "fields": ["category"],
+          "description": "Index for filtering by course category"
+        },
+        {
+          "name": "idx_courses_is_active",
+          "fields": ["is_active"],
+          "description": "Index for filtering active/inactive courses"
+        }
+      ]
+    }
+  },
+  "relationships": [
+    {
+      "name": "users_role_fk",
+      "type": "foreign_key",
+      "from_table": "users",
+      "from_field": "role_id",
+      "to_table": "roles",
+      "to_field": "id",
+      "on_delete": "RESTRICT",
+      "on_update": "CASCADE",
+      "description": "Links users to their assigned roles"
+    },
+    {
+      "name": "training_needs_user_fk",
+      "type": "foreign_key",
+      "from_table": "training_needs",
+      "from_field": "user_id",
+      "to_table": "users",
+      "to_field": "id",
+      "on_delete": "CASCADE",
+      "on_update": "CASCADE",
+      "description": "Links training needs to specific users"
+    }
+  ],
+  "migration_framework": {
+    "name": "Alembic",
+    "version": "1.12.0",
+    "configuration": {
+      "script_location": "./migrations",
+      "sqlalchemy_url": "${DB_URL}",
+      "file_template": "%%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d%%(second).2d_%%(slug)s"
+    }
+  },
+  "sample_data": {
+    "roles": [
+      {
+        "id": 1,
+        "name": "Administrator",
+        "description": "System administrator with full access rights"
+      },
+      {
+        "id": 2,
+        "name": "Manager",
+        "description": "Department manager with team management capabilities"
+      },
+      {
+        "id": 3,
+        "name": "Employee",
+        "description": "Regular employee with standard access rights"
+      }
+    ],
+    "users": [
+      {
+        "id": 1,
+        "name": "John Smith",
+        "email": "john.smith@example.com",
+        "role_id": 1
+      },
+      {
+        "id": 2,
+        "name": "Jane Doe",
+        "email": "jane.doe@example.com",
+        "role_id": 2
+      },
+      {
+        "id": 3,
+        "name": "Bob Johnson",
+        "email": "bob.johnson@example.com",
+        "role_id": 3
+      
+# Code truncated at 10000 characters

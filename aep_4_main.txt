@@ -1,0 +1,71 @@
+import pandas as pd
+
+def read_data(file_path):
+    """
+    Read raw data from a CSV file.
+    
+    Args:
+    file_path (str): Path to the CSV file
+    
+    Returns:
+    DataFrame: Raw data read from the CSV file
+    """
+    try:
+        data = pd.read_csv(file_path)
+        return data
+    except Exception as e:
+        print(f"Error reading data: {e}")
+        return None
+
+def clean_data(data):
+    """
+    Clean and normalize data by removing duplicates and missing values.
+    
+    Args:
+    data (DataFrame): Raw data to be cleaned
+    
+    Returns:
+    DataFrame: Cleaned data without duplicates and missing values
+    """
+    try:
+        cleaned_data = data.drop_duplicates().dropna()
+        return cleaned_data
+    except Exception as e:
+        print(f"Error cleaning data: {e}")
+        return None
+
+def export_data(cleaned_data, output_file):
+    """
+    Export cleaned data to a new CSV file.
+    
+    Args:
+    cleaned_data (DataFrame): Cleaned data to be exported
+    output_file (str): Path to the output CSV file
+    
+    Returns:
+    bool: True if export is successful, False otherwise
+    """
+    try:
+        cleaned_data.to_csv(output_file, index=False)
+        return True
+    except Exception as e:
+        print(f"Error exporting data: {e}")
+        return False
+
+# Main code execution
+if __name__ == "__main__":
+    file_path = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    raw_data = read_data(file_path)
+    if raw_data is not None:
+        cleaned_data = clean_data(raw_data)
+        if cleaned_data is not None:
+            if export_data(cleaned_data, output_file):
+                print("Data processing and export successful.")
+            else:
+                print("Error exporting cleaned data.")
+        else:
+            print("Error cleaning data.")
+    else:
+        print("Error reading raw data.")

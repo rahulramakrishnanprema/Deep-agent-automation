@@ -1,0 +1,198 @@
+/**
+ * Main application logic for subtraction calculator
+ * @file bc_2_main.js
+ * @version 1.0.0
+ * @description Handles subtraction calculation, input validation, and UI interactions
+ */
+
+// DOM Elements
+const numberInput1 = document.getElementById('numberInput1');
+const numberInput2 = document.getElementById('numberInput2');
+const subtractButton = document.getElementById('subtractButton');
+const resetButton = document.getElementById('resetButton');
+const resultDisplay = document.getElementById('resultDisplay');
+const errorMessage = document.getElementById('errorMessage');
+
+/**
+ * Validates if input is a valid number
+ * @param {string} value - The input value to validate
+ * @returns {boolean} True if valid number, false otherwise
+ */
+function isValidNumber(value) {
+    if (value === '' || value === null || value === undefined) {
+        return false;
+    }
+    
+    // Check if it's a valid number (including decimals and negative numbers)
+    const num = parseFloat(value);
+    return !isNaN(num) && isFinite(num);
+}
+
+/**
+ * Performs subtraction calculation
+ * @param {number} num1 - First number
+ * @param {number} num2 - Second number
+ * @returns {number} The result of subtraction (num1 - num2)
+ * @throws {Error} If inputs are not valid numbers
+ */
+function subtractNumbers(num1, num2) {
+    if (typeof num1 !== 'number' || typeof num2 !== 'number') {
+        throw new Error('Both inputs must be valid numbers');
+    }
+    
+    return num1 - num2;
+}
+
+/**
+ * Displays the calculation result
+ * @param {number} result - The result to display
+ */
+function displayResult(result) {
+    resultDisplay.textContent = `Result: ${result}`;
+    resultDisplay.classList.remove('error');
+    resultDisplay.classList.add('success');
+}
+
+/**
+ * Displays an error message
+ * @param {string} message - The error message to display
+ */
+function displayError(message) {
+    errorMessage.textContent = message;
+    errorMessage.style.display = 'block';
+    resultDisplay.textContent = 'Result: Error';
+    resultDisplay.classList.remove('success');
+    resultDisplay.classList.add('error');
+}
+
+/**
+ * Clears error messages
+ */
+function clearError() {
+    errorMessage.textContent = '';
+    errorMessage.style.display = 'none';
+    resultDisplay.classList.remove('error');
+}
+
+/**
+ * Resets the calculator to initial state
+ */
+function resetCalculator() {
+    numberInput1.value = '';
+    numberInput2.value = '';
+    resultDisplay.textContent = 'Result: ';
+    clearError();
+    resultDisplay.classList.remove('success', 'error');
+}
+
+/**
+ * Handles the subtraction calculation process
+ */
+function handleSubtraction() {
+    try {
+        clearError();
+        
+        const value1 = numberInput1.value.trim();
+        const value2 = numberInput2.value.trim();
+        
+        // Validate inputs
+        if (!isValidNumber(value1) || !isValidNumber(value2)) {
+            displayError('Please enter valid numbers in both fields');
+            return;
+        }
+        
+        // Parse inputs
+        const num1 = parseFloat(value1);
+        const num2 = parseFloat(value2);
+        
+        // Perform calculation
+        const result = subtractNumbers(num1, num2);
+        
+        // Display result
+        displayResult(result);
+        
+    } catch (error) {
+        console.error('Subtraction error:', error);
+        displayError('An error occurred during calculation. Please try again.');
+    }
+}
+
+/**
+ * Validates input in real-time and provides immediate feedback
+ * @param {Event} event - The input event
+ */
+function validateInput(event) {
+    const input = event.target;
+    const value = input.value.trim();
+    
+    if (value === '') {
+        input.classList.remove('invalid', 'valid');
+        clearError();
+        return;
+    }
+    
+    if (!isValidNumber(value)) {
+        input.classList.add('invalid');
+        input.classList.remove('valid');
+        displayError('Please enter a valid number');
+    } else {
+        input.classList.add('valid');
+        input.classList.remove('invalid');
+        clearError();
+    }
+}
+
+/**
+ * Initializes the calculator application
+ */
+function initializeCalculator() {
+    // Add event listeners
+    subtractButton.addEventListener('click', handleSubtraction);
+    resetButton.addEventListener('click', resetCalculator);
+    
+    numberInput1.addEventListener('input', validateInput);
+    numberInput2.addEventListener('input', validateInput);
+    
+    // Allow Enter key to trigger subtraction
+    document.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            handleSubtraction();
+        }
+    });
+    
+    // Initialize state
+    resetCalculator();
+    
+    console.log('Subtraction calculator initialized successfully');
+}
+
+// Error handling for initialization
+try {
+    // Wait for DOM to be fully loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeCalculator);
+    } else {
+        initializeCalculator();
+    }
+} catch (error) {
+    console.error('Failed to initialize calculator:', error);
+    // Fallback error display
+    const errorDiv = document.createElement('div');
+    errorDiv.style.color = 'red';
+    errorDiv.style.padding = '20px';
+    errorDiv.style.textAlign = 'center';
+    errorDiv.textContent = 'Failed to load calculator. Please refresh the page.';
+    document.body.appendChild(errorDiv);
+}
+
+// Export functions for testing (if using module system)
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        isValidNumber,
+        subtractNumbers,
+        displayResult,
+        displayError,
+        resetCalculator,
+        handleSubtraction
+    };
+}

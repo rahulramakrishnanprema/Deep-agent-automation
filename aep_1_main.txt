@@ -1,0 +1,383 @@
+# AEP Database Schema Migration Configuration
+# Version: 1.0
+# Generated: 2025-09-26 16:57:50
+# Status: Draft
+
+# Database Configuration
+database:
+  # PostgreSQL connection configuration
+  # Uses DB_URL environment variable for connection string
+  connection:
+    driver: postgresql
+    host: ${DB_HOST:localhost}
+    port: ${DB_PORT:5432}
+    database: ${DB_NAME:aep_database}
+    username: ${DB_USER:aep_user}
+    password: ${DB_PASSWORD:}
+    url: ${DB_URL:postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}}
+    pool_size: 20
+    max_overflow: 30
+    pool_timeout: 30
+    pool_recycle: 3600
+
+# Alembic Migration Configuration
+alembic:
+  # Migration script locations
+  script_location: migrations
+  # SQLAlchemy URL from environment variable
+  sqlalchemy.url: ${DB_URL}
+  
+  # Logging configuration
+  logging:
+    level: INFO
+    handlers:
+      console:
+        class: logging.StreamHandler
+        level: INFO
+        formatter: generic
+      file:
+        class: logging.FileHandler
+        level: DEBUG
+        formatter: generic
+        filename: alembic.log
+    
+  # Version locations
+  version_locations:
+    - migrations/versions
+  
+  # File template
+  file_template: "%%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d%%(second).2d_%%(rev)s_%%(slug)s"
+  
+  # Timezone configuration
+  timezone: UTC
+
+# Database Schema Definition
+schema:
+  tables:
+    # Users table definition
+    users:
+      name: users
+      columns:
+        - name: id
+          type: integer
+          primary_key: true
+          autoincrement: true
+          nullable: false
+        - name: name
+          type: string(100)
+          nullable: false
+        - name: email
+          type: string(255)
+          nullable: false
+          unique: true
+        - name: role_id
+          type: integer
+          nullable: false
+          foreign_key: roles.id
+      indexes:
+        - name: idx_users_email
+          columns: [email]
+          unique: true
+        - name: idx_users_role_id
+          columns: [role_id]
+    
+    # Roles table definition
+    roles:
+      name: roles
+      columns:
+        - name: id
+          type: integer
+          primary_key: true
+          autoincrement: true
+          nullable: false
+        - name: name
+          type: string(50)
+          nullable: false
+          unique: true
+        - name: description
+          type: text
+          nullable: true
+      indexes:
+        - name: idx_roles_name
+          columns: [name]
+          unique: true
+    
+    # Training needs table definition
+    training_needs:
+      name: training_needs
+      columns:
+        - name: id
+          type: integer
+          primary_key: true
+          autoincrement: true
+          nullable: false
+        - name: user_id
+          type: integer
+          nullable: false
+          foreign_key: users.id
+        - name: skill
+          type: string(200)
+          nullable: false
+        - name: priority
+          type: string(20)
+          nullable: false
+          default: 'medium'
+          check: "priority IN ('low', 'medium', 'high')"
+      indexes:
+        - name: idx_training_needs_user_id
+          columns: [user_id]
+        - name: idx_training_needs_priority
+          columns: [priority]
+    
+    # Courses table definition
+    courses:
+      name: courses
+      columns:
+        - name: id
+          type: integer
+          primary_key: true
+          autoincrement: true
+          nullable: false
+        - name: title
+          type: string(200)
+          nullable: false
+        - name: description
+          type: text
+          nullable: true
+        - name: duration
+          type: integer
+          nullable: false
+          comment: "Duration in hours"
+      indexes:
+        - name: idx_courses_title
+          columns: [title]
+
+# Foreign Key Relationships
+foreign_keys:
+  - table: users
+    columns: [role_id]
+    references: roles(id)
+    on_delete: restrict
+    on_update: cascade
+  
+  - table: training_needs
+    columns: [user_id]
+    references: users(id)
+    on_delete: cascade
+    on_update: cascade
+
+# Sample Data for Testing
+sample_data:
+  roles:
+    - id: 1
+      name: "admin"
+      description: "System administrator with full access"
+    - id: 2
+      name: "manager"
+      description: "Department manager with reporting access"
+    - id: 3
+      name: "employee"
+      description: "Regular employee user"
+  
+  users:
+    - id: 1
+      name: "John Doe"
+      email: "john.doe@example.com"
+      role_id: 1
+    - id: 2
+      name: "Jane Smith"
+      email: "jane.smith@example.com"
+      role_id: 2
+    - id: 3
+      name: "Bob Johnson"
+      email: "bob.johnson@example.com"
+      role_id: 3
+  
+  training_needs:
+    - id: 1
+      user_id: 3
+      skill: "Python Programming"
+      priority: "high"
+    - id: 2
+      user_id: 3
+      skill: "Project Management"
+      priority: "medium"
+    - id: 3
+      user_id: 2
+      skill: "Leadership Skills"
+      priority: "high"
+  
+  courses:
+    - id: 1
+      title: "Python Fundamentals"
+      description: "Introduction to Python programming language"
+      duration: 40
+    - id: 2
+      title: "Advanced Project Management"
+      description: "Advanced techniques for project management"
+      duration: 24
+    - id: 3
+      title: "Leadership Development"
+      description: "Building effective leadership skills"
+      duration: 32
+
+# Validation Queries and Tests
+validation:
+  # Data integrity checks
+  integrity_checks:
+    - name: "users_role_fk_validation"
+      query: "SELECT COUNT(*) FROM users WHERE role_id NOT IN (SELECT id FROM roles)"
+      expected: 0
+      description: "Validate that all users have valid role references"
+    
+    - name: "training_needs_user_fk_validation"
+      query: "SELECT COUNT(*) FROM training_needs WHERE user_id NOT IN (SELECT id FROM users)"
+      expected: 0
+      description: "Validate that all training needs have valid user references"
+    
+    - name: "email_uniqueness_validation"
+      query: "SELECT COUNT(*) FROM (SELECT email, COUNT(*) FROM users GROUP BY email HAVING COUNT(*) > 1) AS duplicates"
+      expected: 0
+      description: "Validate email uniqueness constraint"
+    
+    - name: "role_name_uniqueness_validation"
+      query: "SELECT COUNT(*) FROM (SELECT name, COUNT(*) FROM roles GROUP BY name HAVING COUNT(*) > 1) AS duplicates"
+      expected: 0
+      description: "Validate role name uniqueness constraint"
+  
+  # Sample data validation
+  sample_data_checks:
+    - name: "sample_roles_count"
+      query: "SELECT COUNT(*) FROM roles"
+      expected: 3
+      description: "Validate sample roles data insertion"
+    
+    - name: "sample_users_count"
+      query: "SELECT COUNT(*) FROM users"
+      expected: 3
+      description: "Validate sample users data insertion"
+    
+    - name: "sample_training_needs_count"
+      query: "SELECT COUNT(*) FROM training_needs"
+      expected: 3
+      description: "Validate sample training needs data insertion"
+    
+    - name: "sample_courses_count"
+      query: "SELECT COUNT(*) FROM courses"
+      expected: 3
+      description: "Validate sample courses data insertion"
+
+# Migration Procedures Documentation
+documentation:
+  migration_procedures:
+    - step: "Initialize Alembic"
+      command: "alembic init migrations"
+      description: "Initialize Alembic migration environment"
+    
+    - step: "Configure database URL"
+      command: "Set DB_URL environment variable or update alembic.ini"
+      description: "Configure database connection string"
+    
+    - step: "Generate migration script"
+      command: "alembic revision --autogenerate -m 'initial_schema'"
+      description: "Generate initial migration script based on current models"
+    
+    - step: "Apply migration"
+      command: "alembic upgrade head"
+      description: "Apply the migration to the database"
+    
+    - step: "Verify migration"
+      command: "alembic current"
+      description: "Verify that migration was applied successfully"
+    
+    - step: "Insert sample data"
+      command: "python scripts/insert_sample_data.py"
+      description: "Insert sample data for testing purposes"
+    
+    - step: "Run validation tests"
+      command: "python scripts/run_validation_tests.py"
+      description: "Run data integrity and validation tests"
+
+# Environment Configuration
+environment:
+  variables:
+    - name: DB_URL
+      description: "PostgreSQL database connection URL"
+      example: "postgresql://username:password@localhost:5432/database_name"
+      required: true
+    
+    - name: DB_HOST
+      description: "Database host address"
+      default: "localhost"
+      required: false
+    
+    - name: DB_PORT
+      description: "Database port"
+      default: "5432"
+      required: false
+    
+    - name: DB_NAME
+      description: "Database name"
+      default: "aep_database"
+      required: false
+    
+    - name: DB_USER
+      description: "Database username"
+      default: "aep_user"
+      required: false
+    
+    - name: DB_PASSWORD
+      description: "Database password"
+      required: true
+
+# Logging Configuration
+logging:
+  version: 1
+  formatters:
+    generic:
+      format: "%(asctime)s %(levelname)s %(name)s: %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+  
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
+      formatter: generic
+      stream: ext://sys.stdout
+    
+    file:
+      class: logging.FileHandler
+      level: DEBUG
+      formatter: generic
+      filename: database_migration.log
+      mode: a
+  
+  root:
+    level: INFO
+    handlers: [console, file]
+  
+  loggers:
+    alembic:
+      level: INFO
+      handlers: [console, file]
+      propagate: false
+    
+    sqlalchemy:
+      level: WARNING
+      handlers: [console, file]
+      propagate: false
+
+# Error Handling Configuration
+error_handling:
+  database_connection:
+    retry_attempts: 3
+    retry_delay: 5
+    timeout: 30
+  
+  migration:
+    rollback_on_error: true
+    backup_before_migration: true
+    validate_after_migration: true
+
+# Backup and Recovery Configu
+# Code truncated at 10000 characters

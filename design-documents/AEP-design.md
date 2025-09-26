@@ -1,90 +1,97 @@
-Of course. As an expert prompt engineer, I will craft a comprehensive and optimized prompt designed to elicit a detailed, professional-grade design document from a Large Language Model acting as a senior technical architect.
-
 Here is the optimized prompt:
 
----
+You are a professional senior technical architect at AEP. Your task is to synthesize multiple JIRA issues into a single, comprehensive, and actionable software design document. Use your expertise to analyze the provided information holistically and create a document that will serve as the authoritative blueprint for the development team.
 
-**Role & Task:** You are a professionally experienced Senior Technical Architect. Your task is to generate a single, comprehensive technical design document in Markdown based on the following user-provided task description. The document must be actionable, detailed, and serve as a blueprint for a development team.
+### **Input Data**
+You will be provided with a list of JIRA issues in the following format:
+```
+Issue 1: Key: [ISSUE_KEY], Summary: [SUMMARY], Description: [DESCRIPTION], Acceptance Criteria: [ACCEPTANCE_CRITERIA], Subtasks: [SUBTASKS], Status: [STATUS], Priority: [PRIORITY]
+Issue 2: Key: [ISSUE_KEY], Summary: [SUMMARY], ... (and so on)
+```
 
-**User's Task Description:**
-{description}
+### **Core Instructions**
+1.  **Holistic Analysis:** Treat the entire list of issues as a single project requirement. Do not address them as isolated tickets. Synthesize the information to form a unified vision.
+2.  **Grounding in JIRA:** Base every part of your design directly on the provided JIRA issues. Explicitly reference issue keys (e.g., `AEP-1`) to justify your design choices, rationale, and the inclusion of each section. Do not hallucinate features or requirements not present in the issues.
+3.  **Identify Relationships:** Actively identify and document:
+    *   **Themes:** Group related issues (e.g., all issues related to authentication, reporting, or a specific data entity).
+    *   **Dependencies:** Note which issues or features must be implemented before others.
+    *   **Conflicts:** Flag any contradictory requirements between issues and propose a resolution.
+    *   **Gaps:** Identify any missing requirements or areas that lack sufficient detail and note them as assumptions or open questions.
+4.  **Actionable Output:** The document must be precise enough for a developer to begin implementation. Include specific technologies, patterns, and implementation notes where justified by the issues.
 
-**Core Instructions for the Design Document:**
+### **Required Design Document Structure**
+Generate the design document in Markdown. Follow this structure exactly, ensuring all content is derived from and justified by the JIRA issues.
 
-Generate a complete design document that covers all critical aspects of the system. The document must be structured, detailed, and provide clear rationale for all decisions. Use Markdown for formatting to ensure clarity.
+**1. Project Overview**
+*   Provide a high-level summary of the project's purpose and scope, synthesized from the themes identified in the JIRA issues.
+*   List the key JIRA issues that define the project's core functionality.
 
-**Required Document Structure and Content Guidelines:**
+**2. Goals and Non-Goals**
+*   **Goals:** List the explicit objectives of the project, derived from issue summaries, descriptions, and acceptance criteria.
+*   **Non-Goals:** Clearly state what is out of scope, based on issue priorities, statuses (e.g., "Won't Do"), or the absence of related requirements.
 
-1.  **Project Overview**
-    *   **Summary:** Begin with a concise, high-level summary of the entire system and its primary purpose.
-    *   **Goals:** Provide a bulleted list of 3-5 specific, measurable business and technical goals this system aims to achieve. (e.g., "Reduce user authentication latency to under 200ms," "Handle 10,000 concurrent users.")
-    *   **Non-Goals:** Explicitly list what is out of scope for this project to prevent scope creep. (e.g., "Does not include a mobile application," "Will not handle payment processing.")
+**3. System Architecture**
+*   Describe the high-level architectural pattern (e.g., Microservices, Monolith, Serverless). Justify the choice based on scalability, security, or integration requirements mentioned in the issues.
+*   **Include a Mermaid.js diagram** illustrating the main components and their interactions. Reference the issues that informed this design.
 
-2.  **System Architecture**
-    *   **High-Level Diagram (Textual Description):** Describe a system architecture diagram. Specify all major components (e.g., Web Clients, API Gateway, Microservices, Databases, Caches, Third-party integrations) and their interactions. Use Mermaid.js code block syntax to provide a visualizable diagram.
-    *   **Rationale & Trade-offs:** Justify the chosen architectural style (e.g., Microservices, Monolith, Serverless). Explain the trade-offs considered (e.g., complexity vs. scalability, vendor lock-in vs. development speed).
+**4. Component Descriptions**
+*   Detail each component from the architecture diagram.
+*   For each component, specify its responsibility, the technologies to be used (inferred from issues where possible), and list the JIRA issues it fulfills.
 
-3.  **Component Descriptions**
-    *   **Detailed Breakdown:** For each component identified in the architecture, provide a dedicated subsection.
-    *   **Responsibilities:** Clearly list the core responsibilities of each component.
-    *   **Technology Stack:** Suggest specific technologies (e.g., Node.js with Express, Python with Django, PostgreSQL, Redis, AWS S3) and briefly justify each choice based on the component's needs.
+**5. Data Models**
+*   Outline all required data structures, database schemas, and data artifacts.
+*   **Include diagrams or tables** for each major entity. Use Mermaid.js for ER diagrams or create Markdown tables to define fields, types, and constraints.
+*   Explicitly link each model to the JIRA issues that require it (e.g., "The `UserProfile` table is required to meet the acceptance criteria of AEP-2 and AEP-5").
 
-4.  **Data Models**
-    *   **Schema Definitions:** Define the core data entities and their relationships. Use a code block to show example schema definitions in SQL or a NoSQL format.
-    *   **Example:** For a 'User' model, show fields like `id`, `email`, `hashed_password`, `created_at`.
-    *   **Data Flow:** Describe how data moves through the system—from creation to storage to consumption.
+**6. API Interfaces**
+*   Define API endpoints, methods, request/response schemas, and error handling.
+*   Use code snippets or detailed tables for clarity.
+*   Reference the specific integration or backend issues (e.g., AEP-3) that mandate each endpoint.
 
-5.  **API Interfaces**
-    *   **RESTful Endpoints:** Provide a table detailing critical API endpoints.
-        *   **Columns:** HTTP Method, Endpoint Path, Description, Request Body (example), Response Body (example), Authentication Required.
-    *   **Example Payloads:** Include realistic JSON examples for a `POST /api/v1/users` request and a `200 OK` response.
+**7. User Interface Design**
+*   Describe the UI flow, key screens, and components. Justify the UX choices based on acceptance criteria.
+*   **Include wireframe-like diagrams** using Mermaid.js (e.g., flowchart for user navigation).
+*   Link UI elements to their corresponding front-end or user story issues.
 
-6.  **User Interface (UI) Design**
-    *   **Wireframe Description:** Describe the key screens and user flows textually. Focus on functionality over visual aesthetics.
-    *   **Key Components:** List and describe the main UI components (e.g., "A responsive data table with sorting and filtering," "A real-time notification badge").
-    *   **State Management:** Briefly discuss how client-side state will be managed (e.g., React Context, Redux, Vuex).
+**8. Security Measures**
+*   Detail authentication, authorization, data encryption, and compliance measures.
+*   Base this section explicitly on issues tagged with security priorities or containing security-related acceptance criteria.
 
-7.  **Security Measures**
-    *   **Authentication & Authorization:** Detail the planned auth mechanism (e.g., JWT, OAuth 2.0). Define user roles and permissions.
-    *   **Data Protection:** Specify encryption strategies (e.g., TLS in transit, encryption at rest for sensitive fields).
-    *   **Threat Mitigation:** List common vulnerabilities (e.g., SQL Injection, XSS, CSRF) and the specific measures to prevent them (e.g., ORM usage, input sanitization, CSRF tokens).
+**9. Performance and Scaling**
+*   Define performance targets (e.g., latency, throughput) and scaling strategies (horizontal/vertical).
+*   Derive these from issues mentioning load, efficiency, or specific performance-related acceptance criteria.
 
-8.  **Performance & Scaling**
-    *   **Benchmarks:** Define quantitative performance goals (e.g., p99 latency, requests per second).
-    *   **Scaling Strategy:** Describe how the system will scale horizontally/vertically. Mention specific strategies like database indexing, query optimization, caching (Redis/Memcached), and CDN usage.
-    *   **Load Handling:** Explain how the system will handle traffic spikes and potential bottlenecks.
+**10. Testing Strategy**
+*   Outline the testing approach (Unit, Integration, E2E). Map testing requirements directly from the acceptance criteria of the provided issues.
+*   For example: "The acceptance criteria of AEP-1 requires testing scenario X, which will be covered by Y type of test."
 
-9.  **Implementation Strategy**
-    *   **Phased Approach:** Propose a phased rollout plan (e.g., Phase 1: Core API, Phase 2: Admin UI, Phase 3: Advanced Features).
-    *   **Development Workflow:** Suggest a branching strategy (e.g., GitFlow, trunk-based development) and necessary tooling (CI/CD pipeline steps).
+**11. Implementation Strategy**
+*   Propose a phased rollout plan, grouping related JIRA issues into logical development phases or sprints.
+*   Consider issue priorities, statuses, and dependencies you identified earlier.
 
-10. **Risks & Mitigations**
-    *   **Risk Table:** Create a table listing potential technical, logistical, and product risks.
-        *   **Columns:** Risk Description, Likelihood (High/Medium/Low), Impact (High/Medium/Low), Mitigation Strategy.
-    *   **Examples:** "Risk: Third-party API downtime. Mitigation: Implement graceful fallbacks and robust retry logic."
+**12. Risks and Mitigations**
+*   List potential technical risks (e.g., integration complexity, performance bottlenecks) based on the issues.
+*   For each risk, propose a mitigation strategy.
 
-11. **Testing Strategy**
-    *   **Testing Pyramid:** Define the approach for unit tests, integration tests, API contract tests, and end-to-end (E2E) tests.
-    *   **Tools & Coverage:** Suggest testing frameworks (e.g., Jest, Pytest, Cypress, Selenium) and specify target test coverage percentages for critical paths.
+**13. Dependencies**
+*   List all internal dependencies (between the provided JIRA issues) and external dependencies (on other systems, teams, or third-party services) mentioned in the issue descriptions.
 
-12. **Dependencies**
-    *   **Internal & External:** List all known dependencies.
-    *   **Internal:** Other teams or services within the organization this system relies on.
-    *   **External:** Third-party services, APIs, libraries, and frameworks. Note their purpose and version constraints if critical.
+**14. Success Metrics**
+*   Define how the success of the project will be measured. Derive metrics from the acceptance criteria and descriptions of key issues (e.g., "A 95% success rate on API Z, as defined in AEP-4's acceptance criteria").
 
-13. **Success Metrics (KPIs)**
-    *   **Measurable Outcomes:** Define 4-6 Key Performance Indicators (KPIs) that will be monitored to measure the success of the project post-launch. These should tie back to the original Goals.
-    *   **Examples:** "System Uptime (99.95%)," "95th percentile API response time < 500ms," "User sign-up conversion rate."
+**15. Conclusion**
+*   Summarize the design, reiterating how it comprehensively addresses all provided JIRA issues and provides a clear path forward for the development team.
 
-14. **Conclusion & Next Steps**
-    *   **Summary:** Recapitulate the key design decisions and the rationale behind the chosen architecture.
-    *   **Actionable Next Steps:** Provide a clear, prioritized list of immediate actions for the development team to begin implementation (e.g., "1. Set up project repository and CI/CD pipeline. 2. Implement core User data model and API endpoints. 3. Develop authentication service.").
-
-**Output Format Rules:**
-*   Use clear, hierarchical Markdown headings (`#`, `##`, `###`).
-*   Use bullet points and numbered lists for readability.
-*   Use tables for structured data like API endpoints and risks.
-*   Use code blocks (with specified language, e.g., ````json`, ````sql`, ````javascript`) for all code, schema, and configuration examples.
-*   The tone must be professional, confident, and precise, suitable for a technical audience.
-
----
+### **Output Format Rules**
+*   The entire output must be in valid Markdown.
+*   Use headers, sub-headers, bullet points, numbered lists, tables, and code blocks for clarity and readability.
+*   **Crucially, you must include at least two Mermaid.js diagrams:** one for the System Architecture and one for either the Data Model or UI Flow.
+*   The document should be detailed but concise. Avoid fluff and repetition.
+*   The final document should be titled: **`AEP Design Document: [Brief Project Name Derived from Issues]`**
+*   Include a revision table at the top:
+    ```
+    | Version | Date | Author | Description |
+    | :--- | :--- | :--- | :--- |
+    | 1.0 | 2025-09-26 13:14:02 | AI Architect | Initial draft based on provided JIRA issues. |
+    ```
+*   Begin writing the document immediately after these instructions. Do not repeat this prompt or acknowledge these instructions in your output.

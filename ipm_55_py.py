@@ -1,267 +1,294 @@
-#!/usr/bin/env python3
 """
-IPM-55: Advisory Signal Generation Algorithm with Confidence Scoring
-
-This module implements the advisory signal generation algorithm for Indian equity markets.
-It processes integrated market data, news, and sentiment to generate buy/hold/sell signals
-with confidence scoring.
-
-Key Features:
-- Multi-factor signal generation using technical indicators, fundamental data, and sentiment
-- Confidence scoring based on signal strength and data quality
-- Configurable thresholds and parameters
-- Integration with market data sources
+IPM-55: Core Backend Services Implementation
+This module implements user authentication/authorization, portfolio CRUD operations, and RESTful API endpoints.
 """
 
-import logging
-import numpy as np
-import pandas as pd
-from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass
-from enum import Enum
-import json
+from flask import Flask, request, jsonify, abort
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
+import os
+from typing import Dict, List, Optional
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Initialize Flask application
+app = Flask(__name__)
 
+# Configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///ipm.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secret-key-change-in-production')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 
-class SignalType(Enum):
-    """Enumeration of possible advisory signals"""
-    STRONG_BUY = "STRONG_BUY"
-    BUY = "BUY"
-    HOLD = "HOLD"
-    SELL = "SELL"
-    STRONG_SELL = "STRONG_SELL"
+# Initialize extensions
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
 
-
-@dataclass
-class AdvisorySignal:
-    """Data class representing an advisory signal"""
-    symbol: str
-    signal_type: SignalType
-    confidence_score: float
-    generated_at: datetime
-    rationale: str
-    price_target: Optional[float] = None
-    stop_loss: Optional[float] = None
-    time_horizon: Optional[str] = None
-
-
-class SignalGenerator:
-    """
-    Main class for generating advisory signals with confidence scoring
-    """
+# Database Models
+class User(db.Model):
+    __tablename__ = 'users'
     
-    def __init__(self, config_path: str = "config/signal_config.json"):
-        """
-        Initialize the signal generator with configuration
-        
-        Args:
-            config_path: Path to configuration file
-        """
-        self.config = self._load_config(config_path)
-        self.technical_weights = self.config.get("technical_weights", {})
-        self.fundamental_weights = self.config.get("fundamental_weights", {})
-        self.sentiment_weights = self.config.get("sentiment_weights", {})
-        self.thresholds = self.config.get("thresholds", {})
-        
-    def _load_config(self, config_path: str) -> Dict:
-        """
-        Load configuration from JSON file
-        
-        Args:
-            config_path: Path to configuration file
-            
-        Returns:
-            Dictionary containing configuration parameters
-        """
-        try:
-            with open(config_path, 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            logger.warning(f"Configuration file {config_path} not found. Using default configuration.")
-            return self._get_default_config()
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing configuration file: {e}")
-            return self._get_default_config()
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(120), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
     
-    def _get_default_config(self) -> Dict:
-        """Return default configuration parameters"""
-        return {
-            "technical_weights": {
-                "rsi": 0.25,
-                "macd": 0.20,
-                "bollinger_bands": 0.15,
-                "moving_averages": 0.20,
-                "volume_analysis": 0.10,
-                "momentum": 0.10
-            },
-            "fundamental_weights": {
-                "pe_ratio": 0.30,
-                "pb_ratio": 0.20,
-                "debt_to_equity": 0.15,
-                "profit_growth": 0.20,
-                "dividend_yield": 0.15
-            },
-            "sentiment_weights": {
-                "news_sentiment": 0.40,
-                "social_media_sentiment": 0.30,
-                "analyst_recommendations": 0.30
-            },
-            "thresholds": {
-                "strong_buy": 0.8,
-                "buy": 0.6,
-                "hold_min": -0.2,
-                "hold_max": 0.2,
-                "sell": -0.6,
-                "strong_sell": -0.8
-            },
-            "data_quality_threshold": 0.7,
-            "min_data_points": 10
-        }
+    portfolios = db.relationship('Portfolio', backref='owner', lazy=True)
     
-    def generate_signals(self, market_data: pd.DataFrame, 
-                        fundamental_data: pd.DataFrame,
-                        sentiment_data: pd.DataFrame) -> List[AdvisorySignal]:
-        """
-        Generate advisory signals for multiple securities
-        
-        Args:
-            market_data: DataFrame containing technical indicators and price data
-            fundamental_data: DataFrame containing fundamental data
-            sentiment_data: DataFrame containing sentiment data
-            
-        Returns:
-            List of AdvisorySignal objects
-        """
-        signals = []
-        
-        # Get unique symbols from all data sources
-        symbols = set(market_data.get('symbol', [])) | \
-                 set(fundamental_data.get('symbol', [])) | \
-                 set(sentiment_data.get('symbol', []))
-        
-        for symbol in symbols:
-            try:
-                signal = self._generate_signal_for_symbol(
-                    symbol, market_data, fundamental_data, sentiment_data
-                )
-                if signal:
-                    signals.append(signal)
-            except Exception as e:
-                logger.error(f"Error generating signal for {symbol}: {e}")
-                continue
-        
-        return signals
+    def set_password(self, password):
+        self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
     
-    def _generate_signal_for_symbol(self, symbol: str,
-                                   market_data: pd.DataFrame,
-                                   fundamental_data: pd.DataFrame,
-                                   sentiment_data: pd.DataFrame) -> Optional[AdvisorySignal]:
-        """
-        Generate advisory signal for a single symbol
-        
-        Args:
-            symbol: Stock symbol
-            market_data: Technical data DataFrame
-            fundamental_data: Fundamental data DataFrame
-            sentiment_data: Sentiment data DataFrame
-            
-        Returns:
-            AdvisorySignal object or None if insufficient data
-        """
-        # Filter data for the specific symbol
-        symbol_market_data = market_data[market_data['symbol'] == symbol]
-        symbol_fundamental_data = fundamental_data[fundamental_data['symbol'] == symbol]
-        symbol_sentiment_data = sentiment_data[sentiment_data['symbol'] == symbol]
-        
-        # Check if we have sufficient data
-        if (len(symbol_market_data) < self.config.get('min_data_points', 10) or
-            len(symbol_fundamental_data) == 0 or
-            len(symbol_sentiment_data) == 0):
-            logger.warning(f"Insufficient data for {symbol}")
-            return None
-        
-        # Calculate individual scores
-        technical_score = self._calculate_technical_score(symbol_market_data)
-        fundamental_score = self._calculate_fundamental_score(symbol_fundamental_data)
-        sentiment_score = self._calculate_sentiment_score(symbol_sentiment_data)
-        
-        # Calculate overall score (weighted average)
-        overall_score = self._calculate_overall_score(
-            technical_score, fundamental_score, sentiment_score
-        )
-        
-        # Determine signal type based on thresholds
-        signal_type = self._determine_signal_type(overall_score)
-        
-        # Calculate confidence score
-        confidence_score = self._calculate_confidence_score(
-            technical_score, fundamental_score, sentiment_score,
-            symbol_market_data, symbol_fundamental_data, symbol_sentiment_data
-        )
-        
-        # Generate rationale
-        rationale = self._generate_rationale(
-            symbol, technical_score, fundamental_score, sentiment_score,
-            signal_type, overall_score
-        )
-        
-        # Calculate price target and stop loss if possible
-        current_price = symbol_market_data['close'].iloc[-1] if not symbol_market_data.empty else None
-        price_target, stop_loss = self._calculate_price_targets(
-            current_price, overall_score, symbol_market_data
-        )
-        
-        return AdvisorySignal(
-            symbol=symbol,
-            signal_type=signal_type,
-            confidence_score=confidence_score,
-            generated_at=datetime.now(),
-            rationale=rationale,
-            price_target=price_target,
-            stop_loss=stop_loss,
-            time_horizon="3-6 months"
-        )
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self.password_hash, password)
+
+class Portfolio(db.Model):
+    __tablename__ = 'portfolios'
     
-    def _calculate_technical_score(self, market_data: pd.DataFrame) -> float:
-        """
-        Calculate technical analysis score
-        
-        Args:
-            market_data: DataFrame with technical indicators
-            
-        Returns:
-            Technical score between -1 and 1
-        """
-        if market_data.empty:
-            return 0.0
-        
-        latest_data = market_data.iloc[-1]
-        score = 0.0
-        
-        # RSI analysis (0-100, >70 overbought, <30 oversold)
-        if 'rsi' in latest_data and not pd.isna(latest_data['rsi']):
-            rsi_score = (50 - latest_data['rsi']) / 50  # Normalize to -1 to 1
-            score += rsi_score * self.technical_weights.get('rsi', 0.25)
-        
-        # MACD analysis
-        if 'macd' in latest_data and 'macd_signal' in latest_data:
-            if not pd.isna(latest_data['macd']) and not pd.isna(latest_data['macd_signal']):
-                macd_score = 1.0 if latest_data['macd'] > latest_data['macd_signal'] else -1.0
-                score += macd_score * self.technical_weights.get('macd', 0.20)
-        
-        # Bollinger Bands analysis
-        if all(col in latest_data for col in ['close', 'bb_upper', 'bb_lower']):
-            if not any(pd.isna(latest_data[col]) for col in ['close', 'bb_upper', 'bb_lower']):
-                bb_position = (latest_data['close'] - latest_data['bb_lower']) / \
-                             (latest_data['bb_upper'] - latest_data['bb_lower'])
-                bb_score = (bb_position - 0.5) * 2  # Normalize to -1 to 1
-                score += bb_score * self.technical_weights.get('bollinger_bands', 0.15)
-        
-        # Moving averages
-        if all(col in latest_data for col in ['close', 'sma_50', 'sma_200']):
-            if not any(p
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    holdings = db.relationship('Holding', backref='portfolio', lazy=True, cascade='all, delete-orphan')
+
+class Holding(db.Model):
+    __tablename__ = 'holdings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    portfolio_id = db.Column(db.Integer, db.ForeignKey('portfolios.id'), nullable=False)
+    symbol = db.Column(db.String(20), nullable=False)  # NSE symbol format
+    quantity = db.Column(db.Integer, nullable=False)
+    average_price = db.Column(db.Float, nullable=False)
+    sector = db.Column(db.String(50))
+    added_date = db.Column(db.DateTime, default=datetime.utcnow)
+
+class AdvisorySignal(db.Model):
+    __tablename__ = 'advisory_signals'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.String(20), nullable=False)
+    signal_type = db.Column(db.String(20), nullable=False)  # BUY, SELL, HOLD
+    confidence_score = db.Column(db.Float, nullable=False)  # 0.0 to 1.0
+    reasoning = db.Column(db.Text, nullable=False)
+    generated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    valid_until = db.Column(db.DateTime)
+    portfolio_id = db.Column(db.Integer, db.ForeignKey('portfolios.id'))
+
+# Authentication Routes
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    
+    if not data or not data.get('username') or not data.get('email') or not data.get('password'):
+        abort(400, description='Missing required fields')
+    
+    if User.query.filter_by(username=data['username']).first():
+        abort(400, description='Username already exists')
+    
+    if User.query.filter_by(email=data['email']).first():
+        abort(400, description='Email already exists')
+    
+    user = User(username=data['username'], email=data['email'])
+    user.set_password(data['password'])
+    
+    db.session.add(user)
+    db.session.commit()
+    
+    access_token = create_access_token(identity=user.id)
+    return jsonify({
+        'message': 'User created successfully',
+        'access_token': access_token,
+        'user_id': user.id
+    }), 201
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    
+    if not data or not data.get('username') or not data.get('password'):
+        abort(400, description='Missing username or password')
+    
+    user = User.query.filter_by(username=data['username']).first()
+    
+    if user and user.check_password(data['password']) and user.is_active:
+        access_token = create_access_token(identity=user.id)
+        return jsonify({
+            'access_token': access_token,
+            'user_id': user.id,
+            'username': user.username
+        })
+    
+    abort(401, description='Invalid credentials')
+
+# Portfolio Routes
+@app.route('/api/portfolios', methods=['POST'])
+@jwt_required()
+def create_portfolio():
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    if not data or not data.get('name'):
+        abort(400, description='Portfolio name is required')
+    
+    portfolio = Portfolio(
+        name=data['name'],
+        description=data.get('description', ''),
+        user_id=current_user_id
+    )
+    
+    db.session.add(portfolio)
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Portfolio created successfully',
+        'portfolio_id': portfolio.id
+    }), 201
+
+@app.route('/api/portfolios', methods=['GET'])
+@jwt_required()
+def get_portfolios():
+    current_user_id = get_jwt_identity()
+    portfolios = Portfolio.query.filter_by(user_id=current_user_id).all()
+    
+    return jsonify([{
+        'id': p.id,
+        'name': p.name,
+        'description': p.description,
+        'created_at': p.created_at.isoformat(),
+        'updated_at': p.updated_at.isoformat(),
+        'holdings_count': len(p.holdings)
+    } for p in portfolios])
+
+@app.route('/api/portfolios/<int:portfolio_id>', methods=['GET'])
+@jwt_required()
+def get_portfolio(portfolio_id):
+    current_user_id = get_jwt_identity()
+    portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=current_user_id).first()
+    
+    if not portfolio:
+        abort(404, description='Portfolio not found')
+    
+    return jsonify({
+        'id': portfolio.id,
+        'name': portfolio.name,
+        'description': portfolio.description,
+        'holdings': [{
+            'id': h.id,
+            'symbol': h.symbol,
+            'quantity': h.quantity,
+            'average_price': h.average_price,
+            'sector': h.sector,
+            'added_date': h.added_date.isoformat()
+        } for h in portfolio.holdings]
+    })
+
+@app.route('/api/portfolios/<int:portfolio_id>', methods=['PUT'])
+@jwt_required()
+def update_portfolio(portfolio_id):
+    current_user_id = get_jwt_identity()
+    portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=current_user_id).first()
+    
+    if not portfolio:
+        abort(404, description='Portfolio not found')
+    
+    data = request.get_json()
+    if data.get('name'):
+        portfolio.name = data['name']
+    if data.get('description'):
+        portfolio.description = data['description']
+    
+    db.session.commit()
+    
+    return jsonify({'message': 'Portfolio updated successfully'})
+
+@app.route('/api/portfolios/<int:portfolio_id>', methods=['DELETE'])
+@jwt_required()
+def delete_portfolio(portfolio_id):
+    current_user_id = get_jwt_identity()
+    portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=current_user_id).first()
+    
+    if not portfolio:
+        abort(404, description='Portfolio not found')
+    
+    db.session.delete(portfolio)
+    db.session.commit()
+    
+    return jsonify({'message': 'Portfolio deleted successfully'})
+
+# Holdings Routes
+@app.route('/api/portfolios/<int:portfolio_id>/holdings', methods=['POST'])
+@jwt_required()
+def add_holding(portfolio_id):
+    current_user_id = get_jwt_identity()
+    portfolio = Portfolio.query.filter_by(id=portfolio_id, user_id=current_user_id).first()
+    
+    if not portfolio:
+        abort(404, description='Portfolio not found')
+    
+    data = request.get_json()
+    required_fields = ['symbol', 'quantity', 'average_price']
+    if not all(field in data for field in required_fields):
+        abort(400, description='Missing required fields: symbol, quantity, average_price')
+    
+    holding = Holding(
+        portfolio_id=portfolio_id,
+        symbol=data['symbol'],
+        quantity=data['quantity'],
+        average_price=data['average_price'],
+        sector=data.get('sector')
+    )
+    
+    db.session.add(holding)
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Holding added successfully',
+        'holding_id': holding.id
+    }), 201
+
+@app.route('/api/holdings/<int:holding_id>', methods=['PUT'])
+@jwt_required()
+def update_holding(holding_id):
+    current_user_id = get_jwt_identity()
+    holding = Holding.query.join(Portfolio).filter(
+        Holding.id == holding_id,
+        Portfolio.user_id == current_user_id
+    ).first()
+    
+    if not holding:
+        abort(404, description='Holding not found')
+    
+    data = request.get_json()
+    if data.get('quantity'):
+        holding.quantity = data['quantity']
+    if data.get('average_price'):
+        holding.average_price = data['average_price']
+    if data.get('sector'):
+        holding.sector = data['sector']
+    
+    db.session.commit()
+    
+    return jsonify({'message': 'Holding updated successfully'})
+
+@app.route('/api/holdings/<int:holding_id>', methods=['DELETE'])
+@jwt_required()
+def delete_holding(holding_id):
+    current_user_id = get_jwt_identity()
+    holding = Holding.query.join(Portfolio).filter(
+        Holding.id == holding_id,
+        Portfolio.user_id == current_user_id
+    ).first()
+    
+    if not holding:
+        abort(404, description='Holding not found')
+    
+    db.session.delete(holding)
+    db.session.commit()
+    
+    return jsonify({'message': 'Holding delete
 # Code truncated at 10000 characters

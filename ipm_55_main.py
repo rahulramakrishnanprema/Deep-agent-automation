@@ -1,5 +1,5 @@
 import sys
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 import json
 import logging
 
@@ -8,199 +8,194 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-class IPM55Core:
+class IPM55Processor:
     """
-    Core implementation class for IPM-55 project.
-    Handles the main business logic and data processing.
+    Main processor class for IPM-55 project.
+    Handles core business logic and data processing.
     """
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
-        Initialize the IPM55Core with optional configuration.
+        Initialize the IPM55Processor with optional configuration.
         
         Args:
-            config: Configuration dictionary for the core module
+            config: Dictionary containing configuration parameters
         """
         self.config = config or {}
-        self._initialized = False
-        logger.info("IPM55Core initialized with config: %s", self.config)
+        self._initialize_components()
     
-    def initialize(self) -> bool:
-        """
-        Perform initialization tasks for the core module.
-        
-        Returns:
-            bool: True if initialization successful, False otherwise
-        """
-        try:
-            # Placeholder for initialization logic
-            self._initialized = True
-            logger.info("IPM55Core initialization completed successfully")
-            return True
-        except Exception as e:
-            logger.error("Initialization failed: %s", str(e))
-            return False
+    def _initialize_components(self) -> None:
+        """Initialize internal components and state."""
+        self.state = {
+            'processed_items': 0,
+            'errors': 0,
+            'last_processed': None
+        }
+        logger.info("IPM55Processor initialized successfully")
     
-    def process_data(self, input_data: List[Any]) -> Dict[str, Any]:
+    def process_data(self, input_data: Any) -> Dict[str, Any]:
         """
         Process input data according to IPM-55 requirements.
         
         Args:
-            input_data: List of data items to process
+            input_data: Data to be processed (can be various types)
             
         Returns:
-            Dict containing processed results and metadata
+            Dictionary containing processing results and metadata
+            
+        Raises:
+            ValueError: If input data is invalid or malformed
         """
-        if not self._initialized:
-            raise RuntimeError("Core module not initialized. Call initialize() first.")
-        
         try:
-            logger.info("Processing %d data items", len(input_data))
+            logger.info(f"Processing data: {type(input_data)}")
             
-            # Basic processing implementation
-            processed_items = []
-            for item in input_data:
-                processed_item = self._process_single_item(item)
-                processed_items.append(processed_item)
+            # Basic validation
+            if input_data is None:
+                raise ValueError("Input data cannot be None")
             
-            result = {
-                "processed_count": len(processed_items),
-                "items": processed_items,
-                "status": "success",
-                "timestamp": "2024-01-01T00:00:00Z"  # Placeholder
-            }
+            # Core processing logic
+            result = self._execute_processing(input_data)
             
-            logger.info("Successfully processed %d items", len(processed_items))
+            # Update state
+            self.state['processed_items'] += 1
+            self.state['last_processed'] = result.get('timestamp')
+            
+            logger.info(f"Data processed successfully. Total processed: {self.state['processed_items']}")
             return result
             
         except Exception as e:
-            logger.error("Data processing failed: %s", str(e))
-            return {
-                "processed_count": 0,
-                "items": [],
-                "status": "error",
-                "error_message": str(e),
-                "timestamp": "2024-01-01T00:00:00Z"
-            }
+            self.state['errors'] += 1
+            logger.error(f"Error processing data: {str(e)}")
+            raise
     
-    def _process_single_item(self, item: Any) -> Dict[str, Any]:
+    def _execute_processing(self, data: Any) -> Dict[str, Any]:
         """
-        Process a single data item.
+        Execute the actual data processing logic.
         
         Args:
-            item: Data item to process
+            data: Input data to process
             
         Returns:
-            Dict containing processed item data
+            Processing results with metadata
         """
-        # Basic single item processing
-        return {
-            "original": item,
-            "processed": f"processed_{item}",
-            "metadata": {"size": len(str(item))}
+        # Implement specific processing logic here
+        processed_result = {
+            'original_data': data,
+            'processed_at': '2024-01-01T00:00:00Z',  # Should use actual timestamp
+            'status': 'completed',
+            'result': f"Processed: {str(data)}",
+            'metadata': {
+                'length': len(str(data)) if hasattr(data, '__len__') else None,
+                'type': type(data).__name__
+            }
         }
+        
+        return processed_result
     
     def get_status(self) -> Dict[str, Any]:
         """
-        Get current status of the core module.
+        Get current processor status and statistics.
         
         Returns:
-            Dict containing status information
+            Dictionary containing current state information
         """
         return {
-            "initialized": self._initialized,
-            "config": self.config,
-            "module": "IPM55Core"
+            'total_processed': self.state['processed_items'],
+            'total_errors': self.state['errors'],
+            'last_processed': self.state['last_processed'],
+            'config': self.config
         }
+    
+    def reset(self) -> None:
+        """Reset processor state and statistics."""
+        self.state = {
+            'processed_items': 0,
+            'errors': 0,
+            'last_processed': None
+        }
+        logger.info("Processor state reset")
 
 
 class IPM55Manager:
     """
-    Manager class that coordinates IPM-55 operations and provides
-    a higher-level interface for the system.
+    Manager class to coordinate IPM-55 operations and provide interface.
     """
     
     def __init__(self):
         """Initialize the IPM55 manager."""
-        self.core = IPM55Core()
+        self.processor = IPM55Processor()
         logger.info("IPM55Manager initialized")
     
-    def start(self) -> bool:
+    def run_processing(self, input_data: Any) -> Dict[str, Any]:
         """
-        Start the IPM-55 system.
-        
-        Returns:
-            bool: True if startup successful, False otherwise
-        """
-        try:
-            if self.core.initialize():
-                logger.info("IPM-55 system started successfully")
-                return True
-            else:
-                logger.error("IPM-55 system startup failed")
-                return False
-        except Exception as e:
-            logger.error("Startup failed: %s", str(e))
-            return False
-    
-    def execute_processing(self, data: List[Any]) -> Dict[str, Any]:
-        """
-        Execute data processing through the core module.
+        Execute processing operation with error handling.
         
         Args:
-            data: List of data items to process
+            input_data: Data to be processed
             
         Returns:
-            Dict containing processing results
+            Processing results or error information
         """
-        if not data:
-            logger.warning("Empty data provided for processing")
-            return {"error": "No data provided"}
-        
-        return self.core.process_data(data)
+        try:
+            result = self.processor.process_data(input_data)
+            return {
+                'success': True,
+                'data': result,
+                'status': self.processor.get_status()
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'status': self.processor.get_status()
+            }
     
-    def shutdown(self) -> None:
-        """Shutdown the IPM-55 system gracefully."""
-        logger.info("IPM-55 system shutting down")
-        # Placeholder for cleanup logic
+    def get_system_info(self) -> Dict[str, Any]:
+        """
+        Get system information and status.
+        
+        Returns:
+            Dictionary containing system information
+        """
+        return {
+            'system': 'IPM-55 Processing System',
+            'version': '1.0.0',
+            'status': 'operational',
+            'processor_status': self.processor.get_status()
+        }
 
 
 def main():
     """
     Main entry point for the IPM-55 application.
-    Demonstrates basic functionality and serves as an example usage.
+    Handles command line arguments and executes processing.
     """
-    print("Starting IPM-55 Application")
-    print("=" * 40)
-    
-    # Initialize manager
     manager = IPM55Manager()
     
-    # Start the system
-    if not manager.start():
-        print("Failed to start IPM-55 system")
-        sys.exit(1)
+    # Example usage - process sample data
+    sample_data = "Hello IPM-55"
     
-    # Example data processing
-    test_data = ["item1", "item2", "item3", 123, 456]
-    print(f"\nProcessing test data: {test_data}")
+    print("IPM-55 Processing System")
+    print("=" * 40)
     
-    result = manager.execute_processing(test_data)
+    # Process sample data
+    result = manager.run_processing(sample_data)
     
-    print(f"\nProcessing Results:")
-    print(f"Status: {result.get('status', 'unknown')}")
-    print(f"Processed items: {result.get('processed_count', 0)}")
-    
-    if result.get('status') == 'success':
-        print("Processing completed successfully!")
-        print(f"Sample processed item: {result['items'][0] if result['items'] else 'None'}")
+    if result['success']:
+        print("✓ Processing completed successfully")
+        print(f"Result: {result['data']['result']}")
     else:
-        print(f"Processing failed: {result.get('error_message', 'Unknown error')}")
+        print("✗ Processing failed")
+        print(f"Error: {result['error']}")
     
-    # Shutdown
-    manager.shutdown()
-    print("\nIPM-55 Application completed")
+    # Display system status
+    status = manager.get_system_info()
+    print(f"\nSystem Status:")
+    print(f"Total processed: {status['processor_status']['total_processed']}")
+    print(f"Total errors: {status['processor_status']['total_errors']}")
+    
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

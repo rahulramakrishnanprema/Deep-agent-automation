@@ -1,198 +1,292 @@
-/**
- * Main application logic for subtraction calculator
- * @file bc_2_main.js
- * @version 1.0.0
- * @description Handles subtraction calculation, input validation, and UI interactions
- */
+"""
+Main module for the subtraction calculator system.
+Provides both web interface and backend processing for subtraction operations.
+"""
 
-// DOM Elements
-const numberInput1 = document.getElementById('numberInput1');
-const numberInput2 = document.getElementById('numberInput2');
-const subtractButton = document.getElementById('subtractButton');
-const resetButton = document.getElementById('resetButton');
-const resultDisplay = document.getElementById('resultDisplay');
-const errorMessage = document.getElementById('errorMessage');
+import sys
+import json
+from typing import Union, Optional, Dict, Any
+from dataclasses import dataclass
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import cgi
 
-/**
- * Validates if input is a valid number
- * @param {string} value - The input value to validate
- * @returns {boolean} True if valid number, false otherwise
- */
-function isValidNumber(value) {
-    if (value === '' || value === null || value === undefined) {
-        return false;
-    }
+class SubtractionCalculator:
+    """
+    A calculator class that handles subtraction operations with input validation.
+    """
     
-    // Check if it's a valid number (including decimals and negative numbers)
-    const num = parseFloat(value);
-    return !isNaN(num) && isFinite(num);
-}
+    @staticmethod
+    def subtract_numbers(num1: Union[int, float], num2: Union[int, float]) -> Union[int, float]:
+        """
+        Subtract two numbers and return the result.
+        
+        Args:
+            num1: First number (minuend)
+            num2: Second number (subtrahend)
+            
+        Returns:
+            The result of num1 - num2
+            
+        Raises:
+            TypeError: If inputs are not numbers
+        """
+        if not isinstance(num1, (int, float)) or not isinstance(num2, (int, float)):
+            raise TypeError("Both inputs must be numbers")
+        
+        return num1 - num2
 
-/**
- * Performs subtraction calculation
- * @param {number} num1 - First number
- * @param {number} num2 - Second number
- * @returns {number} The result of subtraction (num1 - num2)
- * @throws {Error} If inputs are not valid numbers
- */
-function subtractNumbers(num1, num2) {
-    if (typeof num1 !== 'number' || typeof num2 !== 'number') {
-        throw new Error('Both inputs must be valid numbers');
-    }
+class InputValidator:
+    """
+    Validates user input for subtraction operations.
+    """
     
-    return num1 - num2;
-}
-
-/**
- * Displays the calculation result
- * @param {number} result - The result to display
- */
-function displayResult(result) {
-    resultDisplay.textContent = `Result: ${result}`;
-    resultDisplay.classList.remove('error');
-    resultDisplay.classList.add('success');
-}
-
-/**
- * Displays an error message
- * @param {string} message - The error message to display
- */
-function displayError(message) {
-    errorMessage.textContent = message;
-    errorMessage.style.display = 'block';
-    resultDisplay.textContent = 'Result: Error';
-    resultDisplay.classList.remove('success');
-    resultDisplay.classList.add('error');
-}
-
-/**
- * Clears error messages
- */
-function clearError() {
-    errorMessage.textContent = '';
-    errorMessage.style.display = 'none';
-    resultDisplay.classList.remove('error');
-}
-
-/**
- * Resets the calculator to initial state
- */
-function resetCalculator() {
-    numberInput1.value = '';
-    numberInput2.value = '';
-    resultDisplay.textContent = 'Result: ';
-    clearError();
-    resultDisplay.classList.remove('success', 'error');
-}
-
-/**
- * Handles the subtraction calculation process
- */
-function handleSubtraction() {
-    try {
-        clearError();
+    @staticmethod
+    def validate_input(input_str: str) -> Optional[Union[int, float]]:
+        """
+        Validate and convert input string to number.
         
-        const value1 = numberInput1.value.trim();
-        const value2 = numberInput2.value.trim();
-        
-        // Validate inputs
-        if (!isValidNumber(value1) || !isValidNumber(value2)) {
-            displayError('Please enter valid numbers in both fields');
-            return;
+        Args:
+            input_str: String input to validate
+            
+        Returns:
+            Converted number (int or float) or None if invalid
+        """
+        if not input_str.strip():
+            return None
+            
+        try:
+            # Try to convert to int first
+            return int(input_str)
+        except ValueError:
+            try:
+                # If not int, try float
+                return float(input_str)
+            except ValueError:
+                return None
+
+@dataclass
+class SubtractionRequest:
+    """Data class representing a subtraction request."""
+    num1: Union[int, float]
+    num2: Union[int, float]
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SubtractionRequest':
+        """Create SubtractionRequest from dictionary."""
+        return cls(
+            num1=data.get('num1', 0),
+            num2=data.get('num2', 0)
+        )
+
+@dataclass
+class SubtractionResponse:
+    """Data class representing a subtraction response."""
+    result: Union[int, float]
+    error: Optional[str] = None
+    success: bool = True
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert response to dictionary."""
+        return {
+            'result': self.result,
+            'error': self.error,
+            'success': self.success
         }
-        
-        // Parse inputs
-        const num1 = parseFloat(value1);
-        const num2 = parseFloat(value2);
-        
-        // Perform calculation
-        const result = subtractNumbers(num1, num2);
-        
-        // Display result
-        displayResult(result);
-        
-    } catch (error) {
-        console.error('Subtraction error:', error);
-        displayError('An error occurred during calculation. Please try again.');
-    }
-}
 
-/**
- * Validates input in real-time and provides immediate feedback
- * @param {Event} event - The input event
- */
-function validateInput(event) {
-    const input = event.target;
-    const value = input.value.trim();
+class SubtractionHandler:
+    """
+    Handles subtraction operations with proper error handling.
+    """
     
-    if (value === '') {
-        input.classList.remove('invalid', 'valid');
-        clearError();
-        return;
-    }
+    def __init__(self):
+        self.calculator = SubtractionCalculator()
+        self.validator = InputValidator()
     
-    if (!isValidNumber(value)) {
-        input.classList.add('invalid');
-        input.classList.remove('valid');
-        displayError('Please enter a valid number');
-    } else {
-        input.classList.add('valid');
-        input.classList.remove('invalid');
-        clearError();
-    }
-}
+    def process_subtraction(self, request: SubtractionRequest) -> SubtractionResponse:
+        """
+        Process subtraction request with validation.
+        
+        Args:
+            request: SubtractionRequest object
+            
+        Returns:
+            SubtractionResponse with result or error
+        """
+        try:
+            result = self.calculator.subtract_numbers(request.num1, request.num2)
+            return SubtractionResponse(result=result)
+        except TypeError as e:
+            return SubtractionResponse(result=0, error=str(e), success=False)
+        except Exception as e:
+            return SubtractionResponse(result=0, error="An unexpected error occurred", success=False)
 
-/**
- * Initializes the calculator application
- */
-function initializeCalculator() {
-    // Add event listeners
-    subtractButton.addEventListener('click', handleSubtraction);
-    resetButton.addEventListener('click', resetCalculator);
+class SubtractionHTTPHandler(BaseHTTPRequestHandler):
+    """
+    HTTP handler for web interface subtraction operations.
+    """
     
-    numberInput1.addEventListener('input', validateInput);
-    numberInput2.addEventListener('input', validateInput);
+    def __init__(self, *args, **kwargs):
+        self.subtraction_handler = SubtractionHandler()
+        super().__init__(*args, **kwargs)
     
-    // Allow Enter key to trigger subtraction
-    document.addEventListener('keypress', (event) => {
-        if (event.key === 'Enter') {
-            handleSubtraction();
-        }
-    });
+    def do_GET(self):
+        """Handle GET requests (serve the web form)."""
+        if self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            
+            html_content = self._generate_html_form()
+            self.wfile.write(html_content.encode())
+        else:
+            self.send_error(404, "Not Found")
     
-    // Initialize state
-    resetCalculator();
+    def do_POST(self):
+        """Handle POST requests (process subtraction)."""
+        if self.path == '/subtract':
+            # Parse form data
+            content_type, pdict = cgi.parse_header(self.headers['content-type'])
+            
+            if content_type == 'multipart/form-data':
+                post_vars = cgi.parse_multipart(self.rfile, pdict)
+            elif content_type == 'application/x-www-form-urlencoded':
+                length = int(self.headers['content-length'])
+                post_vars = cgi.parse_qs(self.rfile.read(length).decode(), keep_blank_values=1)
+            else:
+                post_vars = {}
+            
+            # Extract and validate inputs
+            num1_str = post_vars.get('num1', [''])[0]
+            num2_str = post_vars.get('num2', [''])[0]
+            
+            num1 = self.subtraction_handler.validator.validate_input(num1_str)
+            num2 = self.subtraction_handler.validator.validate_input(num2_str)
+            
+            if num1 is None or num2 is None:
+                self._send_error_response("Invalid input. Please enter valid numbers.")
+                return
+            
+            # Process subtraction
+            request = SubtractionRequest(num1=num1, num2=num2)
+            response = self.subtraction_handler.process_subtraction(request)
+            
+            if response.success:
+                self._send_success_response(response.result)
+            else:
+                self._send_error_response(response.error)
+        else:
+            self.send_error(404, "Not Found")
     
-    console.log('Subtraction calculator initialized successfully');
-}
-
-// Error handling for initialization
-try {
-    // Wait for DOM to be fully loaded
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeCalculator);
-    } else {
-        initializeCalculator();
-    }
-} catch (error) {
-    console.error('Failed to initialize calculator:', error);
-    // Fallback error display
-    const errorDiv = document.createElement('div');
-    errorDiv.style.color = 'red';
-    errorDiv.style.padding = '20px';
-    errorDiv.style.textAlign = 'center';
-    errorDiv.textContent = 'Failed to load calculator. Please refresh the page.';
-    document.body.appendChild(errorDiv);
-}
-
-// Export functions for testing (if using module system)
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        isValidNumber,
-        subtractNumbers,
-        displayResult,
-        displayError,
-        resetCalculator,
-        handleSubtraction
-    };
-}
+    def _generate_html_form(self) -> str:
+        """Generate HTML form for subtraction calculator."""
+        return f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Subtraction Calculator</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f4f4f4;
+                }}
+                .calculator {{
+                    background: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }}
+                h1 {{
+                    color: #333;
+                    text-align: center;
+                }}
+                .input-group {{
+                    margin-bottom: 20px;
+                }}
+                label {{
+                    display: block;
+                    margin-bottom: 5px;
+                    font-weight: bold;
+                    color: #555;
+                }}
+                input[type="number"] {{
+                    width: 100%;
+                    padding: 12px;
+                    border: 2px solid #ddd;
+                    border-radius: 5px;
+                    font-size: 16px;
+                    box-sizing: border-box;
+                }}
+                input[type="number"]:focus {{
+                    border-color: #4CAF50;
+                    outline: none;
+                }}
+                button {{
+                    background-color: #4CAF50;
+                    color: white;
+                    padding: 12px 24px;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    width: 100%;
+                }}
+                button:hover {{
+                    background-color: #45a049;
+                }}
+                .result {{
+                    margin-top: 20px;
+                    padding: 15px;
+                    background-color: #e8f5e8;
+                    border-radius: 5px;
+                    text-align: center;
+                    font-size: 18px;
+                    font-weight: bold;
+                }}
+                .error {{
+                    margin-top: 20px;
+                    padding: 15px;
+                    background-color: #ffebee;
+                    border-radius: 5px;
+                    text-align: center;
+                    color: #c62828;
+                }}
+                @media (max-width: 480px) {{
+                    .calculator {{
+                        padding: 20px;
+                    }}
+                    input[type="number"] {{
+                        padding: 10px;
+                    }}
+                    button {{
+                        padding: 10px 20px;
+                    }}
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="calculator">
+                <h1>Subtraction Calculator</h1>
+                <form method="POST" action="/subtract">
+                    <div class="input-group">
+                        <label for="num1">First Number (Minuend):</label>
+                        <input type="number" id="num1" name="num1" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="num2">Second Number (Subtrahend):</label>
+                        <input type="number" id="num2" name="num2" step="any" required>
+                    </div>
+                    <button type="submit">Subtract</button>
+                </form>
+                <div id="result"></div>
+            </div>
+            
+            <script>
+                // Handle form submission with AJAX for better user experience
+                document.querySelector('form').addEventListener('submit', async function(e) {{
+                    e
+# Code truncated at 10000 characters

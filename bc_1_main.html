@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -22,35 +22,36 @@
         }
 
         .calculator-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             padding: 30px;
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
         }
 
         h1 {
             text-align: center;
-            color: #333;
+            color: #2c3e50;
             margin-bottom: 30px;
-            font-size: 24px;
+            font-size: 28px;
+            font-weight: 600;
         }
 
-        .form-group {
+        .input-group {
             margin-bottom: 20px;
         }
 
         label {
             display: block;
             margin-bottom: 8px;
-            color: #555;
-            font-weight: 600;
+            color: #34495e;
+            font-weight: 500;
         }
 
         input[type="number"] {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 16px;
@@ -59,35 +60,38 @@
 
         input[type="number"]:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
         }
 
-        input[type="number"].error {
+        input.error {
             border-color: #e74c3c;
         }
 
         .error-message {
             color: #e74c3c;
-            font-size: 12px;
+            font-size: 14px;
             margin-top: 5px;
-            display: none;
+            min-height: 20px;
         }
 
         button {
             width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s ease;
+            transition: all 0.3s ease;
         }
 
         button:hover {
+            background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
             transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
         }
 
         button:active {
@@ -97,22 +101,22 @@
         .result-container {
             margin-top: 25px;
             padding: 20px;
-            background: #f8f9fa;
+            background-color: #f8f9fa;
             border-radius: 8px;
             text-align: center;
-            display: none;
         }
 
         .result-label {
-            font-size: 14px;
-            color: #666;
+            font-weight: 500;
+            color: #7f8c8d;
             margin-bottom: 8px;
         }
 
-        .result-value {
+        #result {
             font-size: 24px;
-            font-weight: bold;
-            color: #333;
+            font-weight: 600;
+            color: #2c3e50;
+            min-height: 30px;
         }
 
         @media (max-width: 480px) {
@@ -121,7 +125,16 @@
             }
             
             h1 {
-                font-size: 20px;
+                font-size: 24px;
+            }
+            
+            input[type="number"] {
+                padding: 12px;
+            }
+            
+            button {
+                padding: 13px;
+                font-size: 16px;
             }
         }
     </style>
@@ -130,87 +143,88 @@
     <div class="calculator-container">
         <h1>Number Addition Calculator</h1>
         
-        <form id="additionForm">
-            <div class="form-group">
+        <form id="addition-form">
+            <div class="input-group">
                 <label for="number1">First Number:</label>
-                <input type="number" id="number1" placeholder="Enter first number" step="any" required>
-                <div class="error-message" id="error1">Please enter a valid number</div>
+                <input type="number" id="number1" placeholder="Enter a number" step="any" required>
+                <div class="error-message" id="error1"></div>
             </div>
             
-            <div class="form-group">
+            <div class="input-group">
                 <label for="number2">Second Number:</label>
-                <input type="number" id="number2" placeholder="Enter second number" step="any" required>
-                <div class="error-message" id="error2">Please enter a valid number</div>
+                <input type="number" id="number2" placeholder="Enter a number" step="any" required>
+                <div class="error-message" id="error2"></div>
             </div>
             
-            <button type="submit">Add Numbers</button>
+            <button type="submit">Calculate Sum</button>
         </form>
         
-        <div class="result-container" id="resultContainer">
+        <div class="result-container">
             <div class="result-label">Result:</div>
-            <div class="result-value" id="resultValue">0</div>
+            <div id="result"></div>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('additionForm');
-            const resultContainer = document.getElementById('resultContainer');
-            const resultValue = document.getElementById('resultValue');
-            const error1 = document.getElementById('error1');
-            const error2 = document.getElementById('error2');
-            const input1 = document.getElementById('number1');
-            const input2 = document.getElementById('number2');
+            const form = document.getElementById('addition-form');
+            const number1Input = document.getElementById('number1');
+            const number2Input = document.getElementById('number2');
+            const error1Element = document.getElementById('error1');
+            const error2Element = document.getElementById('error2');
+            const resultElement = document.getElementById('result');
 
-            // Input validation function
             function validateInput(input, errorElement) {
                 const value = input.value.trim();
                 
-                if (value === '' || isNaN(parseFloat(value))) {
+                if (value === '') {
+                    errorElement.textContent = 'This field is required';
                     input.classList.add('error');
-                    errorElement.style.display = 'block';
                     return false;
-                } else {
-                    input.classList.remove('error');
-                    errorElement.style.display = 'none';
-                    return true;
                 }
+                
+                if (isNaN(parseFloat(value))) {
+                    errorElement.textContent = 'Please enter a valid number';
+                    input.classList.add('error');
+                    return false;
+                }
+                
+                errorElement.textContent = '';
+                input.classList.remove('error');
+                return true;
             }
 
-            // Real-time validation
-            input1.addEventListener('input', () => validateInput(input1, error1));
-            input2.addEventListener('input', () => validateInput(input2, error2));
+            function handleInput(event) {
+                validateInput(event.target, event.target.id === 'number1' ? error1Element : error2Element);
+            }
 
-            // Form submission handler
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
+            number1Input.addEventListener('input', handleInput);
+            number2Input.addEventListener('input', handleInput);
+            number1Input.addEventListener('blur', handleInput);
+            number2Input.addEventListener('blur', handleInput);
+
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
                 
-                // Validate both inputs
-                const isValid1 = validateInput(input1, error1);
-                const isValid2 = validateInput(input2, error2);
+                const isValid1 = validateInput(number1Input, error1Element);
+                const isValid2 = validateInput(number2Input, error2Element);
                 
                 if (isValid1 && isValid2) {
-                    // Get input values and perform addition
-                    const num1 = parseFloat(input1.value);
-                    const num2 = parseFloat(input2.value);
+                    const num1 = parseFloat(number1Input.value);
+                    const num2 = parseFloat(number2Input.value);
                     const sum = num1 + num2;
                     
-                    // Display result
-                    resultValue.textContent = sum.toLocaleString();
-                    resultContainer.style.display = 'block';
+                    resultElement.textContent = sum;
+                    resultElement.style.color = '#27ae60';
+                } else {
+                    resultElement.textContent = 'Please fix the errors above';
+                    resultElement.style.color = '#e74c3c';
                 }
             });
 
-            // Clear validation on input focus
-            input1.addEventListener('focus', () => {
-                input1.classList.remove('error');
-                error1.style.display = 'none';
-            });
-
-            input2.addEventListener('focus', () => {
-                input2.classList.remove('error');
-                error2.style.display = 'none';
-            });
+            // Initial validation state
+            validateInput(number1Input, error1Element);
+            validateInput(number2Input, error2Element);
         });
     </script>
 </body>

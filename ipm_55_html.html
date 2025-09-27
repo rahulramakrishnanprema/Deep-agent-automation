@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Portfolio Manager - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #0dcaf0;
+            --light-bg: #f8f9fa;
+            --dark-bg: #212529;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fb;
+        }
+        
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(180deg, var(--primary-color), #0a58ca);
+            color: white;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 0.75rem 1rem;
+            border-left: 3px solid transparent;
+        }
+        
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-left-color: white;
+        }
+        
+        .sidebar .nav-link i {
+            margin-right: 10px;
+        }
+        
+        .main-content {
+            padding: 20px;
+        }
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: none;
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background-color: white;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            font-weight: 600;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .stat-card .label {
+            color: var(--secondary-color);
+            font-size: 14px;
+        }
+        
+        .positive-change {
+            color: var(--success-color);
+        }
+        
+        .negative-change {
+            color: var(--danger-color);
+        }
+        
+        .signal-card {
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .signal-buy {
+            border-left-color: var(--success-color);
+        }
+        
+        .signal-sell {
+            border-left-color: var(--danger-color);
+        }
+        
+        .signal-hold {
+            border-left-color: var(--warning-color);
+        }
+        
+        .confidence-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .table th {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+        
+        .news-item {
+            border-left: 3px solid var(--info-color);
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            background-color: white;
+            border-radius: 5px;
+        }
+        
+        .news-time {
+            font-size: 12px;
+            color: var(--secondary-color);
+        }
+        
+        .portfolio-chart-container {
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar px-0">
+                <div class="p-4">
+                    <h4 class="mb-4">Indian Portfolio Manager</h4>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="bi bi-wallet2"></i> Portfolios
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="bi bi-graph-up"></i> Market Data
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="bi bi-newspaper"></i> News
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="bi bi-gear"></i> Settings
+                            </a>
+                        </li>
+                        <li class="nav-item mt-4">
+                            <a class="nav-link" href="#">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="col-md-10 main-content">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Portfolio Dashboard</h2>
+                    <div>
+                        <button class="btn btn-outline-primary me-2">
+                            <i class="bi bi-download"></i> Export Report
+                        </button>
+                        <button class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> New Portfolio
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Stats Overview -->
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="label">Total Portfolio Value</div>
+                            <div class="value">₹2,45,780</div>
+                            <div class="positive-change">
+                                <i class="bi bi-arrow-up"></i> 4.2% today
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="label">Today's Gain</div>
+                            <div class="value">₹9,890</div>
+                            <div class="positive-change">
+                                <i class="bi bi-arrow-up"></i> 4.2%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="label">Unrealized P&L</div>
+                            <div class="value">₹56,430</div>
+                            <div class="positive-change">
+                                <i class="bi bi-arrow-up"></i> 18.7%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="label">Signals This Week</div>
+                            <div class="value">12</div>
+                            <div class="positive-change">
+                                78% Accuracy
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <!-- Portfolio Performance Chart -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Portfolio Performance</span>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-secondary">1D</button>
+                                    <button class="btn btn-sm btn-outline-secondary">1W</button>
+                                    <button class="btn btn-sm btn-outline-primary">1M</button>
+                                    <button class="btn btn-sm btn-outline-secondary">3M</button>
+                                    <button class="btn btn-sm btn-outline-secondary">1Y</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="portfolio-chart-container">
+                                    <canvas id="performanceChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Advisory Signals -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                Recent Advisory Signals
+                            </div>
+                            <div class="card-body">
+                                <div class="signal-card card mb-3 signal-buy">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <h6>RELIANCE</h6>
+                                        
+# Code truncated at 10000 characters

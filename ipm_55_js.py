@@ -1,357 +1,280 @@
-// IPM-55: Portfolio Management Dashboard JavaScript
-// Main dashboard functionality for Indian Portfolio Management system
+// IPM-55 JavaScript Implementation
+// Main application file for portfolio management dashboard
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize dashboard components
-    initDashboard();
-    setupEventListeners();
-    loadPortfolioData();
-    loadMarketData();
-});
-
-// Dashboard initialization
-function initDashboard() {
-    console.log('Initializing IPM Dashboard...');
-    
-    // Check authentication status
-    checkAuthStatus();
-    
-    // Initialize charts and visualizations
-    initCharts();
-    
-    // Set up real-time data updates
-    setupRealTimeUpdates();
-}
-
-// Authentication status check
-function checkAuthStatus() {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        window.location.href = '/login';
-        return;
+class PortfolioManager {
+    constructor() {
+        this.apiBaseUrl = 'http://localhost:8000/api';
+        this.currentUser = null;
+        this.portfolioData = null;
+        this.advisorySignals = [];
+        this.marketData = {};
+        this.init();
     }
-    
-    // Verify token validity
-    fetch('/api/auth/verify', {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            localStorage.removeItem('authToken');
-            window.location.href = '/login';
-        }
-    })
-    .catch(error => {
-        console.error('Auth verification failed:', error);
-        window.location.href = '/login';
-    });
-}
 
-// Portfolio data loading
-function loadPortfolioData() {
-    const token = localStorage.getItem('authToken');
-    
-    fetch('/api/portfolio', {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Failed to load portfolio data');
-        }
-        return response.json();
-    })
-    .then(data => {
-        updatePortfolioDisplay(data);
-        generateAdvisorySignals(data);
-    })
-    .catch(error => {
-        console.error('Error loading portfolio:', error);
-        showNotification('Failed to load portfolio data', 'error');
-    });
-}
-
-// Market data integration
-function loadMarketData() {
-    fetch('/api/market/data', {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        updateMarketWidgets(data);
-        updateCharts(data);
-    })
-    .catch(error => {
-        console.error('Error loading market data:', error);
-    });
-}
-
-// Real-time data processing setup
-function setupRealTimeUpdates() {
-    // WebSocket connection for real-time updates
-    const ws = new WebSocket('wss://your-api-domain.com/ws/market');
-    
-    ws.onopen = function() {
-        console.log('WebSocket connection established');
-        ws.send(JSON.stringify({
-            type: 'subscribe',
-            channels: ['nifty', 'sensex', 'portfolio_updates']
-        }));
-    };
-    
-    ws.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        handleRealTimeUpdate(data);
-    };
-    
-    ws.onerror = function(error) {
-        console.error('WebSocket error:', error);
-    };
-    
-    ws.onclose = function() {
-        console.log('WebSocket connection closed');
-        // Attempt reconnection after delay
-        setTimeout(setupRealTimeUpdates, 5000);
-    };
-}
-
-// Handle real-time data updates
-function handleRealTimeUpdate(data) {
-    switch (data.channel) {
-        case 'nifty':
-        case 'sensex':
-            updateIndexDisplay(data);
-            break;
-        case 'portfolio_updates':
-            updatePortfolioValue(data);
-            break;
-        case 'news':
-            updateNewsFeed(data);
-            break;
+    async init() {
+        await this.checkAuthentication();
+        await this.loadMarketData();
+        await this.loadPortfolioData();
+        await this.loadAdvisorySignals();
+        this.renderDashboard();
+        this.setupEventListeners();
     }
-}
 
-// Advisory signal generation
-function generateAdvisorySignals(portfolioData) {
-    fetch('/api/advisory/signals', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(portfolioData)
-    })
-    .then(response => response.json())
-    .then(signals => {
-        displayAdvisorySignals(signals);
-    })
-    .catch(error => {
-        console.error('Error generating advisory signals:', error);
-    });
-}
+    // Authentication methods
+    async checkAuthentication() {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            this.redirectToLogin();
+            return;
+        }
 
-// Display advisory signals with confidence scores
-function displayAdvisorySignals(signals) {
-    const signalsContainer = document.getElementById('advisory-signals');
-    if (!signalsContainer) return;
-    
-    signalsContainer.innerHTML = '';
-    
-    signals.forEach(signal => {
-        const signalElement = createSignalElement(signal);
-        signalsContainer.appendChild(signalElement);
-    });
-}
-
-// Create individual signal element
-function createSignalElement(signal) {
-    const div = document.createElement('div');
-    div.className = `signal ${signal.recommendation.toLowerCase()}`;
-    
-    const confidenceClass = getConfidenceClass(signal.confidence);
-    
-    div.innerHTML = `
-        <div class="signal-header">
-            <span class="symbol">${signal.symbol}</span>
-            <span class="recommendation ${signal.recommendation.toLowerCase()}">
-                ${signal.recommendation}
-            </span>
-            <span class="confidence ${confidenceClass}">
-                ${Math.round(signal.confidence * 100)}%
-            </span>
-        </div>
-        <div class="signal-reasoning">
-            ${signal.reasoning}
-        </div>
-        <div class="signal-metrics">
-            <span>Target: ₹${signal.targetPrice}</span>
-            <span>Stop Loss: ₹${signal.stopLoss}</span>
-        </div>
-    `;
-    
-    return div;
-}
-
-// Get CSS class based on confidence score
-function getConfidenceClass(confidence) {
-    if (confidence >= 0.8) return 'high-confidence';
-    if (confidence >= 0.6) return 'medium-confidence';
-    return 'low-confidence';
-}
-
-// Chart initialization
-function initCharts() {
-    // Initialize portfolio allocation chart
-    const allocationCtx = document.getElementById('allocationChart');
-    if (allocationCtx) {
-        new Chart(allocationCtx, {
-            type: 'pie',
-            data: {
-                labels: [],
-                datasets: [{
-                    data: [],
-                    backgroundColor: [
-                        '#4CAF50', '#2196F3', '#FFC107', '#E91E63', '#9C27B0'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/auth/verify`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                this.currentUser = await response.json();
+            } else {
+                this.redirectToLogin();
             }
-        });
+        } catch (error) {
+            console.error('Auth verification failed:', error);
+            this.redirectToLogin();
+        }
     }
-    
-    // Initialize performance chart
-    const performanceCtx = document.getElementById('performanceChart');
-    if (performanceCtx) {
-        new Chart(performanceCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Portfolio Value',
-                    data: [],
-                    borderColor: '#2196F3',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
+
+    redirectToLogin() {
+        window.location.href = '/login.html';
+    }
+
+    // Data loading methods
+    async loadMarketData() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/market/data`);
+            this.marketData = await response.json();
+        } catch (error) {
+            console.error('Failed to load market data:', error);
+        }
+    }
+
+    async loadPortfolioData() {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`${this.apiBaseUrl}/portfolio`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            this.portfolioData = await response.json();
+        } catch (error) {
+            console.error('Failed to load portfolio data:', error);
+        }
+    }
+
+    async loadAdvisorySignals() {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`${this.apiBaseUrl}/advisory/signals`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            this.advisorySignals = await response.json();
+        } catch (error) {
+            console.error('Failed to load advisory signals:', error);
+        }
+    }
+
+    // Dashboard rendering
+    renderDashboard() {
+        this.renderPortfolioSummary();
+        this.renderHoldingsTable();
+        this.renderAdvisorySignals();
+        this.renderMarketOverview();
+        this.renderPerformanceCharts();
+    }
+
+    renderPortfolioSummary() {
+        const summaryElement = document.getElementById('portfolio-summary');
+        if (this.portfolioData && summaryElement) {
+            summaryElement.innerHTML = `
+                <div class="summary-card">
+                    <h3>Total Value</h3>
+                    <p class="value">₹${this.formatCurrency(this.portfolioData.totalValue)}</p>
+                </div>
+                <div class="summary-card">
+                    <h3>Daily Change</h3>
+                    <p class="value ${this.portfolioData.dailyChange >= 0 ? 'positive' : 'negative'}">
+                        ${this.portfolioData.dailyChange >= 0 ? '+' : ''}${this.portfolioData.dailyChange}%
+                    </p>
+                </div>
+                <div class="summary-card">
+                    <h3>Holdings</h3>
+                    <p class="value">${this.portfolioData.holdingsCount}</p>
+                </div>
+            `;
+        }
+    }
+
+    renderHoldingsTable() {
+        const tableElement = document.getElementById('holdings-table');
+        if (this.portfolioData && tableElement) {
+            const rows = this.portfolioData.holdings.map(holding => `
+                <tr>
+                    <td>${holding.symbol}</td>
+                    <td>${holding.name}</td>
+                    <td>${holding.quantity}</td>
+                    <td>₹${this.formatCurrency(holding.currentPrice)}</td>
+                    <td>₹${this.formatCurrency(holding.investment)}</td>
+                    <td class="${holding.change >= 0 ? 'positive' : 'negative'}">
+                        ${holding.change >= 0 ? '+' : ''}${holding.change}%
+                    </td>
+                </tr>
+            `).join('');
+            
+            tableElement.innerHTML = rows;
+        }
+    }
+
+    renderAdvisorySignals() {
+        const signalsElement = document.getElementById('advisory-signals');
+        if (signalsElement) {
+            const signalsHtml = this.advisorySignals.map(signal => `
+                <div class="signal-card ${signal.confidence > 70 ? 'high-confidence' : signal.confidence > 50 ? 'medium-confidence' : 'low-confidence'}">
+                    <h4>${signal.symbol} - ${signal.action}</h4>
+                    <p>${signal.reason}</p>
+                    <div class="confidence-meter">
+                        <span>Confidence: ${signal.confidence}%</span>
+                        <div class="meter-bar">
+                            <div class="meter-fill" style="width: ${signal.confidence}%"></div>
+                        </div>
+                    </div>
+                    <span class="timestamp">${new Date(signal.timestamp).toLocaleString()}</span>
+                </div>
+            `).join('');
+            
+            signalsElement.innerHTML = signalsHtml;
+        }
+    }
+
+    renderMarketOverview() {
+        const marketElement = document.getElementById('market-overview');
+        if (this.marketData && marketElement) {
+            marketElement.innerHTML = `
+                <div class="market-index">
+                    <h4>NIFTY 50</h4>
+                    <p>${this.marketData.nifty50.value} 
+                       <span class="${this.marketData.nifty50.change >= 0 ? 'positive' : 'negative'}">
+                           ${this.marketData.nifty50.change >= 0 ? '+' : ''}${this.marketData.nifty50.change}%
+                       </span>
+                    </p>
+                </div>
+                <div class="market-index">
+                    <h4>SENSEX</h4>
+                    <p>${this.marketData.sensex.value} 
+                       <span class="${this.marketData.sensex.change >= 0 ? 'positive' : 'negative'}">
+                           ${this.marketData.sensex.change >= 0 ? '+' : ''}${this.marketData.sensex.change}%
+                       </span>
+                    </p>
+                </div>
+            `;
+        }
+    }
+
+    renderPerformanceCharts() {
+        // Chart rendering logic using Chart.js or similar library
+        this.renderPortfolioValueChart();
+        this.renderSectorAllocationChart();
+    }
+
+    renderPortfolioValueChart() {
+        const ctx = document.getElementById('portfolio-chart');
+        if (ctx && this.portfolioData) {
+            // Implementation for portfolio value chart
+            console.log('Rendering portfolio chart with data:', this.portfolioData.historicalValues);
+        }
+    }
+
+    renderSectorAllocationChart() {
+        const ctx = document.getElementById('sector-chart');
+        if (ctx && this.portfolioData) {
+            // Implementation for sector allocation chart
+            console.log('Rendering sector allocation chart');
+        }
+    }
+
+    // Utility methods
+    formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN').format(amount);
+    }
+
+    setupEventListeners() {
+        // Logout functionality
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                localStorage.removeItem('authToken');
+                this.redirectToLogin();
+            });
+        }
+
+        // Refresh data
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async () => {
+                await this.loadMarketData();
+                await this.loadPortfolioData();
+                await this.loadAdvisorySignals();
+                this.renderDashboard();
+            });
+        }
+    }
+
+    // API methods for portfolio operations
+    async addHolding(symbol, quantity, price) {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`${this.apiBaseUrl}/portfolio/holdings`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ symbol, quantity, price })
+            });
+            
+            if (response.ok) {
+                await this.loadPortfolioData();
+                this.renderDashboard();
+                return true;
             }
-        });
-    }
-}
-
-// Update charts with new data
-function updateCharts(marketData) {
-    // Implementation for updating charts with real-time data
-    // This would interact with Chart.js instances
-}
-
-// Event listeners setup
-function setupEventListeners() {
-    // Portfolio management actions
-    document.getElementById('refreshBtn')?.addEventListener('click', loadPortfolioData);
-    document.getElementById('addStockBtn')?.addEventListener('click', showAddStockModal);
-    document.getElementById('exportBtn')?.addEventListener('click', exportPortfolio);
-    
-    // Navigation
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', handleNavigation);
-    });
-    
-    // Search functionality
-    const searchInput = document.getElementById('stockSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', debounce(handleStockSearch, 300));
-    }
-}
-
-// Debounce function for search
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Stock search handler
-function handleStockSearch(event) {
-    const query = event.target.value.trim();
-    if (query.length > 2) {
-        searchStocks(query);
-    }
-}
-
-// Search stocks API call
-function searchStocks(query) {
-    fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, {
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            return false;
+        } catch (error) {
+            console.error('Failed to add holding:', error);
+            return false;
         }
-    })
-    .then(response => response.json())
-    .then(results => {
-        displaySearchResults(results);
-    })
-    .catch(error => {
-        console.error('Search error:', error);
-    });
-}
+    }
 
-// Utility functions
-function showNotification(message, type = 'info') {
-    // Implementation for showing notifications
-    console.log(`${type}: ${message}`);
-}
-
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR'
-    }).format(amount);
-}
-
-function formatPercentage(value) {
-    return `${(value * 100).toFixed(2)}%`;
-}
-
-// Export portfolio data
-function exportPortfolio() {
-    fetch('/api/portfolio/export', {
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-    })
-    .then(response => response.blob())
-    .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'portfolio-export.csv';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-    })
-    .catch(error => {
-        console.err
+    async updateHolding(holdingId, quantity, price) {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`${this.apiBaseUrl}/portfolio/holdings/${holdingId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ quantity, price })
+            });
+            
+            if (response.ok) {
+                await this.loadPortfolioData();
+                this.renderDashboard();
+                return true;
+            }
+            return false;
+        } catch
 # Code truncated at 10000 characters

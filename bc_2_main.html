@@ -1,1 +1,331 @@
-Error calling LLM: Expecting value: line 377 column 1 (char 2068)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subtraction Calculator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .calculator-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+            min-height: 20px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #subtractBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        #subtractBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        #resetBtn {
+            background: #95a5a6;
+            color: white;
+        }
+
+        #resetBtn:hover {
+            background: #7f8c8d;
+            transform: translateY(-2px);
+        }
+
+        .result-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px dashed #ddd;
+        }
+
+        .result-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        #result {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            word-wrap: break-word;
+        }
+
+        .processing-options {
+            margin-top: 20px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 10px;
+        }
+
+        .processing-options label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        input[type="radio"] {
+            margin-right: 10px;
+        }
+
+        @media (max-width: 480px) {
+            .calculator-container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            input[type="number"], button {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <h1>Subtraction Calculator</h1>
+        
+        <div class="input-group">
+            <label for="number1">First Number:</label>
+            <input type="number" id="number1" placeholder="Enter first number" step="any">
+            <div class="error-message" id="error1"></div>
+        </div>
+        
+        <div class="input-group">
+            <label for="number2">Second Number:</label>
+            <input type="number" id="number2" placeholder="Enter second number" step="any">
+            <div class="error-message" id="error2"></div>
+        </div>
+        
+        <div class="processing-options">
+            <label>
+                <input type="radio" name="processing" value="web" checked>
+                Web Processing (Client-side)
+            </label>
+            <label>
+                <input type="radio" name="processing" value="backend">
+                Backend Processing (Simulated)
+            </label>
+        </div>
+        
+        <div class="button-group">
+            <button id="subtractBtn">Subtract</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+        
+        <div class="result-container">
+            <div class="result-label">Result:</div>
+            <div id="result">-</div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Subtraction Calculator - Main Controller
+         * 
+         * This module handles the user interface and subtraction operations
+         * Supports both client-side and simulated backend processing
+         * Includes comprehensive input validation and error handling
+         */
+
+        class SubtractionCalculator {
+            constructor() {
+                this.initializeElements();
+                this.bindEvents();
+            }
+
+            /**
+             * Initialize DOM elements
+             */
+            initializeElements() {
+                this.number1Input = document.getElementById('number1');
+                this.number2Input = document.getElementById('number2');
+                this.error1Element = document.getElementById('error1');
+                this.error2Element = document.getElementById('error2');
+                this.subtractBtn = document.getElementById('subtractBtn');
+                this.resetBtn = document.getElementById('resetBtn');
+                this.resultElement = document.getElementById('result');
+                this.processingRadios = document.querySelectorAll('input[name="processing"]');
+            }
+
+            /**
+             * Bind event listeners to UI elements
+             */
+            bindEvents() {
+                this.subtractBtn.addEventListener('click', () => this.handleSubtraction());
+                this.resetBtn.addEventListener('click', () => this.resetCalculator());
+                
+                this.number1Input.addEventListener('input', () => this.clearErrors());
+                this.number2Input.addEventListener('input', () => this.clearErrors());
+            }
+
+            /**
+             * Clear all error messages
+             */
+            clearErrors() {
+                this.error1Element.textContent = '';
+                this.error2Element.textContent = '';
+            }
+
+            /**
+             * Validate input values
+             * @returns {boolean} True if inputs are valid, false otherwise
+             */
+            validateInputs() {
+                this.clearErrors();
+                let isValid = true;
+
+                const num1 = this.number1Input.value.trim();
+                const num2 = this.number2Input.value.trim();
+
+                if (num1 === '') {
+                    this.error1Element.textContent = 'Please enter the first number';
+                    isValid = false;
+                } else if (isNaN(num1)) {
+                    this.error1Element.textContent = 'Please enter a valid number';
+                    isValid = false;
+                }
+
+                if (num2 === '') {
+                    this.error2Element.textContent = 'Please enter the second number';
+                    isValid = false;
+                } else if (isNaN(num2)) {
+                    this.error2Element.textContent = 'Please enter a valid number';
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            /**
+             * Get the selected processing method
+             * @returns {string} 'web' or 'backend'
+             */
+            getProcessingMethod() {
+                return document.querySelector('input[name="processing"]:checked').value;
+            }
+
+            /**
+             * Perform subtraction operation
+             * @param {number} a - First number
+             * @param {number} b - Second number
+             * @returns {number} Result of subtraction (a - b)
+             */
+            subtract(a, b) {
+                return a - b;
+            }
+
+            /**
+             * Simulate backend processing with delay
+             * @param {number} a - First number
+             * @param {number} b - Second number
+             * @returns {Promise<number>} Promise resolving to subtraction result
+             */
+            async simulateBackendSubtraction(a, b) {
+                // Simulate network delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Simulate potential backend errors
+                if (Math.random() < 0.1) {
+                    throw new Error('Backend service temporarily unavailable');
+                }
+                
+                return this.subtract(a, b);
+            }
+
+            /**
+             * Handle subtraction operation based on selected processing method
+             */
+            async handleSubtraction() {
+                if (!this.validateInputs()) {
+                    return;
+                }
+
+                const num1 = parseFloat(this.number1Input.value);
+                const num2 = parseFloat(this.number2Input.value);
+                const processingMethod = this.getProcessingMethod();
+
+                try {
+ 
+# Code truncated at 10000 characters

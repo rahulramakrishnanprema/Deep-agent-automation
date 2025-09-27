@@ -1,131 +1,154 @@
 {
-  "name": "Indian Portfolio Manager",
-  "version": "1.0.0",
-  "description": "A scalable web application for managing Indian equity portfolios with AI-driven advisory signals",
-  "architecture": {
-    "backend": {
-      "framework": "Node.js with Express",
-      "database": "MongoDB with Mongoose ODM",
-      "authentication": "JWT-based with bcrypt password hashing",
-      "real-time_processing": "WebSocket integration for market data",
-      "scalability": "Modular design with RESTful APIs, containerization ready"
-    },
-    "frontend": {
-      "framework": "React with TypeScript",
-      "styling": "Material-UI with responsive design",
-      "visualizations": "Recharts and D3.js integration",
-      "state_management": "Redux with Thunk middleware"
-    }
+  "application": {
+    "name": "Indian Portfolio Manager",
+    "version": "1.0.0",
+    "description": "Web application for managing client stock portfolios in Indian equity markets"
   },
-  "data_sources": {
-    "market_data": {
-      "nse": "National Stock Exchange of India API",
-      "bse": "Bombay Stock Exchange API",
-      "news": "NewsAPI.org with Indian business sources filter"
-    },
-    "update_frequency": "Real-time via WebSocket for prices, 15-minute intervals for news"
+  
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "ipm_database",
+    "user": "ipm_user",
+    "password": "secure_password_here",
+    "ssl_mode": "require",
+    "max_connections": 20,
+    "timeout": 30
   },
+  
   "authentication": {
-    "user_roles": ["client", "advisor", "admin"],
-    "password_policy": "Minimum 8 characters with uppercase, lowercase, number and special character",
-    "session_timeout": 24,
-    "token_refresh": true
+    "jwt_secret": "your_jwt_secret_key_here",
+    "token_expiry_hours": 24,
+    "password_hashing_rounds": 12,
+    "session_timeout_minutes": 30
   },
-  "portfolio_management": {
-    "security": {
-      "data_encryption": "AES-256 for sensitive client data",
-      "access_control": "Role-based portfolio access",
-      "audit_logging": "All portfolio modifications tracked"
-    },
-    "features": {
-      "holdings_tracking": true,
-      "performance_analytics": true,
-      "tax_lot_tracking": true,
-      "dividend_records": true
-    }
-  },
-  "advisory_engine": {
-    "signals": ["BUY", "HOLD", "SELL"],
-    "confidence_scoring": {
-      "range": "0-100",
-      "thresholds": {
-        "high_confidence": 75,
-        "medium_confidence": 50,
-        "low_confidence": 25
+  
+  "market_data": {
+    "sources": {
+      "nse": {
+        "base_url": "https://www.nseindia.com/api",
+        "api_key": "your_nse_api_key",
+        "timeout": 10,
+        "retry_attempts": 3
+      },
+      "bse": {
+        "base_url": "https://api.bseindia.com/BseIndiaAPI/api",
+        "api_key": "your_bse_api_key",
+        "timeout": 10
+      },
+      "alpha_vantage": {
+        "base_url": "https://www.alphavantage.co/query",
+        "api_key": "your_alpha_vantage_key",
+        "timeout": 15
       }
     },
-    "reasoning_components": [
-      "technical_analysis",
-      "fundamental_analysis",
-      "market_sentiment",
-      "news_correlation",
-      "risk_assessment"
-    ],
-    "update_frequency": "Daily for full analysis, intraday for significant market movements"
-  },
-  "dashboard": {
-    "client_view": {
-      "components": [
-        "portfolio_summary",
-        "performance_charts",
-        "advisory_signals",
-        "watchlist",
-        "news_feed"
-      ]
-    },
-    "advisor_view": {
-      "components": [
-        "client_portfolios_overview",
-        "signal_management",
-        "performance_reports",
-        "client_communication_tools"
-      ]
-    },
-    "visualization_types": [
-      "line_charts",
-      "bar_charts",
-      "pie_charts",
-      "heat_maps",
-      "scatter_plots"
-    ]
-  },
-  "api_endpoints": {
-    "authentication": {
-      "login": "/api/auth/login",
-      "register": "/api/auth/register",
-      "refresh": "/api/auth/refresh",
-      "logout": "/api/auth/logout"
-    },
-    "portfolio": {
-      "get_portfolio": "/api/portfolio/:userId",
-      "add_holding": "/api/portfolio/:userId/holding",
-      "update_holding": "/api/portfolio/:userId/holding/:holdingId",
-      "delete_holding": "/api/portfolio/:userId/holding/:holdingId"
-    },
-    "advisory": {
-      "get_signals": "/api/advisory/signals",
-      "generate_report": "/api/advisory/report",
-      "signal_history": "/api/advisory/history"
-    },
-    "market_data": {
-      "stock_prices": "/api/market/prices",
-      "news": "/api/market/news",
-      "indices": "/api/market/indices"
+    "refresh_intervals": {
+      "stock_prices": 300,
+      "news_feed": 900,
+      "sentiment_data": 1800
     }
   },
-  "future_expansion": {
-    "planned_features": [
-      "mutual_fund_integration",
-      "tax_optimization_tools",
-      "mobile_app",
-      "multi_currency_support",
-      "advanced_risk_analytics"
+  
+  "news_integration": {
+    "sources": [
+      {
+        "name": "Economic Times",
+        "rss_feed": "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
+        "category": "markets"
+      },
+      {
+        "name": "Moneycontrol",
+        "rss_feed": "https://www.moneycontrol.com/rss/business.xml",
+        "category": "business"
+      },
+      {
+        "name": "Bloomberg Quint",
+        "rss_feed": "https://www.bloombergquint.com/feeds/markets",
+        "category": "markets"
+      }
     ],
-    "scalability_considerations": {
-      "microservices_ready": true,
-      "cloud_native": true,
-      "api_versioning": true,
-      "database_sharding_support": true
+    "update_frequency_minutes": 30
+  },
+  
+  "sentiment_analysis": {
+    "api_endpoint": "https://api.sentimentanalysis.com/v1/analyze",
+    "api_key": "your_sentiment_api_key",
+    "confidence_threshold": 0.7,
+    "update_frequency_hours": 6
+  },
+  
+  "advisory_algorithm": {
+    "weights": {
+      "technical_indicators": 0.4,
+      "fundamental_analysis": 0.3,
+      "market_sentiment": 0.2,
+      "news_sentiment": 0.1
+    },
+    "confidence_scoring": {
+      "high_threshold": 0.8,
+      "medium_threshold": 0.6,
+      "low_threshold": 0.4
+    },
+    "recalculation_frequency_minutes": 60
+  },
+  
+  "api_config": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "cors_origins": ["http://localhost:3000", "https://yourdomain.com"],
+    "rate_limiting": {
+      "max_requests": 100,
+      "time_window_minutes": 15
+    },
+    "logging_level": "info"
+  },
+  
+  "frontend": {
+    "dashboard": {
+      "refresh_interval_seconds": 60,
+      "chart_types": ["line", "bar", "pie", "scatter"],
+      "default_timeframe": "1M"
+    },
+    "portfolio": {
+      "max_display_holdings": 10,
+      "default_sort": "market_value_desc"
+    },
+    "signals": {
+      "display_limit": 20,
+      "auto_refresh_minutes": 5
+    }
+  },
+  
+  "logging": {
+    "level": "INFO",
+    "file_path": "./logs/application.log",
+    "max_file_size_mb": 100,
+    "backup_count": 7
+  },
+  
+  "security": {
+    "encryption_key": "your_encryption_key_here",
+    "ssl_enabled": true,
+    "csrf_protection": true,
+    "content_security_policy": "strict"
+  },
+  
+  "scalability": {
+    "cache_enabled": true,
+    "cache_ttl_seconds": 300,
+    "load_balancing": false,
+    "database_replication": false,
+    "microservices_ready": true
+  },
+  
+  "monitoring": {
+    "health_check_endpoint": "/health",
+    "metrics_endpoint": "/metrics",
+    "alerting_enabled": true,
+    "performance_thresholds": {
+      "response_time_ms": 500,
+      "error_rate_percent": 1,
+      "cpu_usage_percent": 80
     }
   }
 }

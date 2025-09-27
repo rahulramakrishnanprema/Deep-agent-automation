@@ -1,1 +1,189 @@
-Error calling LLM: Expecting value: line 163 column 1 (char 891)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Addition Calculator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        .calculator-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 30px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .result-container {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .result-label {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        #result {
+            font-size: 24px;
+            font-weight: bold;
+            color: #27ae60;
+        }
+
+        .error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .calculator-container {
+                padding: 20px;
+            }
+            
+            input[type="number"], button {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <h1>Number Addition Calculator</h1>
+        
+        <form id="addition-form">
+            <div class="form-group">
+                <label for="number1">First Number:</label>
+                <input type="number" id="number1" placeholder="Enter a number" step="any" required>
+                <div class="error" id="error-number1">Please enter a valid number</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="number2">Second Number:</label>
+                <input type="number" id="number2" placeholder="Enter a number" step="any" required>
+                <div class="error" id="error-number2">Please enter a valid number</div>
+            </div>
+            
+            <button type="submit">Calculate Sum</button>
+        </form>
+        
+        <div class="result-container">
+            <div class="result-label">Result:</div>
+            <div id="result">-</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('addition-form');
+            const number1Input = document.getElementById('number1');
+            const number2Input = document.getElementById('number2');
+            const resultDisplay = document.getElementById('result');
+            const errorNumber1 = document.getElementById('error-number1');
+            const errorNumber2 = document.getElementById('error-number2');
+            
+            function validateInput(input, errorElement) {
+                if (input.value === '' || isNaN(input.value)) {
+                    errorElement.style.display = 'block';
+                    input.style.borderColor = '#e74c3c';
+                    return false;
+                } else {
+                    errorElement.style.display = 'none';
+                    input.style.borderColor = '#ddd';
+                    return true;
+                }
+            }
+            
+            number1Input.addEventListener('input', function() {
+                validateInput(number1Input, errorNumber1);
+            });
+            
+            number2Input.addEventListener('input', function() {
+                validateInput(number2Input, errorNumber2);
+            });
+            
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                const isValid1 = validateInput(number1Input, errorNumber1);
+                const isValid2 = validateInput(number2Input, errorNumber2);
+                
+                if (isValid1 && isValid2) {
+                    const num1 = parseFloat(number1Input.value);
+                    const num2 = parseFloat(number2Input.value);
+                    const sum = num1 + num2;
+                    
+                    resultDisplay.textContent = sum;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+{
+  "name": "Indian Portfolio Manager",
+  "version": "1.0.0",
+  "description": "A scalable web application for managing Indian equity portfolios with AI-driven advisory signals",
+  "architecture": {
+    "backend": {
+      "framework": "Node.js with Express",
+      "database": "MongoDB with Mongoose ODM",
+      "authentication": "JWT-based with bcrypt password hashing",
+      "real-time_processing": "WebSocket integration for market data",
+      "scalability": "Modular design with RESTful APIs, containerization ready"
+    },
+    "frontend": {
+      "framework": "React with TypeScript",
+      "styling": "Material-UI with responsive design",
+      "visualizations": "Recharts and D3.js integration",
+      "state_management": "Redux with Thunk middleware"
+    }
+  },
+  "data_sources": {
+    "market_data": {
+      "nse": "National Stock Exchange of India API",
+      "bse": "Bombay Stock Exchange API",
+      "news": "NewsAPI.org with Indian business sources filter"
+    },
+    "update_frequency": "Real-time via WebSocket for prices, 15-minute intervals for news"
+  },
+  "authentication": {
+    "user_roles": ["client", "advisor", "admin"],
+    "password_policy": "Minimum 8 characters with uppercase, lowercase, number and special character",
+    "session_timeout": 24,
+    "token_refresh": true
+  },
+  "portfolio_management": {
+    "security": {
+      "data_encryption": "AES-256 for sensitive client data",
+      "access_control": "Role-based portfolio access",
+      "audit_logging": "All portfolio modifications tracked"
+    },
+    "features": {
+      "holdings_tracking": true,
+      "performance_analytics": true,
+      "tax_lot_tracking": true,
+      "dividend_records": true
+    }
+  },
+  "advisory_engine": {
+    "signals": ["BUY", "HOLD", "SELL"],
+    "confidence_scoring": {
+      "range": "0-100",
+      "thresholds": {
+        "high_confidence": 75,
+        "medium_confidence": 50,
+        "low_confidence": 25
+      }
+    },
+    "reasoning_components": [
+      "technical_analysis",
+      "fundamental_analysis",
+      "market_sentiment",
+      "news_correlation",
+      "risk_assessment"
+    ],
+    "update_frequency": "Daily for full analysis, intraday for significant market movements"
+  },
+  "dashboard": {
+    "client_view": {
+      "components": [
+        "portfolio_summary",
+        "performance_charts",
+        "advisory_signals",
+        "watchlist",
+        "news_feed"
+      ]
+    },
+    "advisor_view": {
+      "components": [
+        "client_portfolios_overview",
+        "signal_management",
+        "performance_reports",
+        "client_communication_tools"
+      ]
+    },
+    "visualization_types": [
+      "line_charts",
+      "bar_charts",
+      "pie_charts",
+      "heat_maps",
+      "scatter_plots"
+    ]
+  },
+  "api_endpoints": {
+    "authentication": {
+      "login": "/api/auth/login",
+      "register": "/api/auth/register",
+      "refresh": "/api/auth/refresh",
+      "logout": "/api/auth/logout"
+    },
+    "portfolio": {
+      "get_portfolio": "/api/portfolio/:userId",
+      "add_holding": "/api/portfolio/:userId/holding",
+      "update_holding": "/api/portfolio/:userId/holding/:holdingId",
+      "delete_holding": "/api/portfolio/:userId/holding/:holdingId"
+    },
+    "advisory": {
+      "get_signals": "/api/advisory/signals",
+      "generate_report": "/api/advisory/report",
+      "signal_history": "/api/advisory/history"
+    },
+    "market_data": {
+      "stock_prices": "/api/market/prices",
+      "news": "/api/market/news",
+      "indices": "/api/market/indices"
+    }
+  },
+  "future_expansion": {
+    "planned_features": [
+      "mutual_fund_integration",
+      "tax_optimization_tools",
+      "mobile_app",
+      "multi_currency_support",
+      "advanced_risk_analytics"
+    ],
+    "scalability_considerations": {
+      "microservices_ready": true,
+      "cloud_native": true,
+      "api_versioning": true,
+      "database_sharding_support": true
+    }
+  }
+}

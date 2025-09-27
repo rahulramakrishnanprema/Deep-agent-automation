@@ -1,1 +1,166 @@
-Error calling LLM: 429 Client Error: Too Many Requests for url: https://openrouter.ai/api/v1/chat/completions
+{
+    "name": "Simple Subtraction Calculator",
+    "version": "1.0.0",
+    "description": "A JSON configuration file for a simple calculator system that performs subtraction operations",
+    "author": "Developer",
+    "created_date": "2023-11-15",
+    
+    "ui_config": {
+        "input_fields": [
+            {
+                "id": "number1",
+                "type": "number",
+                "label": "First Number",
+                "placeholder": "Enter first number",
+                "required": true,
+                "validation": {
+                    "min_value": -999999999,
+                    "max_value": 999999999,
+                    "pattern": "^[-]?\\d+(\\.\\d+)?$"
+                }
+            },
+            {
+                "id": "number2",
+                "type": "number",
+                "label": "Second Number",
+                "placeholder": "Enter second number",
+                "required": true,
+                "validation": {
+                    "min_value": -999999999,
+                    "max_value": 999999999,
+                    "pattern": "^[-]?\\d+(\\.\\d+)?$"
+                }
+            }
+        ],
+        "operation": "subtraction",
+        "result_display": {
+            "element_id": "result",
+            "format": "The result of {number1} - {number2} = {result}",
+            "error_format": "Error: {error_message}"
+        }
+    },
+    
+    "backend_config": {
+        "endpoint": "/api/subtract",
+        "method": "POST",
+        "expected_parameters": ["number1", "number2"],
+        "response_format": {
+            "success": {
+                "result": "number",
+                "operation": "string",
+                "timestamp": "string"
+            },
+            "error": {
+                "error": "string",
+                "message": "string",
+                "timestamp": "string"
+            }
+        }
+    },
+    
+    "validation_rules": {
+        "required_fields": ["number1", "number2"],
+        "numeric_validation": {
+            "pattern": "^[-]?\\d+(\\.\\d+)?$",
+            "error_message": "Please enter valid numbers only"
+        },
+        "range_validation": {
+            "min": -999999999,
+            "max": 999999999,
+            "error_message": "Numbers must be between -999,999,999 and 999,999,999"
+        }
+    },
+    
+    "error_handling": {
+        "invalid_input": {
+            "code": "INVALID_INPUT",
+            "message": "Please provide valid numeric inputs"
+        },
+        "missing_field": {
+            "code": "MISSING_FIELD",
+            "message": "Required field is missing"
+        },
+        "calculation_error": {
+            "code": "CALCULATION_ERROR",
+            "message": "Error during subtraction calculation"
+        }
+    },
+    
+    "responsive_design": {
+        "breakpoints": {
+            "mobile": "max-width: 768px",
+            "tablet": "min-width: 769px and max-width: 1024px",
+            "desktop": "min-width: 1025px"
+        },
+        "layout_adjustments": {
+            "mobile": {
+                "input_width": "100%",
+                "font_size": "16px"
+            },
+            "desktop": {
+                "input_width": "300px",
+                "font_size": "14px"
+            }
+        }
+    },
+    
+    "documentation": {
+        "purpose": "Configuration for a simple subtraction calculator system",
+        "usage": "This JSON file defines the structure and behavior of the calculator UI and backend",
+        "fields_description": {
+            "number1": "First operand for subtraction",
+            "number2": "Second operand for subtraction",
+            "result": "Result of number1 - number2"
+        }
+    },
+    
+    "testing": {
+        "unit_tests": [
+            {
+                "test_name": "valid_subtraction_positive_numbers",
+                "input": {"number1": 10, "number2": 5},
+                "expected_output": 5,
+                "description": "Subtract two positive numbers"
+            },
+            {
+                "test_name": "valid_subtraction_negative_numbers",
+                "input": {"number1": -5, "number2": -3},
+                "expected_output": -2,
+                "description": "Subtract two negative numbers"
+            },
+            {
+                "test_name": "valid_subtraction_mixed_numbers",
+                "input": {"number1": 10, "number2": -5},
+                "expected_output": 15,
+                "description": "Subtract negative from positive number"
+            },
+            {
+                "test_name": "invalid_input_non_numeric",
+                "input": {"number1": "abc", "number2": 5},
+                "expected_error": "INVALID_INPUT",
+                "description": "Handle non-numeric input"
+            },
+            {
+                "test_name": "missing_field",
+                "input": {"number1": 10},
+                "expected_error": "MISSING_FIELD",
+                "description": "Handle missing required field"
+            }
+        ]
+    },
+    
+    "code_structure": {
+        "frontend_components": ["input_validation.js", "subtraction_calculator.js", "ui_renderer.js"],
+        "backend_components": ["subtraction_api.py", "validation_service.py", "error_handler.py"],
+        "style_components": ["responsive_calculator.css"],
+        "test_components": ["test_subtraction.py", "test_validation.js"]
+    },
+    
+    "dependencies": {
+        "frontend": ["jquery-3.6.0.min.js", "bootstrap-5.1.3.css"],
+        "backend": ["flask-2.0.0", "python-3.9"]
+    },
+    
+    "license": "MIT",
+    "last_updated": "2023-11-15"
+}

@@ -1,1 +1,239 @@
-Error calling LLM: 429 Client Error: Too Many Requests for url: https://openrouter.ai/api/v1/chat/completions
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Addition Calculator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .calculator-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        input[type="number"].error {
+            border-color: #e74c3c;
+            background-color: #fdf0ed;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+            min-height: 20px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .result-container {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        @media (max-width: 480px) {
+            .calculator-container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+            
+            input[type="number"] {
+                padding: 10px;
+            }
+            
+            button {
+                padding: 10px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <h1>Number Addition Calculator</h1>
+        
+        <form id="additionForm">
+            <div class="input-group">
+                <label for="number1">First Number:</label>
+                <input type="number" id="number1" placeholder="Enter first number" step="any">
+                <div class="error-message" id="error1"></div>
+            </div>
+            
+            <div class="input-group">
+                <label for="number2">Second Number:</label>
+                <input type="number" id="number2" placeholder="Enter second number" step="any">
+                <div class="error-message" id="error2"></div>
+            </div>
+            
+            <button type="submit">Calculate Sum</button>
+        </form>
+        
+        <div class="result-container">
+            <div class="result-label">Result:</div>
+            <div class="result-value" id="result">0</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('additionForm');
+            const number1Input = document.getElementById('number1');
+            const number2Input = document.getElementById('number2');
+            const error1Element = document.getElementById('error1');
+            const error2Element = document.getElementById('error2');
+            const resultElement = document.getElementById('result');
+
+            function validateInput(input, errorElement) {
+                const value = input.value.trim();
+                
+                // Clear previous error
+                errorElement.textContent = '';
+                input.classList.remove('error');
+                
+                // Check if empty
+                if (value === '') {
+                    errorElement.textContent = 'This field is required';
+                    input.classList.add('error');
+                    return null;
+                }
+                
+                // Check if valid number
+                const number = parseFloat(value);
+                if (isNaN(number)) {
+                    errorElement.textContent = 'Please enter a valid number';
+                    input.classList.add('error');
+                    return null;
+                }
+                
+                return number;
+            }
+
+            function performAddition(number1, number2) {
+                return number1 + number2;
+            }
+
+            function displayResult(result) {
+                resultElement.textContent = result;
+            }
+
+            function handleFormSubmit(event) {
+                event.preventDefault();
+                
+                // Validate both inputs
+                const num1 = validateInput(number1Input, error1Element);
+                const num2 = validateInput(number2Input, error2Element);
+                
+                // If both inputs are valid, perform calculation
+                if (num1 !== null && num2 !== null) {
+                    const result = performAddition(num1, num2);
+                    displayResult(result);
+                } else {
+                    // Clear result if there are errors
+                    displayResult('0');
+                }
+            }
+
+            // Add event listeners for real-time validation
+            number1Input.addEventListener('input', function() {
+                validateInput(number1Input, error1Element);
+            });
+
+            number2Input.addEventListener('input', function() {
+                validateInput(number2Input, error2Element);
+            });
+
+            // Form submission handler
+            form.addEventListener('submit', handleFormSubmit);
+        });
+    </script>
+</body>
+</html>

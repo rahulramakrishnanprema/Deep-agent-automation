@@ -1,247 +1,228 @@
--- IPM-55: Portfolio Management System SQL Schema
--- This script creates the database schema for the Indian Portfolio Management system
--- Includes tables for user management, portfolio storage, market data, advisory signals, and dashboards
+-- IPM-55: Database Initialization Script for Portfolio Management System
+-- This script creates the core database schema for the Indian Portfolio Management application
 
 -- Enable UUID extension for unique identifiers
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Users table for authentication and authorization
 CREATE TABLE users (
-    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    user_type VARCHAR(20) CHECK (user_type IN ('advisor', 'client', 'admin')) NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
+    is_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Roles table for authorization
-CREATE TABLE roles (
-    role_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    role_name VARCHAR(50) UNIQUE NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- User roles junction table
-CREATE TABLE user_roles (
-    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-    role_id UUID REFERENCES roles(role_id) ON DELETE CASCADE,
-    PRIMARY KEY (user_id, role_id)
-);
-
--- Permissions table
-CREATE TABLE permissions (
-    permission_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    permission_name VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Role permissions junction table
-CREATE TABLE role_permissions (
-    role_id UUID REFERENCES roles(role_id) ON DELETE CASCADE,
-    permission_id UUID REFERENCES permissions(permission_id) ON DELETE CASCADE,
-    PRIMARY KEY (role_id, permission_id)
-);
-
--- Client profiles table
-CREATE TABLE client_profiles (
-    client_id UUID PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
-    risk_profile VARCHAR(20) CHECK (risk_profile IN ('low', 'medium', 'high', 'very_high')),
-    investment_horizon VARCHAR(20),
-    total_investment_value DECIMAL(15,2) DEFAULT 0,
+-- Clients table
+CREATE TABLE clients (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pan_number VARCHAR(10) UNIQUE NOT NULL,
+    phone_number VARCHAR(15),
+    address TEXT,
+    risk_profile VARCHAR(20) CHECK (risk_profile IN ('LOW', 'MEDIUM', 'HIGH')),
+    investment_horizon VARCHAR(20) CHECK (investment_horizon IN ('SHORT', 'MEDIUM', 'LONG')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Advisor-client relationships
-CREATE TABLE advisor_clients (
-    advisor_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-    client_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-    relationship_status VARCHAR(20) DEFAULT 'active' CHECK (relationship_status IN ('active', 'inactive', 'pending')),
-    assigned_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (advisor_id, client_id)
+-- Portfolios table
+CREATE TABLE portfolios (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    total_value DECIMAL(15,2) DEFAULT 0.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indian market securities master table
-CREATE TABLE securities (
-    security_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- Stocks master table (NSE/BSE listed companies)
+CREATE TABLE stocks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     symbol VARCHAR(20) NOT NULL,
     name VARCHAR(255) NOT NULL,
     exchange VARCHAR(10) CHECK (exchange IN ('NSE', 'BSE')),
     sector VARCHAR(100),
     industry VARCHAR(100),
-    is_active BOOLEAN DEFAULT TRUE,
+    isin_code VARCHAR(12) UNIQUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(symbol, exchange)
 );
 
--- Portfolio table
-CREATE TABLE portfolios (
-    portfolio_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    client_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-    portfolio_name VARCHAR(255) NOT NULL,
-    description TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
+-- Holdings table
+CREATE TABLE holdings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    stock_id UUID NOT NULL REFERENCES stocks(id),
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    average_price DECIMAL(10,2) NOT NULL,
+    purchase_date DATE NOT NULL,
+    current_price DECIMAL(10,2),
+    current_value DECIMAL(15,2) GENERATED ALWAYS AS (quantity * current_price) STORED,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Portfolio holdings table
-CREATE TABLE portfolio_holdings (
-    holding_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    portfolio_id UUID REFERENCES portfolios(portfolio_id) ON DELETE CASCADE,
-    security_id UUID REFERENCES securities(security_id),
-    quantity DECIMAL(12,4) NOT NULL CHECK (quantity >= 0),
-    average_buy_price DECIMAL(12,4) NOT NULL,
-    acquisition_date TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Market data table for real-time prices
+-- Market data table for daily prices
 CREATE TABLE market_data (
-    data_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    security_id UUID REFERENCES securities(security_id),
-    price DECIMAL(12,4) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    stock_id UUID NOT NULL REFERENCES stocks(id),
+    date DATE NOT NULL,
+    open_price DECIMAL(10,2),
+    high_price DECIMAL(10,2),
+    low_price DECIMAL(10,2),
+    close_price DECIMAL(10,2),
     volume BIGINT,
-    change_percent DECIMAL(8,4),
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(stock_id, date)
 );
 
--- News sources table
-CREATE TABLE news_sources (
-    source_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    source_name VARCHAR(255) NOT NULL,
-    website_url VARCHAR(500),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Market news table
-CREATE TABLE market_news (
-    news_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    source_id UUID REFERENCES news_sources(source_id),
-    title VARCHAR(500) NOT NULL,
+-- News articles table
+CREATE TABLE news_articles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    stock_id UUID REFERENCES stocks(id),
+    title TEXT NOT NULL,
     content TEXT,
-    url VARCHAR(1000),
+    source VARCHAR(100),
     published_at TIMESTAMP WITH TIME ZONE,
     sentiment_score DECIMAL(5,4) CHECK (sentiment_score BETWEEN -1 AND 1),
+    url VARCHAR(500),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- News security mapping table
-CREATE TABLE news_security_mapping (
-    news_id UUID REFERENCES market_news(news_id) ON DELETE CASCADE,
-    security_id UUID REFERENCES securities(security_id) ON DELETE CASCADE,
-    relevance_score DECIMAL(5,4) DEFAULT 1.0,
-    PRIMARY KEY (news_id, security_id)
+-- Sentiment data table
+CREATE TABLE sentiment_data (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    stock_id UUID NOT NULL REFERENCES stocks(id),
+    date DATE NOT NULL,
+    sentiment_score DECIMAL(5,4) CHECK (sentiment_score BETWEEN -1 AND 1),
+    source VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(stock_id, date, source)
 );
 
 -- Advisory signals table
 CREATE TABLE advisory_signals (
-    signal_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    security_id UUID REFERENCES securities(security_id),
-    signal_type VARCHAR(10) CHECK (signal_type IN ('BUY', 'SELL', 'HOLD')) NOT NULL,
-    reasoning TEXT NOT NULL,
-    confidence_score DECIMAL(5,4) CHECK (confidence_score BETWEEN 0 AND 1) NOT NULL,
-    target_price DECIMAL(12,4),
-    stop_loss DECIMAL(12,4),
-    time_horizon VARCHAR(20),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    stock_id UUID NOT NULL REFERENCES stocks(id),
+    signal_type VARCHAR(10) CHECK (signal_type IN ('BUY', 'SELL', 'HOLD')),
+    confidence_score DECIMAL(5,4) CHECK (confidence_score BETWEEN 0 AND 1),
+    reasoning TEXT,
     generated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE,
+    valid_until TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- User signal preferences table
-CREATE TABLE user_signal_preferences (
-    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-    signal_type VARCHAR(10) CHECK (signal_type IN ('BUY', 'SELL', 'HOLD')),
-    min_confidence_score DECIMAL(5,4) DEFAULT 0.7,
-    PRIMARY KEY (user_id, signal_type)
-);
-
--- Dashboard configurations table
-CREATE TABLE dashboard_configs (
-    config_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-    dashboard_name VARCHAR(255) NOT NULL,
-    config_json JSONB NOT NULL,
-    is_default BOOLEAN DEFAULT FALSE,
+-- Portfolio signals junction table
+CREATE TABLE portfolio_signals (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    signal_id UUID NOT NULL REFERENCES advisory_signals(id) ON DELETE CASCADE,
+    is_applied BOOLEAN DEFAULT FALSE,
+    applied_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    UNIQUE(portfolio_id, signal_id)
 );
 
--- Audit table for portfolio changes
-CREATE TABLE portfolio_audit (
-    audit_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    portfolio_id UUID REFERENCES portfolios(portfolio_id),
-    user_id UUID REFERENCES users(user_id),
-    action_type VARCHAR(20) NOT NULL,
-    action_details JSONB,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
+-- Transactions table
+CREATE TABLE transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    stock_id UUID NOT NULL REFERENCES stocks(id),
+    type VARCHAR(4) CHECK (type IN ('BUY', 'SELL')),
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    price DECIMAL(10,2) NOT NULL,
+    transaction_date DATE NOT NULL,
+    brokerage DECIMAL(10,2) DEFAULT 0.00,
+    taxes DECIMAL(10,2) DEFAULT 0.00,
+    total_amount DECIMAL(15,2) GENERATED ALWAYS AS (
+        quantity * price + CASE WHEN type = 'BUY' THEN brokerage + taxes ELSE -brokerage - taxes END
+    ) STORED,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- User sessions table for authentication
+CREATE TABLE user_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Refresh tokens table
+CREATE TABLE refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes for performance optimization
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_user_type ON users(user_type);
-CREATE INDEX idx_securities_symbol ON securities(symbol);
-CREATE INDEX idx_securities_exchange ON securities(exchange);
-CREATE INDEX idx_market_data_security_id ON market_data(security_id);
-CREATE INDEX idx_market_data_timestamp ON market_data(timestamp);
+CREATE INDEX idx_clients_user_id ON clients(user_id);
 CREATE INDEX idx_portfolios_client_id ON portfolios(client_id);
-CREATE INDEX idx_portfolio_holdings_portfolio_id ON portfolio_holdings(portfolio_id);
-CREATE INDEX idx_advisory_signals_security_id ON advisory_signals(security_id);
+CREATE INDEX idx_holdings_portfolio_id ON holdings(portfolio_id);
+CREATE INDEX idx_holdings_stock_id ON holdings(stock_id);
+CREATE INDEX idx_market_data_stock_id ON market_data(stock_id);
+CREATE INDEX idx_market_data_date ON market_data(date);
+CREATE INDEX idx_news_stock_id ON news_articles(stock_id);
+CREATE INDEX idx_sentiment_stock_id ON sentiment_data(stock_id);
+CREATE INDEX idx_advisory_signals_stock_id ON advisory_signals(stock_id);
 CREATE INDEX idx_advisory_signals_generated_at ON advisory_signals(generated_at);
-CREATE INDEX idx_market_news_published_at ON market_news(published_at);
-CREATE INDEX idx_market_news_sentiment ON market_news(sentiment_score);
+CREATE INDEX idx_transactions_portfolio_id ON transactions(portfolio_id);
+CREATE INDEX idx_transactions_stock_id ON transactions(stock_id);
+CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 
--- Insert default roles
-INSERT INTO roles (role_name, description) VALUES 
-('admin', 'System administrator with full access'),
-('advisor', 'Financial advisor with client management capabilities'),
-('client', 'End client with portfolio access');
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
 
--- Insert default permissions
-INSERT INTO permissions (permission_name, description) VALUES
-('view_dashboard', 'View personal dashboard'),
-('manage_portfolio', 'Create and manage investment portfolio'),
-('view_advisory_signals', 'View AI-generated advisory signals'),
-('view_market_data', 'Access real-time market data'),
-('view_news', 'Access market news and analysis'),
-('manage_clients', 'Manage client relationships and portfolios'),
-('system_admin', 'Full system administration access');
+-- Triggers for updated_at
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_clients_updated_at BEFORE UPDATE ON clients FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_holdings_updated_at BEFORE UPDATE ON holdings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_stocks_updated_at BEFORE UPDATE ON stocks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Insert default role permissions
-INSERT INTO role_permissions (role_id, permission_id) 
-SELECT r.role_id, p.permission_id 
-FROM roles r, permissions p 
-WHERE r.role_name = 'admin';
+-- Insert sample data for demonstration
+INSERT INTO users (email, password_hash, first_name, last_name, is_admin) VALUES
+('admin@ipm.com', '$2b$10$examplehash', 'Admin', 'User', TRUE),
+('client1@ipm.com', '$2b$10$examplehash2', 'Rahul', 'Sharma', FALSE);
 
-INSERT INTO role_permissions (role_id, permission_id) 
-SELECT r.role_id, p.permission_id 
-FROM roles r, permissions p 
-WHERE r.role_name = 'advisor' 
-AND p.permission_name IN ('view_dashboard', 'view_advisory_signals', 'view_market_data', 'view_news', 'manage_clients');
+INSERT INTO clients (user_id, pan_number, phone_number, risk_profile, investment_horizon) VALUES
+((SELECT id FROM users WHERE email = 'client1@ipm.com'), 'ABCDE1234F', '+919876543210', 'MEDIUM', 'LONG');
 
-INSERT INTO role_permissions (role_id, permission_id) 
-SELECT r.role_id, p.permission_id 
-FROM roles r, permissions p 
-WHERE r.role_name = 'client' 
-AND p.permission_name IN ('view_dashboard', 'manage_portfolio', 'view_advisory_signals', 'view_market_data', 'view_news');
+INSERT INTO portfolios (client_id, name, description) VALUES
+((SELECT id FROM clients LIMIT 1), 'Main Portfolio', 'Primary investment portfolio');
 
--- Insert sample news sources
-INSERT INTO news_sources (source_name, website_url) VALUES
-('Economic Times', 'https://economictimes.indiatimes.com'),
-('Moneycontrol', 'https://www.moneycontrol.com'),
-('Business Standard', 'https://www.business-standard.com'),
-('Bloomberg Quint', 'https://www.bloombergquint.com'
+-- Insert sample Indian stocks
+INSERT INTO stocks (symbol, name, exchange, sector, isin_code) VALUES
+('RELIANCE', 'Reliance Industries Limited', 'NSE', 'Oil & Gas', 'INE002A01018'),
+('TCS', 'Tata Consultancy Services Limited', 'NSE', 'Information Technology', 'INE467B01029'),
+('HDFCBANK', 'HDFC Bank Limited', 'NSE', 'Banking', 'INE040A01034'),
+('INFY', 'Infosys Limited', 'NSE', 'Information Technology', 'INE009A01021');
+
+COMMENT ON TABLE users IS 'Stores user authentication information and profiles';
+COMMENT ON TABLE clients IS 'Stores client details and investment preferences';
+COMMENT ON TABLE portfolios IS 'Manages client investment portfolios';
+COMMENT ON TABLE stocks IS 'Master list of Indian stocks with company information';
+COMMENT ON TABLE holdings IS 'Tracks stock holdings within each portfolio';
+COMMENT ON TABLE market_data IS 'Stores daily market price data for stocks';
+COMMENT ON TABLE news_articles IS 'Contains news articles with sentiment analysis';
+COMMENT ON TABLE sentiment_data IS 'Stores sentiment scores from various sources';
+COMMENT ON TABLE adv
 # Code truncated at 10000 characters

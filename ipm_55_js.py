@@ -1,280 +1,140 @@
-// IPM-55 JavaScript Implementation
-// Main application file for portfolio management dashboard
+// ipm_55_js.py - Main JavaScript/Node.js application entry point
+// This file serves as the main entry point for the IPM (Indian Portfolio Manager) application
 
-class PortfolioManager {
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
+const config = require('./config/config');
+const authRoutes = require('./routes/auth');
+const portfolioRoutes = require('./routes/portfolio');
+const signalsRoutes = require('./routes/signals');
+const dashboardRoutes = require('./routes/dashboard');
+const marketDataRoutes = require('./routes/marketData');
+const { errorHandler } = require('./middleware/errorHandler');
+const { authenticateToken } = require('./middleware/auth');
+
+class IPMApplication {
     constructor() {
-        this.apiBaseUrl = 'http://localhost:8000/api';
-        this.currentUser = null;
-        this.portfolioData = null;
-        this.advisorySignals = [];
-        this.marketData = {};
-        this.init();
+        this.app = express();
+        this.setupMiddleware();
+        this.setupRoutes();
+        this.connectDatabase();
     }
 
-    async init() {
-        await this.checkAuthentication();
-        await this.loadMarketData();
-        await this.loadPortfolioData();
-        await this.loadAdvisorySignals();
-        this.renderDashboard();
-        this.setupEventListeners();
+    setupMiddleware() {
+        // Security middleware
+        this.app.use(helmet());
+        
+        // CORS configuration
+        this.app.use(cors({
+            origin: config.cors.origin,
+            credentials: true
+        }));
+        
+        // Rate limiting
+        const limiter = rateLimit({
+            windowMs: 15 * 60 * 1000, // 15 minutes
+            max: 100 // limit each IP to 100 requests per windowMs
+        });
+        this.app.use(limiter);
+        
+        // Body parsing middleware
+        this.app.use(express.json({ limit: '10mb' }));
+        this.app.use(express.urlencoded({ extended: true }));
+        
+        // Static files
+        this.app.use(express.static('public'));
     }
 
-    // Authentication methods
-    async checkAuthentication() {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-            this.redirectToLogin();
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/auth/verify`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+    setupRoutes() {
+        // Public routes
+        this.app.use('/api/auth', authRoutes);
+        
+        // Protected routes
+        this.app.use('/api/portfolio', authenticateToken, portfolioRoutes);
+        this.app.use('/api/signals', authenticateToken, signalsRoutes);
+        this.app.use('/api/dashboard', authenticateToken, dashboardRoutes);
+        this.app.use('/api/market-data', authenticateToken, marketDataRoutes);
+        
+        // Health check endpoint
+        this.app.get('/health', (req, res) => {
+            res.status(200).json({ 
+                status: 'OK', 
+                timestamp: new Date().toISOString(),
+                uptime: process.uptime()
             });
-            
-            if (response.ok) {
-                this.currentUser = await response.json();
-            } else {
-                this.redirectToLogin();
-            }
+        });
+        
+        // Error handling middleware (should be last)
+        this.app.use(errorHandler);
+    }
+
+    async connectDatabase() {
+        try {
+            await mongoose.connect(config.database.uri, {
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
+                useCreateIndex: true,
+                useFindAndModify: false
+            });
+            console.log('Connected to MongoDB successfully');
         } catch (error) {
-            console.error('Auth verification failed:', error);
-            this.redirectToLogin();
+            console.error('MongoDB connection error:', error);
+            process.exit(1);
         }
     }
 
-    redirectToLogin() {
-        window.location.href = '/login.html';
+    startServer() {
+        const PORT = config.server.port || 3000;
+        this.server = this.app.listen(PORT, () => {
+            console.log(`IPM Server running on port ${PORT}`);
+            console.log(`Environment: ${config.env}`);
+        });
     }
 
-    // Data loading methods
-    async loadMarketData() {
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/market/data`);
-            this.marketData = await response.json();
-        } catch (error) {
-            console.error('Failed to load market data:', error);
+    async shutdown() {
+        console.log('Shutting down server...');
+        if (this.server) {
+            this.server.close();
         }
+        await mongoose.connection.close();
+        console.log('Server shut down successfully');
     }
+}
 
-    async loadPortfolioData() {
-        try {
-            const token = localStorage.getItem('authToken');
-            const response = await fetch(`${this.apiBaseUrl}/portfolio`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            this.portfolioData = await response.json();
-        } catch (error) {
-            console.error('Failed to load portfolio data:', error);
-        }
-    }
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+    const app = require('./app').appInstance;
+    await app.shutdown();
+    process.exit(0);
+});
 
-    async loadAdvisorySignals() {
-        try {
-            const token = localStorage.getItem('authToken');
-            const response = await fetch(`${this.apiBaseUrl}/advisory/signals`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            this.advisorySignals = await response.json();
-        } catch (error) {
-            console.error('Failed to load advisory signals:', error);
-        }
-    }
+process.on('SIGTERM', async () => {
+    const app = require('./app').appInstance;
+    await app.shutdown();
+    process.exit(0);
+});
 
-    // Dashboard rendering
-    renderDashboard() {
-        this.renderPortfolioSummary();
-        this.renderHoldingsTable();
-        this.renderAdvisorySignals();
-        this.renderMarketOverview();
-        this.renderPerformanceCharts();
-    }
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    process.exit(1);
+});
 
-    renderPortfolioSummary() {
-        const summaryElement = document.getElementById('portfolio-summary');
-        if (this.portfolioData && summaryElement) {
-            summaryElement.innerHTML = `
-                <div class="summary-card">
-                    <h3>Total Value</h3>
-                    <p class="value">₹${this.formatCurrency(this.portfolioData.totalValue)}</p>
-                </div>
-                <div class="summary-card">
-                    <h3>Daily Change</h3>
-                    <p class="value ${this.portfolioData.dailyChange >= 0 ? 'positive' : 'negative'}">
-                        ${this.portfolioData.dailyChange >= 0 ? '+' : ''}${this.portfolioData.dailyChange}%
-                    </p>
-                </div>
-                <div class="summary-card">
-                    <h3>Holdings</h3>
-                    <p class="value">${this.portfolioData.holdingsCount}</p>
-                </div>
-            `;
-        }
-    }
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+});
 
-    renderHoldingsTable() {
-        const tableElement = document.getElementById('holdings-table');
-        if (this.portfolioData && tableElement) {
-            const rows = this.portfolioData.holdings.map(holding => `
-                <tr>
-                    <td>${holding.symbol}</td>
-                    <td>${holding.name}</td>
-                    <td>${holding.quantity}</td>
-                    <td>₹${this.formatCurrency(holding.currentPrice)}</td>
-                    <td>₹${this.formatCurrency(holding.investment)}</td>
-                    <td class="${holding.change >= 0 ? 'positive' : 'negative'}">
-                        ${holding.change >= 0 ? '+' : ''}${holding.change}%
-                    </td>
-                </tr>
-            `).join('');
-            
-            tableElement.innerHTML = rows;
-        }
-    }
+module.exports = IPMApplication;
 
-    renderAdvisorySignals() {
-        const signalsElement = document.getElementById('advisory-signals');
-        if (signalsElement) {
-            const signalsHtml = this.advisorySignals.map(signal => `
-                <div class="signal-card ${signal.confidence > 70 ? 'high-confidence' : signal.confidence > 50 ? 'medium-confidence' : 'low-confidence'}">
-                    <h4>${signal.symbol} - ${signal.action}</h4>
-                    <p>${signal.reason}</p>
-                    <div class="confidence-meter">
-                        <span>Confidence: ${signal.confidence}%</span>
-                        <div class="meter-bar">
-                            <div class="meter-fill" style="width: ${signal.confidence}%"></div>
-                        </div>
-                    </div>
-                    <span class="timestamp">${new Date(signal.timestamp).toLocaleString()}</span>
-                </div>
-            `).join('');
-            
-            signalsElement.innerHTML = signalsHtml;
-        }
-    }
-
-    renderMarketOverview() {
-        const marketElement = document.getElementById('market-overview');
-        if (this.marketData && marketElement) {
-            marketElement.innerHTML = `
-                <div class="market-index">
-                    <h4>NIFTY 50</h4>
-                    <p>${this.marketData.nifty50.value} 
-                       <span class="${this.marketData.nifty50.change >= 0 ? 'positive' : 'negative'}">
-                           ${this.marketData.nifty50.change >= 0 ? '+' : ''}${this.marketData.nifty50.change}%
-                       </span>
-                    </p>
-                </div>
-                <div class="market-index">
-                    <h4>SENSEX</h4>
-                    <p>${this.marketData.sensex.value} 
-                       <span class="${this.marketData.sensex.change >= 0 ? 'positive' : 'negative'}">
-                           ${this.marketData.sensex.change >= 0 ? '+' : ''}${this.marketData.sensex.change}%
-                       </span>
-                    </p>
-                </div>
-            `;
-        }
-    }
-
-    renderPerformanceCharts() {
-        // Chart rendering logic using Chart.js or similar library
-        this.renderPortfolioValueChart();
-        this.renderSectorAllocationChart();
-    }
-
-    renderPortfolioValueChart() {
-        const ctx = document.getElementById('portfolio-chart');
-        if (ctx && this.portfolioData) {
-            // Implementation for portfolio value chart
-            console.log('Rendering portfolio chart with data:', this.portfolioData.historicalValues);
-        }
-    }
-
-    renderSectorAllocationChart() {
-        const ctx = document.getElementById('sector-chart');
-        if (ctx && this.portfolioData) {
-            // Implementation for sector allocation chart
-            console.log('Rendering sector allocation chart');
-        }
-    }
-
-    // Utility methods
-    formatCurrency(amount) {
-        return new Intl.NumberFormat('en-IN').format(amount);
-    }
-
-    setupEventListeners() {
-        // Logout functionality
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
-                localStorage.removeItem('authToken');
-                this.redirectToLogin();
-            });
-        }
-
-        // Refresh data
-        const refreshBtn = document.getElementById('refresh-btn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', async () => {
-                await this.loadMarketData();
-                await this.loadPortfolioData();
-                await this.loadAdvisorySignals();
-                this.renderDashboard();
-            });
-        }
-    }
-
-    // API methods for portfolio operations
-    async addHolding(symbol, quantity, price) {
-        try {
-            const token = localStorage.getItem('authToken');
-            const response = await fetch(`${this.apiBaseUrl}/portfolio/holdings`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ symbol, quantity, price })
-            });
-            
-            if (response.ok) {
-                await this.loadPortfolioData();
-                this.renderDashboard();
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Failed to add holding:', error);
-            return false;
-        }
-    }
-
-    async updateHolding(holdingId, quantity, price) {
-        try {
-            const token = localStorage.getItem('authToken');
-            const response = await fetch(`${this.apiBaseUrl}/portfolio/holdings/${holdingId}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ quantity, price })
-            });
-            
-            if (response.ok) {
-                await this.loadPortfolioData();
-                this.renderDashboard();
-                return true;
-            }
-            return false;
-        } catch
-# Code truncated at 10000 characters
+// Main execution
+if (require.main === module) {
+    const app = new IPMApplication();
+    app.startServer();
+    
+    // Export for testing and other modules
+    module.exports.appInstance = app;
+}

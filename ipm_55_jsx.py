@@ -1,186 +1,291 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
-import PortfolioDisplay from './PortfolioDisplay';
-import AdvisorySignals from './AdvisorySignals';
-import MarketVisualizations from './MarketVisualizations';
-import Reports from './Reports';
-import './Dashboard.css';
+import { 
+  LineChart, Line, BarChart, Bar, PieChart, Pie, 
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
+import { 
+  Box, Typography, Paper, Grid, Card, CardContent, 
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Chip, Alert, CircularProgress, Tabs, Tab, AppBar, Button, IconButton
+} from '@mui/material';
+import { 
+  Refresh as RefreshIcon, 
+  Settings as SettingsIcon,
+  AccountBalance as PortfolioIcon,
+  TrendingUp as SignalsIcon,
+  Dashboard as DashboardIcon,
+  ExitToApp as LogoutIcon
+} from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
 
-const Dashboard = () => {
-  const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('portfolio');
-  const [portfolioData, setPortfolioData] = useState(null);
-  const [advisorySignals, setAdvisorySignals] = useState([]);
-  const [marketData, setMarketData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+// Main Dashboard Component
+const IPMDashboard = () => {
+  const theme = useTheme();
+  const [activeTab, setActiveTab] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userData, setUserData] = useState(null);
+  const [portfolioData, setPortfolioData] = useState([]);
+  const [signalsData, setSignalsData] = useState([]);
+  const [marketNews, setMarketNews] = useState([]);
+  const [performanceData, setPerformanceData] = useState([]);
+  const [assetAllocation, setAssetAllocation] = useState([]);
 
+  // Mock authentication state - would come from context/Redux in real app
+  const isAuthenticated = true;
+
+  // Fetch data on component mount
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (isAuthenticated) {
+      fetchDashboardData();
+    }
+  }, [isAuthenticated]);
 
   const fetchDashboardData = async () => {
+    setIsLoading(true);
     try {
-      setLoading(true);
-      const token = localStorage.getItem('authToken');
-      
-      // Fetch portfolio data
-      const portfolioResponse = await fetch('/api/portfolio', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!portfolioResponse.ok) {
-        throw new Error('Failed to fetch portfolio data');
-      }
-      
-      const portfolioData = await portfolioResponse.json();
-      setPortfolioData(portfolioData);
+      // In a real application, these would be API calls to your backend
+      const [
+        userResponse, 
+        portfolioResponse, 
+        signalsResponse, 
+        newsResponse, 
+        performanceResponse,
+        allocationResponse
+      ] = await Promise.all([
+        fetch('/api/user/profile'),
+        fetch('/api/portfolio/holdings'),
+        fetch('/api/signals/latest'),
+        fetch('/api/market/news'),
+        fetch('/api/portfolio/performance'),
+        fetch('/api/portfolio/allocation')
+      ]);
 
-      // Fetch advisory signals
-      const signalsResponse = await fetch('/api/advisory/signals', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // Set state with fetched data
+      setUserData(await userResponse.json());
+      setPortfolioData(await portfolioResponse.json());
+      setSignalsData(await signalsResponse.json());
+      setMarketNews(await newsResponse.json());
+      setPerformanceData(await performanceResponse.json());
+      setAssetAllocation(await allocationResponse.json());
       
-      if (!signalsResponse.ok) {
-        throw new Error('Failed to fetch advisory signals');
-      }
-      
-      const signalsData = await signalsResponse.json();
-      setAdvisorySignals(signalsData);
-
-      // Fetch market data
-      const marketResponse = await fetch('/api/market/data', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!marketResponse.ok) {
-        throw new Error('Failed to fetch market data');
-      }
-      
-      const marketData = await marketResponse.json();
-      setMarketData(marketData);
-
-      setLoading(false);
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleTabChange = (tabName) => {
-    setActiveTab(tabName);
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const handleLogout = () => {
+    // Implement logout logic
+    console.log('User logged out');
   };
 
   const handleRefresh = () => {
     fetchDashboardData();
   };
 
-  if (loading) {
+  const handleSettings = () => {
+    // Navigate to settings page
+    console.log('Navigate to settings');
+  };
+
+  if (!isAuthenticated) {
     return (
-      <div className="dashboard-loading">
-        <div className="loading-spinner"></div>
-        <p>Loading dashboard data...</p>
-      </div>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <Alert severity="warning">Please log in to access the dashboard</Alert>
+      </Box>
     );
   }
 
-  if (error) {
+  if (isLoading) {
     return (
-      <div className="dashboard-error">
-        <h2>Error Loading Dashboard</h2>
-        <p>{error}</p>
-        <button onClick={handleRefresh} className="refresh-button">
-          Try Again
-        </button>
-      </div>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+        <Typography variant="h6" sx={{ ml: 2 }}>Loading Dashboard...</Typography>
+      </Box>
     );
   }
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <div className="header-left">
-          <h1>Portfolio Management Dashboard</h1>
-          <p>Welcome back, {user?.name}</p>
-        </div>
-        <div className="header-right">
-          <button onClick={handleRefresh} className="refresh-button">
-            Refresh Data
-          </button>
-          <button onClick={logout} className="logout-button">
-            Logout
-          </button>
-        </div>
-      </header>
+    <Box sx={{ flexGrow: 1, padding: 3 }}>
+      {/* Header */}
+      <AppBar position="static" color="default" sx={{ mb: 3 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" p={2}>
+          <Typography variant="h4" component="h1">
+            Indian Portfolio Manager
+          </Typography>
+          <Box>
+            <IconButton onClick={handleRefresh} sx={{ mr: 1 }}>
+              <RefreshIcon />
+            </IconButton>
+            <IconButton onClick={handleSettings} sx={{ mr: 2 }}>
+              <SettingsIcon />
+            </IconButton>
+            <Button 
+              color="inherit" 
+              onClick={handleLogout}
+              startIcon={<LogoutIcon />}
+            >
+              Logout
+            </Button>
+          </Box>
+        </Box>
+      </AppBar>
 
-      <nav className="dashboard-nav">
-        <button 
-          className={`nav-button ${activeTab === 'portfolio' ? 'active' : ''}`}
-          onClick={() => handleTabChange('portfolio')}
-        >
-          Portfolio
-        </button>
-        <button 
-          className={`nav-button ${activeTab === 'signals' ? 'active' : ''}`}
-          onClick={() => handleTabChange('signals')}
-        >
-          Advisory Signals
-        </button>
-        <button 
-          className={`nav-button ${activeTab === 'market' ? 'active' : ''}`}
-          onClick={() => handleTabChange('market')}
-        >
-          Market Data
-        </button>
-        <button 
-          className={`nav-button ${activeTab === 'reports' ? 'active' : ''}`}
-          onClick={() => handleTabChange('reports')}
-        >
-          Reports
-        </button>
-      </nav>
+      {/* Navigation Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={activeTab} onChange={handleTabChange}>
+          <Tab icon={<DashboardIcon />} label="Dashboard" />
+          <Tab icon={<PortfolioIcon />} label="Portfolio" />
+          <Tab icon={<SignalsIcon />} label="Advisory Signals" />
+        </Tabs>
+      </Box>
 
-      <main className="dashboard-content">
-        {activeTab === 'portfolio' && (
-          <PortfolioDisplay 
-            portfolioData={portfolioData} 
-            marketData={marketData}
-          />
-        )}
-        
-        {activeTab === 'signals' && (
-          <AdvisorySignals 
-            signals={advisorySignals}
-            portfolioData={portfolioData}
-          />
-        )}
-        
-        {activeTab === 'market' && (
-          <MarketVisualizations 
-            marketData={marketData}
-          />
-        )}
-        
-        {activeTab === 'reports' && (
-          <Reports 
-            portfolioData={portfolioData}
-            signals={advisorySignals}
-          />
-        )}
-      </main>
+      {/* Dashboard Content */}
+      {activeTab === 0 && (
+        <Grid container spacing={3}>
+          {/* Portfolio Summary */}
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Portfolio Summary
+                </Typography>
+                <Typography variant="h4" color="primary">
+                  ₹{userData?.totalPortfolioValue?.toLocaleString('en-IN')}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Total Value
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
 
-      <footer className="dashboard-footer">
-        <p>Data as of {new Date().toLocaleDateString()} | 
-           Last updated: {marketData?.lastUpdated || 'N/A'}</p>
-      </footer>
-    </div>
-  );
-};
+          {/* Recent Performance */}
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Recent Performance
+                </Typography>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={performanceData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="value" stroke={theme.palette.primary.main} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </Grid>
 
-export default Dashboard;
+          {/* Asset Allocation */}
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Asset Allocation
+                </Typography>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={assetAllocation}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill={theme.palette.primary.main}
+                      label
+                    />
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Market News */}
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Market News
+                </Typography>
+                <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                  {marketNews.map((news, index) => (
+                    <Box key={index} sx={{ mb: 2, p: 1, borderBottom: '1px solid #eee' }}>
+                      <Typography variant="subtitle2">{news.title}</Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {news.source} - {new Date(news.date).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* Portfolio Tab */}
+      {activeTab === 1 && (
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Portfolio Holdings
+                </Typography>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Stock</TableCell>
+                        <TableCell>Quantity</TableCell>
+                        <TableCell>Avg. Price</TableCell>
+                        <TableCell>Current Price</TableCell>
+                        <TableCell>Value</TableCell>
+                        <TableCell>Change</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {portfolioData.map((holding, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{holding.symbol}</TableCell>
+                          <TableCell>{holding.quantity}</TableCell>
+                          <TableCell>₹{holding.avgPrice.toFixed(2)}</TableCell>
+                          <TableCell>₹{holding.currentPrice.toFixed(2)}</TableCell>
+                          <TableCell>₹{(holding.quantity * holding.currentPrice).toLocaleString('en-IN')}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={`${holding.changePercent.toFixed(2)}%`}
+                              color={holding.changePercent >= 0 ? 'success' : 'error'}
+                              size="small"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* Signals Tab */}
+      {activeTab === 2 && (
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" 
+# Code truncated at 10000 characters

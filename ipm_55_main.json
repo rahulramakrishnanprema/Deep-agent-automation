@@ -1,0 +1,323 @@
+{
+  "project": "MVP web application for managing Indian equity portfolios",
+  "version": "1.0.0",
+  "description": "Web-based portfolio management system with advisory signals and visual reporting for Indian equities",
+  "dataStructure": {
+    "portfolios": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/portfolio"
+      }
+    },
+    "users": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/user"
+      }
+    },
+    "marketData": {
+      "type": "object",
+      "properties": {
+        "stocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/stock"
+          }
+        },
+        "sectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sector"
+          }
+        },
+        "technicalIndicators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/technicalIndicator"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "portfolio": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique portfolio identifier"
+        },
+        "userId": {
+          "type": "string",
+          "description": "ID of the user who owns this portfolio"
+        },
+        "name": {
+          "type": "string",
+          "description": "Portfolio name"
+        },
+        "holdings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/holding"
+          }
+        },
+        "totalValue": {
+          "type": "number",
+          "description": "Total portfolio value in INR"
+        },
+        "performance": {
+          "$ref": "#/definitions/performanceMetrics"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "userId", "name", "holdings", "totalValue"]
+    },
+    "holding": {
+      "type": "object",
+      "properties": {
+        "stockSymbol": {
+          "type": "string",
+          "description": "NSE/BSE symbol of the stock"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Number of shares held"
+        },
+        "averagePrice": {
+          "type": "number",
+          "description": "Average purchase price per share"
+        },
+        "currentPrice": {
+          "type": "number",
+          "description": "Current market price"
+        },
+        "marketValue": {
+          "type": "number",
+          "description": "Current market value (quantity * currentPrice)"
+        },
+        "advisorySignal": {
+          "type": "string",
+          "enum": ["BUY", "HOLD", "SELL"],
+          "description": "Advisory signal for this holding"
+        }
+      },
+      "required": ["stockSymbol", "quantity", "averagePrice", "currentPrice"]
+    },
+    "user": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user identifier"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["ADVISOR", "CLIENT"],
+          "description": "User role in the system"
+        },
+        "advisorId": {
+          "type": "string",
+          "description": "ID of the advisor (for clients)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "email", "name", "role"]
+    },
+    "stock": {
+      "type": "object",
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "description": "Stock symbol (e.g., RELIANCE, TCS)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Company name"
+        },
+        "sector": {
+          "type": "string",
+          "description": "Industry sector"
+        },
+        "currentPrice": {
+          "type": "number",
+          "description": "Current market price"
+        },
+        "historicalPrices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/pricePoint"
+          }
+        },
+        "marketCap": {
+          "type": "number",
+          "description": "Market capitalization in INR crore"
+        }
+      },
+      "required": ["symbol", "name", "sector", "currentPrice"]
+    },
+    "pricePoint": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "price": {
+          "type": "number",
+          "description": "Closing price on this date"
+        },
+        "volume": {
+          "type": "number",
+          "description": "Trading volume"
+        }
+      }
+    },
+    "sector": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Sector name (e.g., IT, Banking, Pharma)"
+        },
+        "potentialScore": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Sector potential assessment score"
+        },
+        "sentiment": {
+          "type": "string",
+          "enum": ["BULLISH", "NEUTRAL", "BEARISH"],
+          "description": "Market sentiment for the sector"
+        },
+        "performance": {
+          "$ref": "#/definitions/performanceMetrics"
+        }
+      }
+    },
+    "technicalIndicator": {
+      "type": "object",
+      "properties": {
+        "stockSymbol": {
+          "type": "string",
+          "description": "Stock symbol"
+        },
+        "rsi": {
+          "type": "number",
+          "description": "Relative Strength Index (14-day)"
+        },
+        "macd": {
+          "type": "number",
+          "description": "MACD value"
+        },
+        "movingAverage20": {
+          "type": "number",
+          "description": "20-day moving average"
+        },
+        "movingAverage50": {
+          "type": "number",
+          "description": "50-day moving average"
+        },
+        "signal": {
+          "type": "string",
+          "enum": ["BUY", "HOLD", "SELL"],
+          "description": "Technical analysis signal"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "performanceMetrics": {
+      "type": "object",
+      "properties": {
+        "dailyReturn": {
+          "type": "number",
+          "description": "Daily return percentage"
+        },
+        "weeklyReturn": {
+          "type": "number",
+          "description": "Weekly return percentage"
+        },
+        "monthlyReturn": {
+          "type": "number",
+          "description": "Monthly return percentage"
+        },
+        "ytdReturn": {
+          "type": "number",
+          "description": "Year-to-date return percentage"
+        },
+        "volatility": {
+          "type": "number",
+          "description": "Standard deviation of returns"
+        },
+        "sharpeRatio": {
+          "type": "number",
+          "description": "Risk-adjusted return measure"
+        }
+      }
+    }
+  },
+  "apiEndpoints": {
+    "portfolios": {
+      "getAll": "/api/portfolios",
+      "getById": "/api/portfolios/{id}",
+      "create": "/api/portfolios",
+      "update": "/api/portfolios/{id}",
+      "delete": "/api/portfolios/{id}"
+    },
+    "users": {
+      "login": "/api/auth/login",
+      "register": "/api/auth/register",
+      "profile": "/api/users/profile"
+    },
+    "analysis": {
+      "advisorySignals": "/api/analysis/signals",
+      "performance": "/api/analysis/performance",
+      "sectorAnalysis": "/api/analysis/sectors"
+    }
+  },
+  "dummyData": {
+    "enabled": true,
+    "sampleStocks": ["RELIANCE", "TCS", "HDFCBANK", "INFY", "HINDUNILVR", "ICICIBANK", "SBIN", "BAJFINANCE", "BHARTIARTL", "KOTAKBANK"],
+    "sampleSectors": ["IT", "Banking", "Pharmaceuticals", "Automobile", "Oil & Gas", "Telecom", "FMCG", "Infrastructure", "Metals", "Healthcare"]
+  },
+  "visualization": {
+    "charts": ["portfolioValue", "sectorAllocation", "performanceComparison", "technicalIndicators", "sentimentAnalysis"],
+    "reports": ["portfolioSummary", "advisoryReport", "sectorAnalysis", "performanceReview"]
+  },
+  "authentication": {
+    "roles": ["ADVISOR", "CLIENT"],
+    "permissions": {
+      "ADVISOR": ["view_all_portfolios", "generate_reports", "manage_clients"],
+      "CLIENT": ["view_own_portfolio", "view_reports"]
+    }
+  },
+  "responsiveDesign": {
+    "breakpoints": {
+      "mobile": "768px",
+      "tablet": "1024px",
+      "desktop": "1200px"
+    },
+    "components": ["responsiveNavbar", "adaptiveCharts", "mobileFriendlyTables"]
+  }
+}

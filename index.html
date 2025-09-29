@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Equity Portfolio Manager</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js for visual reports -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Portfolio Manager</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#portfolio-section">Portfolio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#advisory-section">Advisory Signals</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#reports-section" id="reports-nav">Analytics Reports</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Portfolio Section -->
+        <section id="portfolio-section" class="mb-5">
+            <h2 class="mb-4">Portfolio Management</h2>
+            
+            <!-- Add Stock Form -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Add Stock to Portfolio</h5>
+                </div>
+                <div class="card-body">
+                    <form id="add-stock-form">
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="stockSymbol" class="form-label">Stock Symbol</label>
+                                <input type="text" class="form-control" id="stockSymbol" required placeholder="e.g., RELIANCE">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="quantity" class="form-label">Quantity</label>
+                                <input type="number" class="form-control" id="quantity" required min="1">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="purchasePrice" class="form-label">Purchase Price (₹)</label>
+                                <input type="number" class="form-control" id="purchasePrice" required step="0.01" min="0">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">Add Stock</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Portfolio Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>Current Portfolio</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="portfolio-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Quantity</th>
+                                    <th>Purchase Price</th>
+                                    <th>Current Price</th>
+                                    <th>Value Change</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Portfolio data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Advisory Signals Section -->
+        <section id="advisory-section" class="mb-5">
+            <h2 class="mb-4">Advisory Signals</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="advisory-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Stock Symbol</th>
+                                    <th>Current Price</th>
+                                    <th>Signal</th>
+                                    <th>Confidence</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Advisory signals will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Reports Section (Advisor Only) -->
+        <section id="reports-section" class="mb-5" style="display: none;">
+            <h2 class="mb-4">Analytics Reports</h2>
+            
+            <!-- Advisor Login Form -->
+            <div class="card mb-4" id="advisor-login-form">
+                <div class="card-header">
+                    <h5>Advisor Access</h5>
+                </div>
+                <div class="card-body">
+                    <form id="login-form">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="advisorId" class="form-label">Advisor ID</label>
+                                <input type="text" class="form-control" id="advisorId" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">Login</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Reports Content (hidden until login) -->
+            <div id="reports-content" style="display: none;">
+                <!-- Portfolio Performance Chart -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Portfolio Performance</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="performanceChart" height="100"></canvas>
+                    </div>
+                </div>
+
+                <!-- Sector Allocation Chart -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Sector Allocation</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="sectorChart" height="100"></canvas>
+                    </div>
+                </div>
+
+                <!-- Signal Distribution Chart -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Signal Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="signalChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>

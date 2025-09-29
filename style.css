@@ -1,197 +1,259 @@
-/* style.css */
+/* 
+ * style.css - CSS styles for Indian Equity Portfolio Management System
+ * This file provides custom styling to complement Bootstrap for the MVP web application
+ * Features responsive design, portfolio dashboard styling, and advisor-only report styling
+ */
 
 /* Global Styles */
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --accent-color: #e74c3c;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+    --light-bg: #ecf0f1;
+    --dark-text: #2c3e50;
+    --light-text: #ffffff;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #f8f9fa;
-    color: #333;
+    color: var(--dark-text);
     line-height: 1.6;
 }
 
-/* Header Styles */
+/* Header and Navigation */
+.navbar-custom {
+    background-color: var(--primary-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
 .navbar-brand {
-    font-weight: bold;
+    font-weight: 700;
+    color: var(--light-text) !important;
     font-size: 1.5rem;
 }
 
 .navbar-nav .nav-link {
+    color: var(--light-text) !important;
     font-weight: 500;
     transition: color 0.3s ease;
 }
 
 .navbar-nav .nav-link:hover {
-    color: #007bff !important;
+    color: var(--secondary-color) !important;
 }
 
 /* Dashboard Cards */
 .dashboard-card {
     border: none;
     border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin-bottom: 1.5rem;
 }
 
 .dashboard-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.15);
 }
 
-.card-header {
-    background: linear-gradient(135deg, #007bff, #0056b3);
-    color: white;
+.card-header-custom {
+    background-color: var(--primary-color);
+    color: var(--light-text);
     border-radius: 10px 10px 0 0 !important;
+    padding: 1rem 1.5rem;
     font-weight: 600;
 }
 
-/* Portfolio Table Styles */
-.portfolio-table {
-    background: white;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+/* Portfolio Summary Styles */
+.portfolio-summary {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: var(--light-text);
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 2rem;
 }
 
-.portfolio-table th {
-    background: linear-gradient(135deg, #007bff, #0056b3);
-    color: white;
+.summary-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.summary-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Advisory Signal Styles */
+.signal-buy {
+    color: var(--success-color);
     font-weight: 600;
-    border: none;
 }
 
-.portfolio-table td {
-    vertical-align: middle;
-    border-color: #dee2e6;
+.signal-hold {
+    color: var(--warning-color);
+    font-weight: 600;
 }
 
-/* Signal Badges */
+.signal-sell {
+    color: var(--accent-color);
+    font-weight: 600;
+}
+
 .signal-badge {
-    font-size: 0.85rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 1rem;
     border-radius: 20px;
     font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
 }
 
 .badge-buy {
-    background-color: #28a745;
-    color: white;
+    background-color: rgba(39, 174, 96, 0.2);
+    color: var(--success-color);
 }
 
 .badge-hold {
-    background-color: #ffc107;
-    color: #212529;
+    background-color: rgba(243, 156, 18, 0.2);
+    color: var(--warning-color);
 }
 
 .badge-sell {
-    background-color: #dc3545;
-    color: white;
+    background-color: rgba(231, 76, 60, 0.2);
+    color: var(--accent-color);
 }
 
-/* Performance Indicators */
-.performance-indicator {
-    font-size: 1.1rem;
-    font-weight: 600;
-}
-
-.positive-performance {
-    color: #28a745;
-}
-
-.negative-performance {
-    color: #dc3545;
-}
-
-.neutral-performance {
-    color: #6c757d;
-}
-
-/* Charts Container */
-.charts-container {
-    background: white;
+/* Stock Table Styles */
+.stock-table {
+    background-color: white;
     border-radius: 10px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.table th {
+    background-color: var(--primary-color);
+    color: var(--light-text);
+    border: none;
+    font-weight: 600;
+    padding: 1rem;
+}
+
+.table td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-color: #e9ecef;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
+/* Chart Container Styles */
+.chart-container {
+    background-color: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     margin-bottom: 2rem;
 }
 
 .chart-title {
-    color: #007bff;
+    color: var(--primary-color);
     font-weight: 600;
     margin-bottom: 1.5rem;
     text-align: center;
 }
 
-/* Forms and Inputs */
-.form-control {
-    border: 2px solid #dee2e6;
+/* Advisor Only Section */
+.advisor-only {
+    border-left: 4px solid var(--secondary-color);
+    background-color: rgba(52, 152, 219, 0.05);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.advisor-label {
+    background-color: var(--secondary-color);
+    color: white;
+    padding: 0.3rem 1rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-block;
+    margin-bottom: 1rem;
+}
+
+/* Form Styles */
+.form-control-custom {
+    border: 2px solid #e9ecef;
     border-radius: 8px;
-    padding: 0.75rem;
+    padding: 0.75rem 1rem;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.form-control:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+.form-control-custom:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
 }
 
-.btn-primary {
-    background: linear-gradient(135deg, #007bff, #0056b3);
+.btn-custom {
+    background-color: var(--secondary-color);
+    color: white;
     border: none;
     border-radius: 8px;
     padding: 0.75rem 1.5rem;
     font-weight: 600;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
-}
-
-/* Modal Styles */
-.modal-content {
-    border-radius: 15px;
-    border: none;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-}
-
-.modal-header {
-    background: linear-gradient(135deg, #007bff, #0056b3);
+.btn-custom:hover {
+    background-color: #2980b9;
     color: white;
-    border-radius: 15px 15px 0 0;
+    transform: translateY(-1px);
 }
 
-.modal-title {
-    font-weight: 600;
+.btn-custom:active {
+    transform: translateY(0);
 }
 
-/* Loading Spinner */
+/* Loading States */
 .loading-spinner {
     display: inline-block;
     width: 2rem;
     height: 2rem;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #007bff;
+    border: 3px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    border-top-color: var(--light-text);
+    animation: spin 1s ease-in-out infinite;
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* Responsive Design Enhancements */
 @media (max-width: 768px) {
+    .portfolio-summary {
+        padding: 1.5rem;
+    }
+    
+    .summary-value {
+        font-size: 1.5rem;
+    }
+    
+    .chart-container {
+        padding: 1rem;
+    }
+    
     .dashboard-card {
         margin-bottom: 1rem;
-    }
-    
-    .portfolio-table {
-        font-size: 0.9rem;
-    }
-    
-    .charts-container {
-        padding: 1rem;
     }
 }
 
@@ -200,74 +262,67 @@ body {
         font-size: 1.2rem;
     }
     
-    .card-header h5 {
-        font-size: 1rem;
-    }
-    
-    .btn-primary {
-        padding: 0.6rem 1.2rem;
+    .table th,
+    .table td {
+        padding: 0.75rem 0.5rem;
         font-size: 0.9rem;
     }
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #007bff;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #0056b3;
-}
-
-/* Animation for alerts */
-.alert {
-    animation: slideInDown 0.5s ease;
-}
-
-@keyframes slideInDown {
-    from {
-        transform: translateY(-100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
+    
+    .advisor-only {
+        padding: 1rem;
     }
 }
 
-/* Hover effects for interactive elements */
-.interactive-item {
-    transition: background-color 0.3s ease, transform 0.3s ease;
+/* Utility Classes */
+.text-small {
+    font-size: 0.875rem;
 }
 
-.interactive-item:hover {
-    background-color: #f8f9fa;
-    transform: translateX(5px);
+.text-muted-light {
+    color: #6c757d !important;
 }
 
-/* Print styles for reports */
+.border-radius-lg {
+    border-radius: 15px;
+}
+
+.shadow-sm-custom {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+/* Animation Classes */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-in-left {
+    animation: slideInLeft 0.5s ease-out;
+}
+
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* Print Styles */
 @media print {
-    .navbar, .btn, .no-print {
+    .navbar,
+    .btn,
+    .advisor-label {
         display: none !important;
     }
     
-    body {
-        background: white !important;
-        color: black !important;
+    .chart-container {
+        page-break-inside: avoid;
     }
     
-    .charts-container, .portfolio-table {
-        box-shadow: none !important;
-        border: 1px solid #ddd !important;
+    body {
+        background-color: white !important;
+        color: black !important;
     }
 }

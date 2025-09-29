@@ -1,169 +1,235 @@
 -- SQL Schema for Indian Portfolio Management MVP
--- This file creates the database structure for the stock portfolio management system
+-- This file creates the database structure for storing portfolio data,
+-- advisory signals, and user roles for advisor-only reports
 
--- Portfolio table to store client portfolio data
-CREATE TABLE IF NOT EXISTS portfolios (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    client_name TEXT NOT NULL,
-    stock_symbol TEXT NOT NULL,
-    stock_name TEXT NOT NULL,
-    quantity INTEGER NOT NULL CHECK (quantity >= 0),
-    purchase_price DECIMAL(10, 2) NOT NULL CHECK (purchase_price >= 0),
-    purchase_date DATE NOT NULL,
-    sector TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Enable foreign key support
+PRAGMA foreign_keys = ON;
 
--- Stocks table to store stock information and current market data
-CREATE TABLE IF NOT EXISTS stocks (
-    symbol TEXT PRIMARY KEY,
+-- Clients table to store client information
+CREATE TABLE IF NOT EXISTS clients (
+    client_id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    current_price DECIMAL(10, 2) NOT NULL CHECK (current_price >= 0),
+    email TEXT UNIQUE NOT NULL,
+    phone TEXT,
+    risk_profile TEXT CHECK(risk_profile IN ('Low', 'Medium', 'High')) DEFAULT 'Medium',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Stocks table to store Indian equity market stock information
+CREATE TABLE IF NOT EXISTS stocks (
+    stock_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
     sector TEXT NOT NULL,
-    market_cap DECIMAL(15, 2),
-    pe_ratio DECIMAL(10, 2),
-    dividend_yield DECIMAL(5, 2),
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    exchange TEXT DEFAULT 'NSE',
+    current_price DECIMAL(10,2) DEFAULT 0.00,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Advisory signals table for Buy/Hold/Sell recommendations
+-- Portfolio holdings table to store client stock holdings
+CREATE TABLE IF NOT EXISTS portfolio_holdings (
+    holding_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id INTEGER NOT NULL,
+    stock_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL CHECK(quantity > 0),
+    purchase_price DECIMAL(10,2) NOT NULL,
+    purchase_date DATE NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id) ON DELETE CASCADE,
+    UNIQUE(client_id, stock_id, purchase_date)
+);
+
+-- Transactions table to track buy/sell activities
+CREATE TABLE IF NOT EXISTS transactions (
+    transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id INTEGER NOT NULL,
+    stock_id INTEGER NOT NULL,
+    type TEXT CHECK(type IN ('BUY', 'SELL')) NOT NULL,
+    quantity INTEGER NOT NULL CHECK(quantity > 0),
+    price DECIMAL(10,2) NOT NULL,
+    transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fees DECIMAL(10,2) DEFAULT 0.00,
+    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id) ON DELETE CASCADE
+);
+
+-- Historical performance data for stocks
+CREATE TABLE IF NOT EXISTS historical_performance (
+    performance_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stock_id INTEGER NOT NULL,
+    date DATE NOT NULL,
+    open_price DECIMAL(10,2),
+    high_price DECIMAL(10,2),
+    low_price DECIMAL(10,2),
+    close_price DECIMAL(10,2),
+    volume INTEGER,
+    moving_avg_50 DECIMAL(10,2),
+    moving_avg_200 DECIMAL(10,2),
+    rsi DECIMAL(5,2),
+    macd DECIMAL(8,4),
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id) ON DELETE CASCADE,
+    UNIQUE(stock_id, date)
+);
+
+-- Sector performance data
+CREATE TABLE IF NOT EXISTS sector_performance (
+    sector_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sector_name TEXT UNIQUE NOT NULL,
+    growth_potential DECIMAL(5,2) DEFAULT 0.00,
+    market_sentiment TEXT CHECK(market_sentiment IN ('Bullish', 'Neutral', 'Bearish')) DEFAULT 'Neutral',
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Market buzz and news data
+CREATE TABLE IF NOT EXISTS market_buzz (
+    buzz_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stock_id INTEGER,
+    sector_id INTEGER,
+    news_text TEXT NOT NULL,
+    sentiment_score DECIMAL(3,2) CHECK(sentiment_score BETWEEN -1.0 AND 1.0),
+    source TEXT,
+    published_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id) ON DELETE SET NULL,
+    FOREIGN KEY (sector_id) REFERENCES sector_performance(sector_id) ON DELETE SET NULL
+);
+
+-- Advisory signals table
 CREATE TABLE IF NOT EXISTS advisory_signals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    stock_symbol TEXT NOT NULL,
-    signal_type TEXT NOT NULL CHECK (signal_type IN ('BUY', 'HOLD', 'SELL')),
-    confidence_score DECIMAL(5, 2) CHECK (confidence_score >= 0 AND confidence_score <= 100),
+    signal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stock_id INTEGER NOT NULL,
+    signal_type TEXT CHECK(signal_type IN ('BUY', 'HOLD', 'SELL')) NOT NULL,
+    confidence_score DECIMAL(3,2) CHECK(confidence_score BETWEEN 0.0 AND 1.0),
     reasoning TEXT,
-    technical_indicator TEXT,
-    sector_potential TEXT,
-    market_buzz TEXT,
-    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (stock_symbol) REFERENCES stocks(symbol)
+    generated_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    valid_until DATETIME,
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id) ON DELETE CASCADE
 );
 
--- Users table for authentication and role management
+-- Users table for role-based access (advisors vs regular users)
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('ADVISOR', 'CLIENT')),
     email TEXT UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    role TEXT CHECK(role IN ('advisor', 'client')) DEFAULT 'client',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Reports table for advisor-only visual reports and analytics
-CREATE TABLE IF NOT EXISTS advisor_reports (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    report_name TEXT NOT NULL,
-    report_type TEXT NOT NULL CHECK (report_type IN ('PORTFOLIO_ANALYSIS', 'SECTOR_PERFORMANCE', 'SIGNAL_HISTORY')),
-    generated_by INTEGER NOT NULL,
-    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    report_data JSON,
-    FOREIGN KEY (generated_by) REFERENCES users(id)
+-- Advisor reports access log
+CREATE TABLE IF NOT EXISTS report_access_log (
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    report_type TEXT NOT NULL,
+    access_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- Portfolio performance history table
-CREATE TABLE IF NOT EXISTS portfolio_performance (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    portfolio_id INTEGER NOT NULL,
-    total_value DECIMAL(12, 2) NOT NULL,
-    daily_return DECIMAL(8, 4),
-    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (portfolio_id) REFERENCES portfolios(id)
+-- Portfolio performance snapshots
+CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+    snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id INTEGER NOT NULL,
+    total_value DECIMAL(12,2) NOT NULL,
+    daily_change DECIMAL(10,2),
+    daily_change_percent DECIMAL(5,2),
+    snapshot_date DATE NOT NULL,
+    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
+    UNIQUE(client_id, snapshot_date)
 );
 
 -- Indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_portfolios_client ON portfolios(client_name);
-CREATE INDEX IF NOT EXISTS idx_portfolios_stock ON portfolios(stock_symbol);
-CREATE INDEX IF NOT EXISTS idx_advisory_signals_symbol ON advisory_signals(stock_symbol);
-CREATE INDEX IF NOT EXISTS idx_advisory_signals_type ON advisory_signals(signal_type);
+CREATE INDEX IF NOT EXISTS idx_portfolio_client ON portfolio_holdings(client_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_client ON transactions(client_id);
+CREATE INDEX IF NOT EXISTS idx_historical_stock_date ON historical_performance(stock_id, date);
+CREATE INDEX IF NOT EXISTS idx_advisory_stock ON advisory_signals(stock_id);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-CREATE INDEX IF NOT EXISTS idx_reports_type ON advisor_reports(report_type);
+CREATE INDEX IF NOT EXISTS idx_market_buzz_date ON market_buzz(published_date);
+CREATE INDEX IF NOT EXISTS idx_portfolio_snapshot ON portfolio_snapshots(client_id, snapshot_date);
 
--- Insert dummy data for stocks
-INSERT OR IGNORE INTO stocks (symbol, name, current_price, sector, market_cap, pe_ratio, dividend_yield) VALUES
-('RELIANCE', 'Reliance Industries Ltd.', 2850.50, 'Energy', 1900000.00, 28.5, 0.45),
-('TCS', 'Tata Consultancy Services Ltd.', 3850.75, 'IT', 1450000.00, 32.1, 1.20),
-('HDFCBANK', 'HDFC Bank Ltd.', 1650.25, 'Banking', 900000.00, 22.8, 0.85),
-('INFY', 'Infosys Ltd.', 1850.00, 'IT', 750000.00, 27.3, 1.05),
-('ICICIBANK', 'ICICI Bank Ltd.', 1050.80, 'Banking', 650000.00, 19.2, 0.65),
-('SBIN', 'State Bank of India', 650.40, 'Banking', 550000.00, 15.8, 0.95),
-('HINDUNILVR', 'Hindustan Unilever Ltd.', 2650.90, 'FMCG', 600000.00, 65.2, 1.35),
-('ITC', 'ITC Ltd.', 450.60, 'FMCG', 450000.00, 25.4, 2.10),
-('BAJFINANCE', 'Bajaj Finance Ltd.', 7850.30, 'Financial Services', 470000.00, 38.7, 0.40),
-('BHARTIARTL', 'Bharti Airtel Ltd.', 920.45, 'Telecom', 520000.00, 31.5, 0.55);
+-- Insert dummy data for demonstration
+INSERT OR IGNORE INTO clients (name, email, phone, risk_profile) VALUES 
+('Rajesh Kumar', 'rajesh.kumar@email.com', '+91-9876543210', 'Medium'),
+('Priya Sharma', 'priya.sharma@email.com', '+91-8765432109', 'High'),
+('Amit Patel', 'amit.patel@email.com', '+91-7654321098', 'Low');
 
--- Insert dummy advisory signals
-INSERT OR IGNORE INTO advisory_signals (stock_symbol, signal_type, confidence_score, reasoning, technical_indicator, sector_potential, market_buzz) VALUES
-('RELIANCE', 'BUY', 85.5, 'Strong quarterly results and expansion plans', 'RSI: 45, MACD: Bullish', 'Energy sector showing growth potential', 'Positive analyst coverage'),
-('TCS', 'HOLD', 72.3, 'Stable performance but limited upside', 'RSI: 55, MACD: Neutral', 'IT sector facing headwinds', 'Mixed market sentiment'),
-('HDFCBANK', 'BUY', 91.2, 'Strong fundamentals and growth trajectory', 'RSI: 40, MACD: Bullish', 'Banking sector recovery', 'Institutional buying interest'),
-('INFY', 'SELL', 68.7, 'Valuation concerns and margin pressure', 'RSI: 65, MACD: Bearish', 'IT sector consolidation', 'Negative earnings revision'),
-('ICICIBANK', 'BUY', 88.9, 'Improving asset quality and growth', 'RSI: 42, MACD: Bullish', 'Banking sector strength', 'Positive management guidance');
+INSERT OR IGNORE INTO stocks (symbol, name, sector, exchange, current_price) VALUES 
+('RELIANCE', 'Reliance Industries Ltd', 'Energy', 'NSE', 2456.75),
+('INFY', 'Infosys Ltd', 'IT', 'NSE', 1520.30),
+('HDFCBANK', 'HDFC Bank Ltd', 'Banking', 'NSE', 1425.80),
+('TCS', 'Tata Consultancy Services Ltd', 'IT', 'NSE', 3250.45),
+('ICICIBANK', 'ICICI Bank Ltd', 'Banking', 'NSE', 890.15);
 
--- Insert dummy portfolio data
-INSERT OR IGNORE INTO portfolios (client_name, stock_symbol, stock_name, quantity, purchase_price, purchase_date, sector) VALUES
-('Rahul Sharma', 'RELIANCE', 'Reliance Industries Ltd.', 50, 2700.00, '2023-01-15', 'Energy'),
-('Rahul Sharma', 'TCS', 'Tata Consultancy Services Ltd.', 25, 3600.00, '2023-02-20', 'IT'),
-('Priya Patel', 'HDFCBANK', 'HDFC Bank Ltd.', 100, 1500.00, '2023-03-10', 'Banking'),
-('Priya Patel', 'INFY', 'Infosys Ltd.', 60, 1700.00, '2023-04-05', 'IT'),
-('Amit Kumar', 'ICICIBANK', 'ICICI Bank Ltd.', 150, 950.00, '2023-05-12', 'Banking'),
-('Amit Kumar', 'ITC', 'ITC Ltd.', 200, 400.00, '2023-06-18', 'FMCG');
+INSERT OR IGNORE INTO sector_performance (sector_name, growth_potential, market_sentiment) VALUES 
+('IT', 12.50, 'Bullish'),
+('Banking', 8.75, 'Neutral'),
+('Energy', 15.20, 'Bullish'),
+('Pharma', 6.30, 'Bearish'),
+('Auto', 4.80, 'Neutral');
 
--- Insert dummy users
-INSERT OR IGNORE INTO users (username, password_hash, role, email) VALUES
-('advisor1', 'hashed_password_1', 'ADVISOR', 'advisor1@example.com'),
-('advisor2', 'hashed_password_2', 'ADVISOR', 'advisor2@example.com'),
-('client_rahul', 'hashed_password_3', 'CLIENT', 'rahul@example.com'),
-('client_priya', 'hashed_password_4', 'CLIENT', 'priya@example.com');
+INSERT OR IGNORE INTO portfolio_holdings (client_id, stock_id, quantity, purchase_price, purchase_date) VALUES 
+(1, 1, 10, 2400.00, '2023-01-15'),
+(1, 2, 15, 1500.00, '2023-02-20'),
+(2, 3, 8, 1400.00, '2023-03-10'),
+(2, 4, 5, 3200.00, '2023-04-05'),
+(3, 5, 20, 850.00, '2023-05-12');
 
--- Insert dummy portfolio performance data
-INSERT OR IGNORE INTO portfolio_performance (portfolio_id, total_value, daily_return) VALUES
-(1, 142525.00, 1.25),
-(2, 96268.75, 0.85),
-(3, 165025.00, 1.10),
-(4, 111000.00, -0.45),
-(5, 157620.00, 2.15),
-(6, 90120.00, 0.60);
+INSERT OR IGNORE INTO transactions (client_id, stock_id, type, quantity, price, transaction_date) VALUES 
+(1, 1, 'BUY', 10, 2400.00, '2023-01-15 10:30:00'),
+(1, 2, 'BUY', 15, 1500.00, '2023-02-20 11:15:00'),
+(2, 3, 'BUY', 8, 1400.00, '2023-03-10 09:45:00'),
+(2, 4, 'BUY', 5, 3200.00, '2023-04-05 14:20:00'),
+(3, 5, 'BUY', 20, 850.00, '2023-05-12 13:10:00');
 
--- Create triggers for automatic updated_at timestamps
-CREATE TRIGGER IF NOT EXISTS update_portfolios_timestamp
-AFTER UPDATE ON portfolios
-FOR EACH ROW
-BEGIN
-    UPDATE portfolios SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
-END;
+INSERT OR IGNORE INTO advisory_signals (stock_id, signal_type, confidence_score, reasoning, generated_date, valid_until) VALUES 
+(1, 'BUY', 0.85, 'Strong sector performance and positive technical indicators', datetime('now'), datetime('now', '+7 days')),
+(2, 'HOLD', 0.70, 'Stable performance with moderate growth potential', datetime('now'), datetime('now', '+7 days')),
+(3, 'SELL', 0.60, 'Sector headwinds and declining technical indicators', datetime('now'), datetime('now', '+7 days'));
 
-CREATE TRIGGER IF NOT EXISTS update_stocks_timestamp
+INSERT OR IGNORE INTO users (username, password_hash, email, role) VALUES 
+('advisor1', 'hashed_password_1', 'advisor1@firm.com', 'advisor'),
+('advisor2', 'hashed_password_2', 'advisor2@firm.com', 'advisor'),
+('client_user', 'hashed_password_3', 'client@email.com', 'client');
+
+-- Views for common queries
+CREATE VIEW IF NOT EXISTS client_portfolio_summary AS
+SELECT 
+    c.client_id,
+    c.name as client_name,
+    SUM(p.quantity * s.current_price) as current_value,
+    SUM(p.quantity * p.purchase_price) as invested_amount,
+    (SUM(p.quantity * s.current_price) - SUM(p.quantity * p.purchase_price)) as unrealized_pnl
+FROM clients c
+JOIN portfolio_holdings p ON c.client_id = p.client_id
+JOIN stocks s ON p.stock_id = s.stock_id
+GROUP BY c.client_id, c.name;
+
+CREATE VIEW IF NOT EXISTS stock_advisory_signals AS
+SELECT 
+    s.symbol,
+    s.name,
+    s.sector,
+    a.signal_type,
+    a.confidence_score,
+    a.reasoning,
+    a.generated_date,
+    a.valid_until
+FROM stocks s
+JOIN advisory_signals a ON s.stock_id = a.stock_id
+WHERE a.valid_until > datetime('now');
+
+-- Triggers for maintaining data integrity
+CREATE TRIGGER IF NOT EXISTS update_stock_timestamp
 AFTER UPDATE ON stocks
 FOR EACH ROW
 BEGIN
-    UPDATE stocks SET last_updated = CURRENT_TIMESTAMP WHERE symbol = OLD.symbol;
+    UPDATE stocks SET last_updated = CURRENT_TIMESTAMP WHERE stock_id = NEW.stock_id;
 END;
 
--- Views for common queries
-CREATE VIEW IF NOT EXISTS portfolio_summary AS
-SELECT 
-    p.client_name,
-    p.stock_symbol,
-    p.quantity,
-    p.purchase_price,
-    s.current_price,
-    (s.current_price * p.quantity) AS current_value,
-    ((s.current_price - p.purchase_price) * p.quantity) AS unrealized_pnl,
-    ((s.current_price - p.purchase_price) / p.purchase_price * 100) AS pnl_percentage
-FROM portfolios p
-JOIN stocks s ON p.stock_symbol = s.symbol;
-
-CREATE VIEW IF NOT EXISTS client_portfolio_totals AS
-SELECT 
-    client_name,
-    SUM(quantity * purchase_price) AS total_investment,
-    SUM(quantity * s.current_price) AS current_value,
-    SUM((s.current_price - purchase_price) * quantity) AS total_pnl
-FROM portfolios p
-JOIN stocks s ON p.stock_symbol = s.symbol
-GROUP BY client_name;
-
--- Print confirmation message
-SELECT 'Database schema created successfully with dummy data' AS status;
+CREATE TRIGGER IF NOT EXISTS update_client_timestamp
+AFTER UPDATE ON clients
+FOR EACH ROW
+BEGIN
+    UPDATE clients SET updated_at = CURRENT_TIMESTAMP WHERE client_id = NEW.client_id;
+END;

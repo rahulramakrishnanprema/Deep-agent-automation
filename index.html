@@ -3,231 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Manager - Indian Equity Markets</title>
+    <title>Indian Equity Portfolio Manager</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css">
+    <style>
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .signal-buy { color: #28a745; font-weight: bold; }
+        .signal-hold { color: #ffc107; font-weight: bold; }
+        .signal-sell { color: #dc3545; font-weight: bold; }
+        .portfolio-table { font-size: 0.9rem; }
+        .advisor-section { background-color: #f8f9fa; padding: 20px; border-radius: 5px; }
+    </style>
 </head>
 <body>
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
             <a class="navbar-brand" href="#">Portfolio Manager</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+                <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link active" href="#" id="dashboard-link">Dashboard</a>
+                        <a class="nav-link active" href="#">Dashboard</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" id="portfolio-link">My Portfolio</a>
+                        <a class="nav-link" href="#">Portfolio</a>
                     </li>
-                    <li class="nav-item advisor-only d-none">
-                        <a class="nav-link" href="#" id="reports-link">Advisor Reports</a>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Reports</a>
                     </li>
                 </ul>
-                <div class="d-flex">
-                    <span class="navbar-text me-3" id="user-role-display">User</span>
-                    <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
-                </div>
             </div>
         </div>
     </nav>
 
-    <!-- Main Content Container -->
-    <div class="container-fluid mt-4">
-        <!-- Dashboard View -->
-        <div id="dashboard-view">
-            <div class="row">
-                <div class="col-12">
-                    <h2>Portfolio Overview</h2>
-                    <div class="card mb-4">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-3">
-                                    <h5>Total Value</h5>
-                                    <h3 id="total-portfolio-value">₹0.00</h3>
-                                </div>
-                                <div class="col-md-3">
-                                    <h5>Today's Gain/Loss</h5>
-                                    <h3 id="daily-change">₹0.00</h3>
-                                </div>
-                                <div class="col-md-3">
-                                    <h5>Total Gain/Loss</h5>
-                                    <h3 id="total-change">₹0.00</h3>
-                                </div>
-                                <div class="col-md-3">
-                                    <h5>Number of Holdings</h5>
-                                    <h3 id="holdings-count">0</h3>
-                                </div>
+    <div class="container mt-4">
+        <div class="row">
+            <!-- Portfolio Summary -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Portfolio Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped portfolio-table">
+                                <thead>
+                                    <tr>
+                                        <th>Stock</th>
+                                        <th>Quantity</th>
+                                        <th>Avg Price</th>
+                                        <th>Current Price</th>
+                                        <th>Change</th>
+                                        <th>Advisory Signal</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="portfolioTableBody">
+                                    <!-- Portfolio data will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Market Buzz -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Market Buzz</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="marketBuzzContent">
+                            <!-- Market buzz content will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advisory Signals -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Advisory Signals</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="advisorySignals">
+                            <!-- Advisory signals will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sector Performance -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Sector Performance</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="sectorPerformanceChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advisor Reports Section -->
+        <div class="row mt-4 advisor-section">
+            <div class="col-12">
+                <h4>Advisor Reports</h4>
+                <p class="text-muted">This section is visible to advisors only</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Portfolio Performance</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="performanceChart" height="250"></canvas>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5>Portfolio Performance</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="performance-chart" height="250"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5>Sector Allocation</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="sector-chart" height="250"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Portfolio Management View -->
-        <div id="portfolio-view" class="d-none">
-            <div class="row">
-                <div class="col-12">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2>My Portfolio</h2>
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStockModal">
-                            Add Stock
-                        </button>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Stock</th>
-                                            <th>Quantity</th>
-                                            <th>Avg. Price</th>
-                                            <th>Current Price</th>
-                                            <th>Value</th>
-                                            <th>Gain/Loss</th>
-                                            <th>Advisory Signal</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="portfolio-table-body">
-                                        <!-- Portfolio items will be populated here -->
-                                    </tbody>
-                                </table>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Technical Indicators</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="technicalIndicatorsChart" height="250"></canvas>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Advisor Reports View -->
-        <div id="reports-view" class="d-none">
-            <div class="row">
-                <div class="col-12">
-                    <h2>Advisor Reports</h2>
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5>Portfolio Analytics</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="advisor-chart" height="300"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>Market Overview</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <canvas id="market-trend-chart" height="250"></canvas>
-                                </div>
-                                <div class="col-md-6">
-                                    <canvas id="sector-performance-chart" height="250"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Stock Modal -->
-    <div class="modal fade" id="addStockModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add Stock to Portfolio</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="add-stock-form">
-                        <div class="mb-3">
-                            <label class="form-label">Stock Symbol</label>
-                            <input type="text" class="form-control" id="stock-symbol" required 
-                                   placeholder="e.g., RELIANCE, INFY, TCS">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Quantity</label>
-                            <input type="number" class="form-control" id="stock-quantity" required min="1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Average Purchase Price (₹)</label>
-                            <input type="number" class="form-control" id="stock-price" required min="0" step="0.01">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Purchase Date</label>
-                            <input type="date" class="form-control" id="purchase-date" required>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="add-stock-btn">Add Stock</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Stock Modal -->
-    <div class="modal fade" id="editStockModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Edit Stock Holding</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="edit-stock-form">
-                        <input type="hidden" id="edit-stock-id">
-                        <div class="mb-3">
-                            <label class="form-label">Quantity</label>
-                            <input type="number" class="form-control" id="edit-stock-quantity" required min="1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Average Purchase Price (₹)</label>
-                            <input type="number" class="form-control" id="edit-stock-price" required min="0" step="0.01">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="update-stock-btn">Update</button>
                 </div>
             </div>
         </div>
@@ -235,7 +144,203 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="script.js"></script>
+    
+    <script>
+        // Fetch portfolio data from backend
+        async function loadPortfolioData() {
+            try {
+                const response = await fetch('/api/portfolio');
+                const portfolioData = await response.json();
+                populatePortfolioTable(portfolioData);
+                generateAdvisorySignals(portfolioData);
+            } catch (error) {
+                console.error('Error loading portfolio data:', error);
+            }
+        }
+
+        // Fetch market buzz data
+        async function loadMarketBuzz() {
+            try {
+                const response = await fetch('/api/market-buzz');
+                const buzzData = await response.json();
+                displayMarketBuzz(buzzData);
+            } catch (error) {
+                console.error('Error loading market buzz:', error);
+            }
+        }
+
+        // Fetch sector performance data
+        async function loadSectorPerformance() {
+            try {
+                const response = await fetch('/api/sector-performance');
+                const sectorData = await response.json();
+                renderSectorPerformanceChart(sectorData);
+            } catch (error) {
+                console.error('Error loading sector performance:', error);
+            }
+        }
+
+        // Fetch advisor reports data
+        async function loadAdvisorReports() {
+            try {
+                const response = await fetch('/api/advisor-reports');
+                const reportsData = await response.json();
+                renderPerformanceChart(reportsData.performance);
+                renderTechnicalIndicatorsChart(reportsData.technicalIndicators);
+            } catch (error) {
+                console.error('Error loading advisor reports:', error);
+            }
+        }
+
+        // Populate portfolio table
+        function populatePortfolioTable(data) {
+            const tableBody = document.getElementById('portfolioTableBody');
+            tableBody.innerHTML = '';
+            
+            data.forEach(stock => {
+                const changeClass = stock.change >= 0 ? 'text-success' : 'text-danger';
+                const changeIcon = stock.change >= 0 ? '↑' : '↓';
+                const signalClass = `signal-${stock.signal.toLowerCase()}`;
+                
+                const row = `
+                    <tr>
+                        <td>${stock.name} (${stock.symbol})</td>
+                        <td>${stock.quantity}</td>
+                        <td>₹${stock.avgPrice.toFixed(2)}</td>
+                        <td>₹${stock.currentPrice.toFixed(2)}</td>
+                        <td class="${changeClass}">${changeIcon} ${Math.abs(stock.change).toFixed(2)}%</td>
+                        <td class="${signalClass}">${stock.signal}</td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        }
+
+        // Generate advisory signals
+        function generateAdvisorySignals(data) {
+            const signalsContainer = document.getElementById('advisorySignals');
+            signalsContainer.innerHTML = '';
+            
+            data.forEach(stock => {
+                const signalClass = `signal-${stock.signal.toLowerCase()}`;
+                const signalCard = `
+                    <div class="alert ${getAlertClassForSignal(stock.signal)}">
+                        <strong>${stock.symbol}</strong>: ${stock.signal} 
+                        <br><small>${stock.signalReason}</small>
+                    </div>
+                `;
+                signalsContainer.innerHTML += signalCard;
+            });
+        }
+
+        function getAlertClassForSignal(signal) {
+            switch(signal.toLowerCase()) {
+                case 'buy': return 'alert-success';
+                case 'hold': return 'alert-warning';
+                case 'sell': return 'alert-danger';
+                default: return 'alert-secondary';
+            }
+        }
+
+        // Display market buzz
+        function displayMarketBuzz(buzzData) {
+            const buzzContainer = document.getElementById('marketBuzzContent');
+            buzzContainer.innerHTML = '';
+            
+            buzzData.forEach(item => {
+                const buzzItem = `
+                    <div class="mb-2">
+                        <strong>${item.source}:</strong> ${item.content}
+                        <br><small class="text-muted">${new Date(item.timestamp).toLocaleString()}</small>
+                    </div>
+                `;
+                buzzContainer.innerHTML += buzzItem;
+            });
+        }
+
+        // Render sector performance chart
+        function renderSectorPerformanceChart(sectorData) {
+            const ctx = document.getElementById('sectorPerformanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sectorData.map(s => s.sector),
+                    datasets: [{
+                        label: 'Performance (%)',
+                        data: sectorData.map(s => s.performance),
+                        backgroundColor: sectorData.map(s => getColorForPerformance(s.performance))
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function getColorForPerformance(performance) {
+            if (performance >= 5) return '#28a745';
+            if (performance >= 0) return '#ffc107';
+            return '#dc3545';
+        }
+
+        // Render performance chart for advisors
+        function renderPerformanceChart(performanceData) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: performanceData.dates,
+                    datasets: [{
+                        label: 'Portfolio Value',
+                        data: performanceData.values,
+                        borderColor: '#007bff',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Render technical indicators chart
+        function renderTechnicalIndicatorsChart(indicatorsData) {
+            const ctx = document.getElementById('technicalIndicatorsChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: indicatorsData.dates,
+                    datasets: [
+                        {
+                            label: 'RSI',
+                            data: indicatorsData.rsi,
+                            borderColor: '#28a745',
+                            tension: 0.1
+                        },
+                        {
+                            label: 'MACD',
+                            data: indicatorsData.macd,
+                            borderColor: '#007bff',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPortfolioData();
+            loadMarketBuzz();
+            loadSectorPerformance();
+            loadAdvisorReports();
+        });
+    </script>
 </body>
 </html>

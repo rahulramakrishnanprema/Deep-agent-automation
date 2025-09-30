@@ -1,307 +1,346 @@
--- IPM-55: Portfolio Management System Database Schema
--- MVP web application for managing client stock portfolios in Indian equity markets
+-- IPM-55: Portfolio Management System SQL Schema
+-- This file creates the database schema for the Indian equity portfolio management MVP
+-- Includes tables for portfolios, stocks, technical indicators, advisory signals, and market data
 
 -- Drop existing tables if they exist (for clean setup)
-DROP TABLE IF EXISTS portfolio_transactions;
-DROP TABLE IF EXISTS portfolio_holdings;
+DROP TABLE IF EXISTS portfolio_stocks;
 DROP TABLE IF EXISTS portfolios;
-DROP TABLE IF EXISTS equity_securities;
-DROP TABLE IF EXISTS sectors;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS advisory_signals;
+DROP TABLE IF EXISTS stocks;
 DROP TABLE IF EXISTS technical_indicators;
-DROP TABLE IF EXISTS market_sentiment;
+DROP TABLE IF EXISTS advisory_signals;
+DROP TABLE IF EXISTS sector_performance;
+DROP TABLE IF EXISTS market_buzz;
+DROP TABLE IF EXISTS historical_performance;
+DROP TABLE IF EXISTS advisors;
+DROP TABLE IF EXISTS clients;
 
--- Users table with role-based access control
-CREATE TABLE users (
-    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    role VARCHAR(20) CHECK(role IN ('client', 'advisor', 'admin')) DEFAULT 'client',
+-- Clients table
+CREATE TABLE clients (
+    client_id INT PRIMARY KEY AUTO_INCREMENT,
+    client_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    phone VARCHAR(15),
+    risk_profile ENUM('LOW', 'MEDIUM', 'HIGH') DEFAULT 'MEDIUM',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Sectors table for Indian equity market classification
-CREATE TABLE sectors (
-    sector_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sector_name VARCHAR(100) NOT NULL UNIQUE,
-    sector_description TEXT,
-    growth_potential_rating INTEGER CHECK(growth_potential_rating BETWEEN 1 AND 5),
+-- Advisors table
+CREATE TABLE advisors (
+    advisor_id INT PRIMARY KEY AUTO_INCREMENT,
+    advisor_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    specialization VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Equity securities table focusing on Indian market
-CREATE TABLE equity_securities (
-    security_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    symbol VARCHAR(20) NOT NULL UNIQUE,
+-- Stocks table (NSE/BSE listed Indian equities)
+CREATE TABLE stocks (
+    stock_id INT PRIMARY KEY AUTO_INCREMENT,
+    symbol VARCHAR(20) NOT NULL,
     company_name VARCHAR(200) NOT NULL,
-    isin_code VARCHAR(12) NOT NULL UNIQUE,
-    sector_id INTEGER NOT NULL,
-    current_price DECIMAL(15,2) NOT NULL,
-    previous_close DECIMAL(15,2),
-    market_cap DECIMAL(20,2),
+    sector VARCHAR(100) NOT NULL,
+    industry VARCHAR(100),
+    current_price DECIMAL(10,2) NOT NULL,
+    market_cap DECIMAL(15,2),
     pe_ratio DECIMAL(10,2),
     dividend_yield DECIMAL(5,2),
-    listed_on DATE,
-    exchange VARCHAR(10) CHECK(exchange IN ('NSE', 'BSE')) DEFAULT 'NSE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (sector_id) REFERENCES sectors(sector_id)
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_symbol (symbol)
 );
 
--- Technical indicators table for signal generation
+-- Portfolios table
+CREATE TABLE portfolios (
+    portfolio_id INT PRIMARY KEY AUTO_INCREMENT,
+    client_id INT NOT NULL,
+    advisor_id INT NOT NULL,
+    portfolio_name VARCHAR(100) NOT NULL,
+    total_value DECIMAL(12,2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(client_id),
+    FOREIGN KEY (advisor_id) REFERENCES advisors(advisor_id)
+);
+
+-- Portfolio stocks junction table
+CREATE TABLE portfolio_stocks (
+    portfolio_stock_id INT PRIMARY KEY AUTO_INCREMENT,
+    portfolio_id INT NOT NULL,
+    stock_id INT NOT NULL,
+    quantity INT NOT NULL,
+    purchase_price DECIMAL(10,2) NOT NULL,
+    purchase_date DATE NOT NULL,
+    current_value DECIMAL(12,2) GENERATED ALWAYS AS (quantity * (SELECT current_price FROM stocks WHERE stock_id = portfolio_stocks.stock_id)) STORED,
+    unrealized_pnl DECIMAL(12,2) GENERATED ALWAYS AS (quantity * ((SELECT current_price FROM stocks WHERE stock_id = portfolio_stocks.stock_id) - purchase_price)) STORED,
+    weight DECIMAL(5,2) GENERATED ALWAYS AS (
+        (quantity * (SELECT current_price FROM stocks WHERE stock_id = portfolio_stocks.stock_id)) / 
+        (SELECT total_value FROM portfolios WHERE portfolio_id = portfolio_stocks.portfolio_id)
+    ) STORED,
+    FOREIGN KEY (portfolio_id) REFERENCES portfolios(portfolio_id),
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id),
+    CHECK (quantity > 0),
+    CHECK (purchase_price > 0)
+);
+
+-- Technical indicators table
 CREATE TABLE technical_indicators (
-    indicator_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    security_id INTEGER NOT NULL,
-    rsi DECIMAL(5,2) CHECK(rsi BETWEEN 0 AND 100),
+    indicator_id INT PRIMARY KEY AUTO_INCREMENT,
+    stock_id INT NOT NULL,
+    rsi DECIMAL(5,2),
     macd DECIMAL(8,4),
     macd_signal DECIMAL(8,4),
-    moving_avg_50 DECIMAL(15,2),
-    moving_avg_200 DECIMAL(15,2),
-    bollinger_upper DECIMAL(15,2),
-    bollinger_lower DECIMAL(15,2),
+    moving_avg_50 DECIMAL(10,2),
+    moving_avg_200 DECIMAL(10,2),
+    bollinger_upper DECIMAL(10,2),
+    bollinger_lower DECIMAL(10,2),
     stochastic_k DECIMAL(5,2),
     stochastic_d DECIMAL(5,2),
+    volume_avg_20 BIGINT,
     calculated_date DATE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (security_id) REFERENCES equity_securities(security_id),
-    UNIQUE(security_id, calculated_date)
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id),
+    UNIQUE KEY unique_stock_date (stock_id, calculated_date)
 );
 
--- Market sentiment table for buzz analysis
-CREATE TABLE market_sentiment (
-    sentiment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    security_id INTEGER NOT NULL,
-    sentiment_score DECIMAL(5,2) CHECK(sentiment_score BETWEEN -1 AND 1),
-    news_count INTEGER DEFAULT 0,
-    social_mentions INTEGER DEFAULT 0,
-    analyst_rating VARCHAR(10) CHECK(analyst_rating IN ('Strong Buy', 'Buy', 'Hold', 'Sell', 'Strong Sell')),
-    measured_date DATE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (security_id) REFERENCES equity_securities(security_id),
-    UNIQUE(security_id, measured_date)
-);
-
--- Portfolios table for client investment management
-CREATE TABLE portfolios (
-    portfolio_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    portfolio_name VARCHAR(100) NOT NULL,
-    description TEXT,
-    initial_investment DECIMAL(15,2) DEFAULT 0,
-    current_value DECIMAL(15,2) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id),
-    UNIQUE(user_id, portfolio_name)
-);
-
--- Portfolio holdings table for current positions
-CREATE TABLE portfolio_holdings (
-    holding_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    portfolio_id INTEGER NOT NULL,
-    security_id INTEGER NOT NULL,
-    quantity INTEGER NOT NULL CHECK(quantity > 0),
-    average_buy_price DECIMAL(15,2) NOT NULL,
-    current_value DECIMAL(15,2),
-    unrealized_pnl DECIMAL(15,2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (portfolio_id) REFERENCES portfolios(portfolio_id),
-    FOREIGN KEY (security_id) REFERENCES equity_securities(security_id),
-    UNIQUE(portfolio_id, security_id)
-);
-
--- Portfolio transactions table for audit trail
-CREATE TABLE portfolio_transactions (
-    transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    portfolio_id INTEGER NOT NULL,
-    security_id INTEGER NOT NULL,
-    transaction_type VARCHAR(10) CHECK(transaction_type IN ('BUY', 'SELL')) NOT NULL,
-    quantity INTEGER NOT NULL CHECK(quantity > 0),
-    price DECIMAL(15,2) NOT NULL,
-    transaction_date DATE NOT NULL,
-    brokerage DECIMAL(10,2) DEFAULT 0,
-    taxes DECIMAL(10,2) DEFAULT 0,
-    total_amount DECIMAL(15,2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (portfolio_id) REFERENCES portfolios(portfolio_id),
-    FOREIGN KEY (security_id) REFERENCES equity_securities(security_id)
-);
-
--- Advisory signals table for Buy/Hold/Sell recommendations
+-- Advisory signals table
 CREATE TABLE advisory_signals (
-    signal_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    security_id INTEGER NOT NULL,
-    signal_type VARCHAR(10) CHECK(signal_type IN ('BUY', 'HOLD', 'SELL')) NOT NULL,
-    confidence_score DECIMAL(5,2) CHECK(confidence_score BETWEEN 0 AND 1),
-    reasoning TEXT NOT NULL,
-    generated_by INTEGER NOT NULL,
+    signal_id INT PRIMARY KEY AUTO_INCREMENT,
+    stock_id INT NOT NULL,
+    signal_type ENUM('BUY', 'HOLD', 'SELL') NOT NULL,
+    confidence_score DECIMAL(4,2) CHECK (confidence_score BETWEEN 0 AND 1),
+    rationale TEXT,
+    generated_by INT NOT NULL,
     valid_until DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (security_id) REFERENCES equity_securities(security_id),
-    FOREIGN KEY (generated_by) REFERENCES users(user_id)
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id),
+    FOREIGN KEY (generated_by) REFERENCES advisors(advisor_id)
+);
+
+-- Sector performance table
+CREATE TABLE sector_performance (
+    sector_id INT PRIMARY KEY AUTO_INCREMENT,
+    sector_name VARCHAR(100) NOT NULL,
+    performance_score DECIMAL(5,2) CHECK (performance_score BETWEEN 0 AND 100),
+    growth_potential ENUM('LOW', 'MEDIUM', 'HIGH') DEFAULT 'MEDIUM',
+    market_sentiment ENUM('BEARISH', 'NEUTRAL', 'BULLISH') DEFAULT 'NEUTRAL',
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_sector (sector_name)
+);
+
+-- Market buzz table
+CREATE TABLE market_buzz (
+    buzz_id INT PRIMARY KEY AUTO_INCREMENT,
+    stock_id INT,
+    buzz_type ENUM('NEWS', 'SOCIAL_MEDIA', 'ANALYST_REPORT', 'RUMOR') NOT NULL,
+    sentiment ENUM('NEGATIVE', 'NEUTRAL', 'POSITIVE') DEFAULT 'NEUTRAL',
+    content TEXT NOT NULL,
+    source VARCHAR(200),
+    impact_score DECIMAL(3,2) CHECK (impact_score BETWEEN 0 AND 1),
+    published_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (stock_id) REFERENCES stocks(stock_id)
+);
+
+-- Historical performance table
+CREATE TABLE historical_performance (
+    performance_id INT PRIMARY KEY AUTO_INCREMENT,
+    portfolio_id INT NOT NULL,
+    date DATE NOT NULL,
+    total_value DECIMAL(12,2) NOT NULL,
+    daily_return DECIMAL(8,4),
+    cumulative_return DECIMAL(8,4),
+    volatility DECIMAL(8,4),
+    sharpe_ratio DECIMAL(8,4),
+    max_drawdown DECIMAL(8,4),
+    FOREIGN KEY (portfolio_id) REFERENCES portfolios(portfolio_id),
+    UNIQUE KEY unique_portfolio_date (portfolio_id, date)
 );
 
 -- Indexes for performance optimization
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_equity_sector ON equity_securities(sector_id);
-CREATE INDEX idx_equity_symbol ON equity_securities(symbol);
-CREATE INDEX idx_equity_exchange ON equity_securities(exchange);
-CREATE INDEX idx_portfolio_user ON portfolios(user_id);
-CREATE INDEX idx_holdings_portfolio ON portfolio_holdings(portfolio_id);
-CREATE INDEX idx_holdings_security ON portfolio_holdings(security_id);
-CREATE INDEX idx_transactions_portfolio ON portfolio_transactions(portfolio_id);
-CREATE INDEX idx_transactions_security ON portfolio_transactions(security_id);
-CREATE INDEX idx_transactions_date ON portfolio_transactions(transaction_date);
-CREATE INDEX idx_signals_security ON advisory_signals(security_id);
-CREATE INDEX idx_signals_type ON advisory_signals(signal_type);
-CREATE INDEX idx_technical_security_date ON technical_indicators(security_id, calculated_date);
-CREATE INDEX idx_sentiment_security_date ON market_sentiment(security_id, measured_date);
+CREATE INDEX idx_portfolio_stocks_portfolio ON portfolio_stocks(portfolio_id);
+CREATE INDEX idx_portfolio_stocks_stock ON portfolio_stocks(stock_id);
+CREATE INDEX idx_technical_indicators_stock ON technical_indicators(stock_id);
+CREATE INDEX idx_advisory_signals_stock ON advisory_signals(stock_id);
+CREATE INDEX idx_market_buzz_stock ON market_buzz(stock_id);
+CREATE INDEX idx_historical_performance_portfolio ON historical_performance(portfolio_id);
+CREATE INDEX idx_stocks_sector ON stocks(sector);
+
+-- Insert dummy data for demonstration
+INSERT INTO clients (client_name, email, phone, risk_profile) VALUES
+('Rajesh Kumar', 'rajesh.kumar@email.com', '+919876543210', 'MEDIUM'),
+('Priya Sharma', 'priya.sharma@email.com', '+919876543211', 'LOW'),
+('Amit Patel', 'amit.patel@email.com', '+919876543212', 'HIGH');
+
+INSERT INTO advisors (advisor_name, email, specialization) VALUES
+('Deepak Mehta', 'deepak.mehta@advisory.com', 'Equity Research'),
+('Neha Gupta', 'neha.gupta@advisory.com', 'Portfolio Management'),
+('Vikram Singh', 'vikram.singh@advisory.com', 'Technical Analysis');
+
+INSERT INTO stocks (symbol, company_name, sector, industry, current_price, market_cap, pe_ratio, dividend_yield) VALUES
+('RELIANCE', 'Reliance Industries Ltd', 'Energy', 'Oil & Gas', 2750.50, 1860000.00, 28.50, 0.45),
+('INFY', 'Infosys Ltd', 'IT', 'Software', 1650.75, 685000.00, 25.30, 2.10),
+('HDFCBANK', 'HDFC Bank Ltd', 'Financial', 'Banking', 1625.25, 895000.00, 20.10, 1.20),
+('TCS', 'Tata Consultancy Services Ltd', 'IT', 'Software', 3450.00, 1320000.00, 30.20, 1.80),
+('ICICIBANK', 'ICICI Bank Ltd', 'Financial', 'Banking', 980.50, 675000.00, 18.75, 0.90);
+
+INSERT INTO portfolios (client_id, advisor_id, portfolio_name, total_value) VALUES
+(1, 1, 'Rajesh Growth Portfolio', 0),
+(2, 2, 'Priya Conservative Portfolio', 0),
+(3, 3, 'Amit Aggressive Portfolio', 0);
+
+INSERT INTO portfolio_stocks (portfolio_id, stock_id, quantity, purchase_price, purchase_date) VALUES
+(1, 1, 10, 2600.00, '2024-01-15'),
+(1, 2, 15, 1500.00, '2024-02-01'),
+(2, 3, 8, 1550.00, '2024-01-20'),
+(2, 5, 20, 920.00, '2024-02-10'),
+(3, 4, 5, 3300.00, '2024-01-25'),
+(3, 1, 8, 2700.00, '2024-02-05');
+
+-- Update portfolio total values
+UPDATE portfolios p
+SET total_value = (
+    SELECT COALESCE(SUM(ps.current_value), 0)
+    FROM portfolio_stocks ps
+    WHERE ps.portfolio_id = p.portfolio_id
+);
+
+INSERT INTO technical_indicators (stock_id, rsi, macd, macd_signal, moving_avg_50, moving_avg_200, calculated_date) VALUES
+(1, 62.5, 12.3456, 11.2345, 2680.25, 2550.75, CURDATE()),
+(2, 45.2, -5.6789, -4.5678, 1620.50, 1580.25, CURDATE()),
+(3, 58.7, 8.9012, 7.8901, 1600.75, 1550.50, CURDATE()),
+(4, 70.3, 15.6789, 14.5678, 3400.00, 3250.25, CURDATE()),
+(5, 40.1, -3.4567, -2.3456, 950.00, 920.75, CURDATE());
+
+INSERT INTO advisory_signals (stock_id, signal_type, confidence_score, rationale, generated_by, valid_until) VALUES
+(1, 'BUY', 0.85, 'Strong fundamentals and positive technical indicators', 1, DATE_ADD(CURDATE(), INTERVAL 30 DAY)),
+(2, 'HOLD', 0.65, 'Stable performance but limited upside potential', 2, DATE_ADD(CURDATE(), INTERVAL 15 DAY)),
+(3, 'BUY', 0.78, 'Undervalued with improving technicals', 3, DATE_ADD(CURDATE(), INTERVAL 30 DAY)),
+(4, 'SELL', 0.72, 'Overvalued and showing bearish technical signals', 1, DATE_ADD(CURDATE(), INTERVAL 15 DAY)),
+(5, 'HOLD', 0.60, 'Neutral signals, wait for clearer direction', 2, DATE_ADD(CURDATE(), INTERVAL 15 DAY));
+
+INSERT INTO sector_performance (sector_name, performance_score, growth_potential, market_sentiment) VALUES
+('Energy', 75.5, 'HIGH', 'BULLISH'),
+('IT', 60.2, 'MEDIUM', 'NEUTRAL'),
+('Financial', 68.7, 'HIGH', 'BULLISH'),
+('Healthcare', 55.3, 'MEDIUM', 'NEUTRAL'),
+('Automobile', 45.8, 'LOW', 'BEARISH');
+
+INSERT INTO market_buzz (stock_id, buzz_type, sentiment, content, source, impact_score, published_date) VALUES
+(1, 'NEWS', 'POSITIVE', 'Reliance announces new renewable energy initiatives', 'Economic Times', 0.8, NOW()),
+(2, 'ANALYST_REPORT', 'NEUTRAL', 'Infosys Q3 results meet expectations', 'Morgan Stanley', 0.6, NOW()),
+(3, 'SOCIAL_MEDIA', 'POSITIVE', 'Positive sentiment around HDFC Bank digital transformation', 'Twitter', 0.5, NOW()),
+(4, 'NEWS', 'NEGATIVE', 'TCS faces margin pressure in international markets', 'Business Standard', 0.7, NOW()),
+(5, 'RUMOR', 'NEUTRAL', 'Rumors of ICICI Bank expansion plans', 'Market Sources', 0.4, NOW());
 
 -- Views for common queries
-
--- Portfolio summary view
 CREATE VIEW portfolio_summary AS
 SELECT 
     p.portfolio_id,
-    p.user_id,
     p.portfolio_name,
-    p.initial_investment,
-    p.current_value,
-    COUNT(h.holding_id) as number_of_holdings,
-    COALESCE(SUM(h.current_value), 0) as total_current_value,
-    COALESCE(SUM(h.unrealized_pnl), 0) as total_unrealized_pnl,
-    p.created_at,
-    p.updated_at
+    c.client_name,
+    a.advisor_name,
+    p.total_value,
+    COUNT(ps.stock_id) as number_of_stocks,
+    MAX(ps.purchase_date) as latest_purchase
 FROM portfolios p
-LEFT JOIN portfolio_holdings h ON p.portfolio_id = h.portfolio_id
+JOIN clients c ON p.client_id = c.client_id
+JOIN advisors a ON p.advisor_id = a.advisor_id
+LEFT JOIN portfolio_stocks ps ON p.portfolio_id = ps.portfolio_id
 GROUP BY p.portfolio_id;
 
--- Security performance view
-CREATE VIEW security_performance AS
+CREATE VIEW stock_signals AS
 SELECT 
-    es.security_id,
-    es.symbol,
-    es.company_name,
-    s.sector_name,
-    es.current_price,
-    es.previous_close,
-    ROUND(((es.current_price - es.previous_close) / es.previous_close) * 100, 2) as daily_change_percent,
-    ti.rsi,
-    ti.macd,
-    ms.sentiment_score,
-    a.signal_type as latest_signal
-FROM equity_securities es
-JOIN sectors s ON es.sector_id = s.sector_id
-LEFT JOIN technical_indicators ti ON es.security_id = ti.security_id 
-    AND ti.calculated_date = (SELECT MAX(calculated_date) FROM technical_indicators WHERE security_id = es.security_id)
-LEFT JOIN market_sentiment ms ON es.security_id = ms.security_id 
-    AND ms.measured_date = (SELECT MAX(measured_date) FROM market_sentiment WHERE security_id = es.security_id)
-LEFT JOIN advisory_signals a ON es.security_id = a.security_id 
-    AND a.created_at = (SELECT MAX(created_at) FROM advisory_signals WHERE security_id = es.security_id);
-
--- Insert dummy data for MVP testing
-
--- Insert sectors
-INSERT INTO sectors (sector_name, sector_description, growth_potential_rating) VALUES
-('Information Technology', 'Software services, IT consulting, and technology solutions', 4),
-('Banking & Financial Services', 'Banks, NBFCs, insurance companies, and financial institutions', 3),
-('Pharmaceuticals', 'Drug manufacturers, biotechnology, and healthcare products', 4),
-('Automobile', 'Automobile manufacturers and ancillary industries', 3),
-('Fast Moving Consumer Goods', 'Consumer products, food, and beverages', 3),
-('Energy', 'Oil & gas, power generation, and renewable energy', 2),
-('Telecommunications', 'Telecom services and infrastructure', 3),
-('Infrastructure', 'Construction, engineering, and infrastructure development', 4);
-
--- Insert sample users
-INSERT INTO users (username, email, password_hash, first_name, last_name, role) VALUES
-('advisor1', 'advisor1@example.com', 'hashed_password_1', 'Rajesh', 'Sharma', 'advisor'),
-('client1', 'client1@example.com', 'hashed_password_2', 'Priya', 'Patel', 'client'),
-('client2', 'client2@example.com', 'hashed_password_3', 'Amit', 'Kumar', 'client'),
-('admin1', 'admin1@example.com', 'hashed_password_4', 'Sneha', 'Desai', 'admin');
-
--- Insert sample equity securities (Indian market focus)
-INSERT INTO equity_securities (symbol, company_name, isin_code, sector_id, current_price, previous_close, market_cap, pe_ratio, dividend_yield, exchange) VALUES
-('INFY', 'Infosys Limited', 'INE009A01021', 1, 1850.50, 1820.75, 7500000000000, 28.5, 1.2, 'NSE'),
-('TCS', 'Tata Consultancy Services', 'INE467B01029', 1, 3450.25, 3420.00, 12500000000000, 30.2, 1.5, 'NSE'),
-('HDFCBANK', 'HDFC Bank Limited', 'INE040A01026', 2, 1650.75, 1635.50, 9000000000000, 22.8, 0.8, 'NSE'),
-('ICICIBANK', 'ICICI Bank Limited', 'INE090A01021', 2, 950.20, 945.75, 6500000000000, 20.1, 0.6, 'NSE'),
-('SUNPHARMA', 'Sun Pharmaceutical Industries', 'INE044A01036', 3, 1025.80, 1015.25, 2500000000000, 25.3, 1.1, 'NSE'),
-('MARUTI', 'Maruti Suzuki India', 'INE585B01010', 4, 8750.00, 8680.50, 2600000000000, 28.7, 0.9, 'NSE'),
-('HINDUNILVR', 'Hindustan Unilever', 'INE030A01027', 5, 2450.30, 2435.75, 5500000000000, 65.2, 1.4, 'NSE'),
-('RELIANCE', 'Reliance Industries', 'INE002A01018', 6, 2650.45, 2625.80, 17500000000000, 27.8, 0.7, 'NSE');
-
--- Insert sample technical indicators
-INSERT INTO technical_indicators (security_id, rsi, macd, macd_signal, moving_avg_50, moving_avg_200, calculated_date) VALUES
-(1, 62.5, 12.34, 11.89, 1800.25, 1750.80, date('now')),
-(2, 58.2, 23.45, 22.10, 3400.50, 3350.25, date('now')),
-(3, 45.8, -5.67, -4.89, 1620.75, 1580.30, date('now')),
-(4, 52.1, 8.91, 7.65, 930.40, 910.25, date('now')),
-(5, 68.9, 15.78, 14.23, 1000.50, 980.75, date('now'));
-
--- Insert sample market sentiment data
-INSERT INTO market_sentiment (security_id, sentiment_score, news_count, social_mentions, analyst_rating, measured_date) VALUES
-(1, 0.75, 15, 120, 'Buy', date('now')),
-(2, 0.65, 12, 95, 'Hold', date('now')),
-(3, 0.45, 8, 60, 'Hold', date('now')),
-(4, 0.55, 10, 75, 'Buy', date('now')),
-(5, 0.82, 18, 150, 'Strong Buy', date('now'));
-
--- Insert sample portfolios
-INSERT INTO portfolios (user_id, portfolio_name, description, initial_investment, current_value) VALUES
-(2, 'Long-Term Growth', 'Focus on growth stocks for long-term appreciation', 500000, 525000),
-(2, 'Dividend Portfolio', 'Income-focused portfolio with dividend stocks', 300000, 315000),
-(3, 'Retirement Fund', 'Conservative portfolio for retirement planning', 1000000, 1025000);
-
--- Insert sample portfolio holdings
-INSERT INTO portfolio_holdings (portfolio_id, security_id, quantity, average_buy_price, current_value, unrealized_pnl) VALUES
-(1, 1, 100, 1700.00, 185050, 15050),
-(1, 3, 200, 1550.00, 330150, 20150),
-(2, 5, 150, 950.00, 153870, 8870),
-(2, 7, 100, 2350.00, 245030, 10030),
-(3, 2, 50, 3300.00, 172512, 7512),
-(3, 8, 200, 2500.00, 530090, 30090);
-
--- Insert sample transactions
-INSERT INTO portfolio_transactions (portfolio_id, security_id, transaction_type, quantity, price, transaction_date, total_amount) VALUES
-(1, 1, 'BUY', 100, 1700.00, date('now', '-30 days'), 170000),
-(1, 3, 'BUY', 200, 1550.00, date('now', '-25 days'), 310000),
-(2, 5, 'BUY', 150, 950.00, date('now', '-20 days'), 142500),
-(2, 7, 'BUY', 100, 2350.00, date('now', '-15 days'), 235000),
-(3, 2, 'BUY', 50, 3300.00, date('now', '-10 days'), 165000),
-(3, 8, 'BUY', 200, 2500.00, date('now', '-5 days'), 500000);
-
--- Insert sample advisory signals
-INSERT INTO advisory_signals (security_id, signal_type, confidence_score, reasoning, generated_by, valid_until) VALUES
-(1, 'BUY', 0.85, 'Strong technical indicators combined with positive sector outlook and high market sentiment', 1, date('now', '+7 days')),
-(5, 'STRONG BUY', 0.92, 'Excellent fundamentals, oversold condition, and very positive market buzz', 1, date('now', '+5 days')),
-(3, 'HOLD', 0.68, 'Neutral technical signals with mixed market sentiment, wait for clearer direction', 1, date('now', '+3 days')),
-(8, 'BUY', 0.78, 'Strong sector potential and improving technical indicators', 1, date('now', '+10 days'));
+    s.symbol,
+    s.company_name,
+    s.sector,
+    s.current_price,
+    asig.signal_type,
+    asig.confidence_score,
+    asig.rationale,
+    asig.valid_until
+FROM stocks s
+JOIN advisory_signals asig ON s.stock_id = asig.stock_id
+WHERE asig.valid_until >= CURDATE();
 
 -- Stored procedures for common operations
+DELIMITER //
 
--- Procedure to update portfolio current value
-CREATE PROCEDURE update_portfolio_value(IN portfolio_id_param INTEGER)
+CREATE PROCEDURE CalculatePortfolioPerformance(IN portfolio_id_param INT)
+BEGIN
+    DECLARE current_total DECIMAL(12,2);
+    DECLARE previous_total DECIMAL(12,2);
+    DECLARE daily_return_val DECIMAL(8,4);
+    
+    SELECT total_value INTO current_total FROM portfolios WHERE portfolio_id = portfolio_id_param;
+    
+    SELECT total_value INTO previous_total 
+    FROM historical_performance 
+    WHERE portfolio_id = portfolio_id_param 
+    AND date = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+    ORDER BY date DESC LIMIT 1;
+    
+    IF previous_total IS NOT NULL AND previous_total > 0 THEN
+        SET daily_return_val = (current_total - previous_total) / previous_total;
+    ELSE
+        SET daily_return_val = 0;
+    END IF;
+    
+    INSERT INTO historical_performance (portfolio_id, date, total_value, daily_return)
+    VALUES (portfolio_id_param, CURDATE(), current_total, daily_return_val)
+    ON DUPLICATE KEY UPDATE 
+        total_value = current_total,
+        daily_return = daily_return_val;
+END //
+
+CREATE PROCEDURE GenerateAdvisorySignal(
+    IN stock_id_param INT,
+    IN advisor_id_param INT
+)
+BEGIN
+    DECLARE rsi_val DECIMAL(5,2);
+    DECLARE macd_val DECIMAL(8,4);
+    DECLARE ma50_val DECIMAL(10,2);
+    DECLARE ma200_val DECIMAL(10,2);
+    DECLARE current_price_val DECIMAL(10,2);
+    DECLARE signal_type_val ENUM('BUY', 'HOLD', 'SELL');
+    DECLARE confidence_val DECIMAL(4,2);
+    DECLARE rationale_text TEXT;
+    
+    -- Get latest technical indicators
+    SELECT rsi, macd, moving_avg_50, moving_avg_200 INTO rsi_val, macd_val, ma50_val, ma200_val
+    FROM technical_indicators 
+    WHERE stock_id = stock_id_param 
+    ORDER BY calculated_date DESC LIMIT 1;
+    
+    SELECT current_price INTO current_price_val FROM stocks WHERE stock_id = stock_id_param;
+    
+    -- Simple signal generation logic (example)
+    IF rsi_val < 30 AND macd_val > 0 AND current_price_val > ma50_val THEN
+        SET signal_type_val = 'BUY';
+        SET confidence_val = 0.85;
+        SET rationale_text = 'Oversold conditions with positive momentum and price above 50-day MA';
+    ELSEIF rsi_val > 70 AND macd_val < 0 AND current_price_val < ma200_val THEN
+        SET signal_type_val = 'SELL';
+        SET confidence_val = 0.75;
+        SET rationale_text = 'Overbought conditions with negative momentum and price below 200-day MA';
+    ELSE
+        SET signal_type_val = 'HOLD';
+        SET confidence_val = 0.65;
+        SET rationale_text = 'Mixed signals, recommend holding current position';
+    END IF;
+    
+    INSERT INTO advisory_signals (stock_id, signal_type, confidence_score, rationale, generated_by, valid_until)
+    VALUES (stock_id_param, signal_type_val, confidence_val, rationale_text, advisor_id_param, DATE_ADD(CURDATE(), INTERVAL 30 DAY));
+END //
+
+DELIMITER ;
+
+-- Triggers for maintaining data integrity
+DELIMITER //
+
+CREATE TRIGGER update_portfolio_value_after_insert
+AFTER INSERT ON portfolio_stocks
+FOR EACH ROW
 BEGIN
     UPDATE portfolios 
-    SET current_value = (
-        SELECT COALESCE(SUM(h.current_value), 0)
-        FROM portfolio_holdings h
-        WHERE h.portfolio_id = portfolio_id_param
-    ),
-    updated_at = CURRENT_TIMESTAMP
-    WHERE portfolio_id = portfolio_id_param;
-END;
-
--- Procedure to add new transaction and update holdings
-CREATE PROCEDURE add_transaction(
-    IN portfolio_id_param INTEGER,
-    IN security_id_param INTEGER,
-    IN transaction_type_param VARCHAR(10),
-    IN quantity_param
+    SET total

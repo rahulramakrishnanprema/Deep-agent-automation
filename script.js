@@ -1,422 +1,325 @@
-// script.js - Frontend JavaScript for Portfolio Management Application
-// Handles UI interactions, API calls, and data visualization for the portfolio management system
+// script.js - Frontend JavaScript for Portfolio Management MVP
 
 // Global variables
-let currentUserRole = 'user'; // Default role, will be updated after login
-let portfolioData = [];
+let currentUser = null;
+let portfolios = [];
 let advisorySignals = [];
 
-// DOM Ready Event
+// DOM Ready
 document.addEventListener('DOMContentLoaded', function() {
-    initializeApplication();
-    setupEventListeners();
+    initializeApp();
 });
 
-/**
- * Initialize the application
- */
-function initializeApplication() {
+// Initialize the application
+function initializeApp() {
     checkAuthentication();
-    loadPortfolioData();
-    setupRoleBasedUI();
+    setupEventListeners();
+    loadDummyData();
 }
 
-/**
- * Check if user is authenticated and set role
- */
+// Check if user is authenticated
 function checkAuthentication() {
-    // In a real application, this would check cookies/localStorage
-    const userRole = localStorage.getItem('userRole');
-    if (userRole) {
-        currentUserRole = userRole;
-        updateUIForRole();
-    }
+    // For MVP, use dummy authentication
+    const userRole = localStorage.getItem('userRole') || 'client';
+    currentUser = {
+        id: 1,
+        name: 'Demo User',
+        role: userRole,
+        email: 'demo@example.com'
+    };
+    
+    updateUIForUserRole();
 }
 
-/**
- * Setup event listeners for UI interactions
- */
+// Update UI based on user role
+function updateUIForUserRole() {
+    const advisorSections = document.querySelectorAll('.advisor-only');
+    advisorSections.forEach(section => {
+        section.style.display = currentUser.role === 'advisor' ? 'block' : 'none';
+    });
+}
+
+// Setup event listeners
 function setupEventListeners() {
     // Portfolio form submission
-    const portfolioForm = document.getElementById('portfolioForm');
-    if (portfolioForm) {
-        portfolioForm.addEventListener('submit', handlePortfolioSubmit);
-    }
-
-    // Refresh data button
-    const refreshBtn = document.getElementById('refreshData');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadPortfolioData);
-    }
-
-    // Advisor report toggle
-    const reportToggle = document.getElementById('advisorReportsToggle');
-    if (reportToggle) {
-        reportToggle.addEventListener('click', toggleAdvisorReports);
-    }
-
-    // Login form submission
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', handleLogin);
-    }
-
-    // Logout button
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
-    }
-}
-
-/**
- * Setup role-based UI elements
- */
-function setupRoleBasedUI() {
-    const advisorElements = document.querySelectorAll('.advisor-only');
-    advisorElements.forEach(element => {
-        if (currentUserRole === 'advisor') {
-            element.style.display = 'block';
-        } else {
-            element.style.display = 'none';
-        }
-    });
-}
-
-/**
- * Update UI based on user role
- */
-function updateUIForRole() {
-    const advisorSections = document.querySelectorAll('.advisor-section');
-    const userSections = document.querySelectorAll('.user-section');
+    document.getElementById('portfolioForm')?.addEventListener('submit', handlePortfolioSubmit);
     
-    if (currentUserRole === 'advisor') {
-        advisorSections.forEach(section => section.style.display = 'block');
-        userSections.forEach(section => section.style.display = 'none');
-        loadAdvisoryReports();
-    } else {
-        advisorSections.forEach(section => section.style.display = 'none');
-        userSections.forEach(section => section.style.display = 'block');
-    }
-}
-
-/**
- * Load portfolio data from backend API
- */
-async function loadPortfolioData() {
-    try {
-        showLoading('portfolioData');
-        
-        const response = await fetch('/api/portfolio', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        portfolioData = data.portfolios || [];
-        
-        renderPortfolioTable(portfolioData);
-        loadAdvisorySignals();
-        
-    } catch (error) {
-        console.error('Error loading portfolio data:', error);
-        showError('Failed to load portfolio data. Please try again.');
-    } finally {
-        hideLoading('portfolioData');
-    }
-}
-
-/**
- * Load advisory signals from backend API
- */
-async function loadAdvisorySignals() {
-    try {
-        const response = await fetch('/api/advisory/signals', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        advisorySignals = data.signals || [];
-        
-        renderAdvisorySignals(advisorySignals);
-        
-    } catch (error) {
-        console.error('Error loading advisory signals:', error);
-        showError('Failed to load advisory signals.');
-    }
-}
-
-/**
- * Load advisor reports (for advisors only)
- */
-async function loadAdvisoryReports() {
-    if (currentUserRole !== 'advisor') return;
+    // Refresh signals button
+    document.getElementById('refreshSignals')?.addEventListener('click', generateAdvisorySignals);
     
-    try {
-        showLoading('advisorReports');
-        
-        const response = await fetch('/api/advisory/reports', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const reports = await response.json();
-        renderAdvisoryReports(reports);
-        
-    } catch (error) {
-        console.error('Error loading advisory reports:', error);
-        showError('Failed to load advisor reports.');
-    } finally {
-        hideLoading('advisorReports');
-    }
-}
-
-/**
- * Handle portfolio form submission
- * @param {Event} event - Form submit event
- */
-async function handlePortfolioSubmit(event) {
-    event.preventDefault();
+    // View reports button (advisor only)
+    document.getElementById('viewReports')?.addEventListener('click', loadAdvisorReports);
     
-    const formData = new FormData(event.target);
-    const portfolioData = {
-        stock_symbol: formData.get('stock_symbol'),
-        quantity: parseInt(formData.get('quantity')),
-        purchase_price: parseFloat(formData.get('purchase_price')),
-        purchase_date: formData.get('purchase_date'),
-        sector: formData.get('sector')
-    };
-
-    try {
-        const response = await fetch('/api/portfolio', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: JSON.stringify(portfolioData)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        showSuccess('Portfolio item added successfully!');
-        event.target.reset();
-        loadPortfolioData();
-        
-    } catch (error) {
-        console.error('Error adding portfolio item:', error);
-        showError('Failed to add portfolio item. Please try again.');
-    }
+    // Role switcher for demo purposes
+    document.getElementById('switchRole')?.addEventListener('click', switchUserRole);
 }
 
-/**
- * Handle login form submission
- * @param {Event} event - Form submit event
- */
-async function handleLogin(event) {
-    event.preventDefault();
+// Load dummy data for MVP
+function loadDummyData() {
+    // Dummy portfolios for Indian equity market
+    portfolios = [
+        {
+            id: 1,
+            name: 'Conservative Portfolio',
+            value: 1250000,
+            stocks: [
+                { symbol: 'RELIANCE', name: 'Reliance Industries', quantity: 50, avgPrice: 2450, currentPrice: 2580 },
+                { symbol: 'HDFCBANK', name: 'HDFC Bank', quantity: 75, avgPrice: 1450, currentPrice: 1520 },
+                { symbol: 'INFY', name: 'Infosys', quantity: 100, avgPrice: 1450, currentPrice: 1525 }
+            ],
+            performance: { ytd: 12.5, oneYear: 18.2, threeYear: 45.8 }
+        },
+        {
+            id: 2,
+            name: 'Growth Portfolio',
+            value: 850000,
+            stocks: [
+                { symbol: 'TCS', name: 'Tata Consultancy Services', quantity: 30, avgPrice: 3200, currentPrice: 3350 },
+                { symbol: 'HINDUNILVR', name: 'Hindustan Unilever', quantity: 40, avgPrice: 2450, currentPrice: 2520 },
+                { symbol: 'ICICIBANK', name: 'ICICI Bank', quantity: 60, avgPrice: 850, currentPrice: 920 }
+            ],
+            performance: { ytd: 15.8, oneYear: 22.4, threeYear: 52.1 }
+        }
+    ];
     
-    const formData = new FormData(event.target);
-    const loginData = {
-        username: formData.get('username'),
-        password: formData.get('password')
-    };
-
-    try {
-        const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(loginData)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        
-        // Store authentication data
-        localStorage.setItem('authToken', result.token);
-        localStorage.setItem('userRole', result.role);
-        localStorage.setItem('userId', result.user_id);
-        
-        currentUserRole = result.role;
-        updateUIForRole();
-        
-        showSuccess('Login successful!');
-        $('#loginModal').modal('hide');
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        showError('Login failed. Please check your credentials.');
-    }
+    renderPortfolios();
+    generateAdvisorySignals();
 }
 
-/**
- * Handle logout
- */
-async function handleLogout() {
-    try {
-        await fetch('/api/auth/logout', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-    } catch (error) {
-        console.error('Logout error:', error);
-    } finally {
-        // Clear local storage and reset UI
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('userId');
-        
-        currentUserRole = 'user';
-        updateUIForRole();
-        
-        showSuccess('Logged out successfully!');
-    }
-}
-
-/**
- * Render portfolio data in table
- * @param {Array} data - Portfolio data array
- */
-function renderPortfolioTable(data) {
-    const tableBody = document.getElementById('portfolioTableBody');
-    if (!tableBody) return;
-
-    tableBody.innerHTML = '';
-
-    data.forEach((item, index) => {
-        const row = document.createElement('tr');
-        
-        const currentPrice = calculateCurrentPrice(item.purchase_price);
-        const gainLoss = calculateGainLoss(item.quantity, item.purchase_price, currentPrice);
-        const gainLossClass = gainLoss >= 0 ? 'text-success' : 'text-danger';
-        const gainLossIcon = gainLoss >= 0 ? '▲' : '▼';
-
-        row.innerHTML = `
-            <td>${item.stock_symbol}</td>
-            <td>${item.quantity}</td>
-            <td>₹${item.purchase_price.toFixed(2)}</td>
-            <td>₹${currentPrice.toFixed(2)}</td>
-            <td class="${gainLossClass}">${gainLossIcon} ₹${Math.abs(gainLoss).toFixed(2)}</td>
-            <td>${item.sector}</td>
-            <td>${formatDate(item.purchase_date)}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-danger" onclick="deletePortfolioItem(${item.id})">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </td>
-        `;
-        
-        tableBody.appendChild(row);
-    });
-
-    updatePortfolioSummary(data);
-}
-
-/**
- * Render advisory signals
- * @param {Array} signals - Advisory signals array
- */
-function renderAdvisorySignals(signals) {
-    const container = document.getElementById('advisorySignals');
-    if (!container) return;
-
-    container.innerHTML = '';
-
-    signals.forEach(signal => {
-        const card = document.createElement('div');
-        card.className = `col-md-4 mb-3`;
-        
-        let badgeClass = '';
-        switch(signal.recommendation.toLowerCase()) {
-            case 'buy': badgeClass = 'bg-success'; break;
-            case 'sell': badgeClass = 'bg-danger'; break;
-            case 'hold': badgeClass = 'bg-warning'; break;
-            default: badgeClass = 'bg-secondary';
-        }
-
-        card.innerHTML = `
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">${signal.stock_symbol}</h5>
-                    <span class="badge ${badgeClass}">${signal.recommendation}</span>
-                    <p class="card-text mt-2">${signal.reason}</p>
-                    <small class="text-muted">Confidence: ${signal.confidence_score}%</small>
+// Render portfolios to the UI
+function renderPortfolios() {
+    const portfolioList = document.getElementById('portfolioList');
+    if (!portfolioList) return;
+    
+    portfolioList.innerHTML = portfolios.map(portfolio => `
+        <div class="col-md-6 mb-4">
+            <div class="card portfolio-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">${portfolio.name}</h5>
                 </div>
-                <div class="card-footer">
-                    <small>Updated: ${formatDate(signal.generated_at)}</small>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="h4 text-success">₹${formatCurrency(portfolio.value)}</span>
+                        <span class="badge bg-success">${portfolio.performance.ytd}% YTD</span>
+                    </div>
+                    
+                    <h6>Holdings:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Stock</th>
+                                    <th>Qty</th>
+                                    <th>Price</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${portfolio.stocks.map(stock => `
+                                    <tr>
+                                        <td>${stock.name}<br><small class="text-muted">${stock.symbol}</small></td>
+                                        <td>${stock.quantity}</td>
+                                        <td>₹${formatCurrency(stock.currentPrice)}</td>
+                                        <td>₹${formatCurrency(stock.quantity * stock.currentPrice)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        `;
-        
-        container.appendChild(card);
-    });
+        </div>
+    `).join('');
 }
 
-/**
- * Render advisor reports with charts
- * @param {Object} reports - Reports data object
- */
-function renderAdvisoryReports(reports) {
-    if (!reports) return;
-
-    renderPerformanceChart(reports.performance_data);
-    renderSectorAnalysis(reports.sector_analysis);
-    renderTechnicalIndicators(reports.technical_indicators);
+// Handle portfolio form submission
+function handlePortfolioSubmit(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const portfolioData = {
+        name: formData.get('portfolioName'),
+        description: formData.get('portfolioDescription')
+    };
+    
+    // For MVP, just add to local array
+    const newPortfolio = {
+        id: portfolios.length + 1,
+        ...portfolioData,
+        value: 0,
+        stocks: [],
+        performance: { ytd: 0, oneYear: 0, threeYear: 0 }
+    };
+    
+    portfolios.push(newPortfolio);
+    renderPortfolios();
+    
+    // Show success message
+    showAlert('Portfolio created successfully!', 'success');
+    e.target.reset();
 }
 
-/**
- * Render performance chart using Chart.js
- * @param {Array} performanceData - Performance data array
- */
-function renderPerformanceChart(performanceData) {
-    const ctx = document.getElementById('performanceChart');
-    if (!ctx || !performanceData) return;
+// Generate advisory signals
+function generateAdvisorySignals() {
+    // For MVP, generate dummy signals based on Indian market data
+    advisorySignals = portfolios.flatMap(portfolio => 
+        portfolio.stocks.map(stock => {
+            const signal = calculateSignal(stock);
+            return {
+                portfolioId: portfolio.id,
+                stockSymbol: stock.symbol,
+                stockName: stock.name,
+                currentPrice: stock.currentPrice,
+                signal: signal,
+                confidence: Math.random() * 0.3 + 0.7, // 70-100% confidence
+                reasons: generateSignalReasons(stock, signal)
+            };
+        })
+    );
+    
+    renderAdvisorySignals();
+}
 
-    const labels = performanceData.map(item => item.date);
-    const values = performanceData.map(item => item.value);
+// Calculate signal for a stock
+function calculateSignal(stock) {
+    const priceChange = ((stock.currentPrice - stock.avgPrice) / stock.avgPrice) * 100;
+    
+    // Simple algorithm for MVP
+    if (priceChange > 20) return 'Sell';
+    if (priceChange < -10) return 'Buy';
+    return 'Hold';
+}
 
+// Generate signal reasons
+function generateSignalReasons(stock, signal) {
+    const reasons = [];
+    
+    // Historical performance reason
+    const performance = ((stock.currentPrice - stock.avgPrice) / stock.avgPrice) * 100;
+    reasons.push(`Historical performance: ${performance.toFixed(1)}%`);
+    
+    // Technical indicator reasons (dummy)
+    reasons.push('RSI: Neutral');
+    reasons.push('Moving Average: Bullish crossover');
+    
+    // Sector potential (dummy)
+    const sectors = {
+        'RELIANCE': 'Energy & Petrochemicals',
+        'HDFCBANK': 'Banking & Finance',
+        'INFY': 'IT Services',
+        'TCS': 'IT Services',
+        'HINDUNILVR': 'FMCG',
+        'ICICIBANK': 'Banking & Finance'
+    };
+    
+    reasons.push(`Sector: ${sectors[stock.symbol] || 'General'} - Positive outlook`);
+    
+    // Market buzz (dummy)
+    reasons.push('Market sentiment: Positive news flow');
+    
+    return reasons;
+}
+
+// Render advisory signals
+function renderAdvisorySignals() {
+    const signalsContainer = document.getElementById('advisorySignals');
+    if (!signalsContainer) return;
+    
+    signalsContainer.innerHTML = advisorySignals.map(signal => `
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="card-title">${signal.stockName} (${signal.stockSymbol})</h5>
+                        <h6 class="card-subtitle mb-2 text-muted">Current: ₹${formatCurrency(signal.currentPrice)}</h6>
+                    </div>
+                    <span class="badge ${getSignalBadgeClass(signal.signal)} fs-6">
+                        ${signal.signal} (${Math.round(signal.confidence * 100)}%)
+                    </span>
+                </div>
+                
+                <ul class="mt-3">
+                    ${signal.reasons.map(reason => `<li>${reason}</li>`).join('')}
+                </ul>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Get CSS class for signal badge
+function getSignalBadgeClass(signal) {
+    switch(signal) {
+        case 'Buy': return 'bg-success';
+        case 'Sell': return 'bg-danger';
+        case 'Hold': return 'bg-warning text-dark';
+        default: return 'bg-secondary';
+    }
+}
+
+// Load advisor reports
+function loadAdvisorReports() {
+    if (currentUser.role !== 'advisor') {
+        showAlert('Access denied. Advisor privileges required.', 'danger');
+        return;
+    }
+    
+    // For MVP, show simple charts using Chart.js
+    renderPerformanceCharts();
+    renderSectorAllocation();
+}
+
+// Render performance charts
+function renderPerformanceCharts() {
+    const ctx = document.getElementById('performanceChart')?.getContext('2d');
+    if (!ctx) return;
+    
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            datasets: portfolios.map((portfolio, index) => ({
+                label: portfolio.name,
+                data: Array(12).fill().map((_, i) => 
+                    portfolio.value * (1 + (i * portfolio.performance.ytd / 1200))
+                ),
+                borderColor: index === 0 ? '#007bff' : '#28a745',
+                tension: 0.1
+            }))
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Portfolio Performance (YTD)'
+                }
+            }
+        }
+    });
+}
+
+// Render sector allocation
+function renderSectorAllocation() {
+    const ctx = document.getElementById('sectorChart')?.getContext('2d');
+    if (!ctx) return;
+    
+    // Calculate sector allocation from all portfolios
+    const sectorData = {};
+    portfolios.forEach(portfolio => {
+        portfolio.stocks.forEach(stock => {
+            const sector = getSectorForStock(stock.symbol);
+            const value = stock.quantity * stock.currentPrice;
+            sectorData[sector] = (sectorData[sector] || 0) + value;
+        });
+    });
+    
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(sectorData),
             datasets: [{
-                label: 'Portfolio Performance',
-                data: values,
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1,
-                fill: true,
-                backgroundColor: 'rgba(75, 192, 192, 0.2)'
+                data: Object.values(sectorData),
+                backgroundColor: ['#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8']
             }]
         },
         options: {
@@ -424,176 +327,101 @@ function renderPerformanceChart(performanceData) {
             plugins: {
                 title: {
                     display: true,
-                    text: 'Portfolio Performance Over Time'
+                    text: 'Sector Allocation'
                 }
             }
         }
     });
 }
 
-/**
- * Render sector analysis
- * @param {Array} sectorData - Sector analysis data
- */
-function renderSectorAnalysis(sectorData) {
-    const container = document.getElementById('sectorAnalysis');
-    if (!container || !sectorData) return;
-
-    container.innerHTML = '';
-
-    sectorData.forEach(sector => {
-        const progressBar = document.createElement('div');
-        progressBar.className = 'mb-2';
-        
-        progressBar.innerHTML = `
-            <div class="d-flex justify-content-between">
-                <span>${sector.sector}</span>
-                <span>${sector.percentage}%</span>
-            </div>
-            <div class="progress">
-                <div class="progress-bar" role="progressbar" 
-                     style="width: ${sector.percentage}%; background-color: ${getSectorColor(sector.sector)}"
-                     aria-valuenow="${sector.percentage}" aria-valuemin="0" aria-valuemax="100">
-                </div>
-            </div>
-        `;
-        
-        container.appendChild(progressBar);
-    });
+// Get sector for stock symbol
+function getSectorForStock(symbol) {
+    const sectors = {
+        'RELIANCE': 'Energy',
+        'HDFCBANK': 'Financial',
+        'INFY': 'IT',
+        'TCS': 'IT',
+        'HINDUNILVR': 'FMCG',
+        'ICICIBANK': 'Financial'
+    };
+    return sectors[symbol] || 'Other';
 }
 
-/**
- * Render technical indicators
- * @param {Array} indicators - Technical indicators data
- */
-function renderTechnicalIndicators(indicators) {
-    const container = document.getElementById('technicalIndicators');
-    if (!container || !indicators) return;
-
-    container.innerHTML = '';
-
-    indicators.forEach(indicator => {
-        const card = document.createElement('div');
-        card.className = 'col-md-6 mb-3';
-        
-        card.innerHTML = `
-            <div class="card">
-                <div class="card-body">
-                    <h6 class="card-title">${indicator.stock_symbol}</h6>
-                    <div class="row">
-                        <div class="col-6">
-                            <small>RSI: ${indicator.rsi || 'N/A'}</small>
-                        </div>
-                        <div class="col-6">
-                            <small>MACD: ${indicator.macd || 'N/A'}</small>
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-6">
-                            <small>Moving Avg: ${indicator.moving_average || 'N/A'}</small>
-                        </div>
-                        <div class="col-6">
-                            <small>Volatility: ${indicator.volatility || 'N/A'}</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        container.appendChild(card);
-    });
+// Switch user role for demo purposes
+function switchUserRole() {
+    const newRole = currentUser.role === 'advisor' ? 'client' : 'advisor';
+    localStorage.setItem('userRole', newRole);
+    currentUser.role = newRole;
+    updateUIForUserRole();
+    showAlert(`Switched to ${newRole} view`, 'info');
 }
 
-/**
- * Delete portfolio item
- * @param {number} itemId - Portfolio item ID
- */
-async function deletePortfolioItem(itemId) {
-    if (!confirm('Are you sure you want to delete this portfolio item?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/api/portfolio/${itemId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        showSuccess('Portfolio item deleted successfully!');
-        loadPortfolioData();
-        
-    } catch (error) {
-        console.error('Error deleting portfolio item:', error);
-        showError('Failed to delete portfolio item.');
-    }
+// Utility function to format currency
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-IN').format(amount);
 }
 
-/**
- * Toggle advisor reports visibility
- */
-function toggleAdvisorReports() {
-    const reportsSection = document.getElementById('advisorReportsSection');
-    if (reportsSection) {
-        reportsSection.style.display = reportsSection.style.display === 'none' ? 'block' : 'none';
-    }
-}
-
-/**
- * Calculate current price (mock function - would use real market data)
- * @param {number} purchasePrice - Original purchase price
- * @returns {number} - Current price
- */
-function calculateCurrentPrice(purchasePrice) {
-    // Mock price fluctuation between -10% to +20%
-    const fluctuation = 0.9 + (Math.random() * 0.3);
-    return purchasePrice * fluctuation;
-}
-
-/**
- * Calculate gain/loss
- * @param {number} quantity - Quantity of stocks
- * @param {number} purchasePrice - Purchase price
- * @param {number} currentPrice - Current price
- * @returns {number} - Gain/loss amount
- */
-function calculateGainLoss(quantity, purchasePrice, currentPrice) {
-    return (currentPrice - purchasePrice) * quantity;
-}
-
-/**
- * Update portfolio summary
- * @param {Array} data - Portfolio data
- */
-function updatePortfolioSummary(data) {
-    const totalInvested = data.reduce((sum, item) => sum + (item.quantity * item.purchase_price), 0);
-    const totalCurrent = data.reduce((sum, item) => {
-        const currentPrice = calculateCurrentPrice(item.purchase_price);
-        return sum + (item.quantity * currentPrice);
-    }, 0);
-    const totalGainLoss = totalCurrent - totalInvested;
-    const gainLossPercent = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
-
-    document.getElementById('totalInvested').textContent = `₹${totalInvested.toFixed(2)}`;
-    document.getElementById('totalCurrent').textContent = `₹${totalCurrent.toFixed(2)}`;
-    document.getElementById('totalGainLoss').textContent = `₹${totalGainLoss.toFixed(2)}`;
-    document.getElementById('gainLossPercent').textContent = `${gainLossPercent.toFixed(2)}%`;
+// Show alert message
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
     
-    const gainLossElement = document.getElementById('totalGainLoss');
-    gainLossElement.className = totalGainLoss >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold';
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto dismiss after 3 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 150);
+        }
+    }, 3000);
 }
 
-/**
- * Format date for display
- * @param {string} dateString - Date string
- * @returns {string} - Formatted date
- */
-function formatDate(dateString) {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month
+// API Integration Functions (for future implementation)
+
+async function fetchPortfolios() {
+    try {
+        const response = await fetch('/api/portfolios');
+        if (!response.ok) throw new Error('Failed to fetch portfolios');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching portfolios:', error);
+        showAlert('Failed to load portfolios', 'danger');
+        return [];
+    }
+}
+
+async function fetchAdvisorySignals(portfolioId) {
+    try {
+        const response = await fetch(`/api/portfolios/${portfolioId}/signals`);
+        if (!response.ok) throw new Error('Failed to fetch signals');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching signals:', error);
+        return [];
+    }
+}
+
+async function createPortfolio(portfolioData) {
+    try {
+        const response = await fetch('/api/portfolios', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(portfolioData)
+        });
+        
+        if (!response.ok) throw new Error('Failed to create portfolio');
+        return await response.json();
+    } catch (error) {
+        console.error('Error creating portfolio:', error);
+        showAlert('Failed to create portfolio', 'danger');
+        throw error;
+    }
+}

@@ -1,474 +1,326 @@
-# ipm_55_main.py
-"""
-Main application file for the Indian Portfolio Manager MVP.
-This Flask application serves as the backend for managing client stock portfolios,
-generating advisory signals, and providing visual reports for advisors.
-"""
-
-from flask import Flask, jsonify, request, render_template
-from flask_cors import CORS
 import sqlite3
 import json
+import numpy as np
+import pandas as pd
 from datetime import datetime, timedelta
-import random
-import math
+from flask import Flask, render_template, jsonify, request
+import yfinance as yf
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend-backend communication
 
-# Database initialization
+# Database setup
 def init_db():
-    """Initialize SQLite database with required tables."""
     conn = sqlite3.connect('portfolio.db')
-    cursor = conn.cursor()
+    c = conn.cursor()
     
-    # Create portfolio table
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS portfolios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        client_name TEXT NOT NULL,
-        stock_symbol TEXT NOT NULL,
-        quantity INTEGER NOT NULL,
-        purchase_price REAL NOT NULL,
-        purchase_date TEXT NOT NULL,
-        sector TEXT NOT NULL
-    )
-    ''')
+    # Create portfolios table
+    c.execute('''CREATE TABLE IF NOT EXISTS portfolios
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  client_name TEXT NOT NULL,
+                  total_value REAL,
+                  created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
-    # Create market_data table for technical indicators
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS market_data (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        stock_symbol TEXT NOT NULL,
-        date TEXT NOT NULL,
-        open_price REAL NOT NULL,
-        high_price REAL NOT NULL,
-        low_price REAL NOT NULL,
-        close_price REAL NOT NULL,
-        volume INTEGER NOT NULL
-    )
-    ''')
+    # Create holdings table
+    c.execute('''CREATE TABLE IF NOT EXISTS holdings
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  portfolio_id INTEGER,
+                  stock_symbol TEXT NOT NULL,
+                  quantity INTEGER,
+                  purchase_price REAL,
+                  purchase_date DATE,
+                  sector TEXT,
+                  FOREIGN KEY (portfolio_id) REFERENCES portfolios (id))''')
     
     # Create advisory_signals table
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS advisory_signals (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        stock_symbol TEXT NOT NULL,
-        signal TEXT NOT NULL,
-        confidence_score REAL NOT NULL,
-        generated_date TEXT NOT NULL,
-        reasoning TEXT NOT NULL
-    )
-    ''')
+    c.execute('''CREATE TABLE IF NOT EXISTS advisory_signals
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  stock_symbol TEXT NOT NULL,
+                  signal TEXT,
+                  confidence_score REAL,
+                  reasoning TEXT,
+                  generated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
     conn.commit()
     conn.close()
 
-# Dummy data population
-def populate_dummy_data():
-    """Populate database with dummy data for demonstration."""
+# Generate dummy data
+def generate_dummy_data():
     conn = sqlite3.connect('portfolio.db')
-    cursor = conn.cursor()
+    c = conn.cursor()
     
-    # Check if data already exists
-    cursor.execute("SELECT COUNT(*) FROM portfolios")
-    if cursor.fetchone()[0] == 0:
-        # Sample portfolio data
-        portfolios = [
-            ('Client A', 'RELIANCE', 10, 2450.50, '2023-01-15', 'Energy'),
-            ('Client A', 'HDFCBANK', 5, 1650.75, '2023-02-20', 'Financial'),
-            ('Client B', 'INFY', 8, 1850.25, '2023-03-10', 'IT'),
-            ('Client B', 'TCS', 6, 3250.00, '2023-01-25', 'IT'),
-            ('Client C', 'HINDUNILVR', 12, 2550.30, '2023-04-05', 'FMCG')
-        ]
-        
-        cursor.executemany('''
-        INSERT INTO portfolios (client_name, stock_symbol, quantity, purchase_price, purchase_date, sector)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ''', portfolios)
-        
-        # Generate sample market data for the last 30 days
-        symbols = ['RELIANCE', 'HDFCBANK', 'INFY', 'TCS', 'HINDUNILVR']
-        market_data = []
-        
-        for symbol in symbols:
-            base_price = random.uniform(1000, 3500)
-            for i in range(30):
-                date = (datetime.now() - timedelta(days=30-i)).strftime('%Y-%m-%d')
-                open_price = base_price * random.uniform(0.95, 1.05)
-                high_price = open_price * random.uniform(1.01, 1.08)
-                low_price = open_price * random.uniform(0.92, 0.99)
-                close_price = random.uniform(low_price, high_price)
-                volume = random.randint(100000, 1000000)
-                
-                market_data.append((
-                    symbol, date, open_price, high_price, low_price, close_price, volume
-                ))
-        
-        cursor.executemany('''
-        INSERT INTO market_data (stock_symbol, date, open_price, high_price, low_price, close_price, volume)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', market_data)
-        
-        conn.commit()
+    # Clear existing data
+    c.execute("DELETE FROM portfolios")
+    c.execute("DELETE FROM holdings")
+    c.execute("DELETE FROM advisory_signals")
     
-    conn.close()
-
-# Technical Indicators Calculation
-def calculate_sma(symbol, period=14):
-    """Calculate Simple Moving Average for a stock."""
-    conn = sqlite3.connect('portfolio.db')
-    cursor = conn.cursor()
+    # Insert dummy portfolios
+    portfolios = [
+        ('Rahul Sharma', 1250000),
+        ('Priya Patel', 850000),
+        ('Amit Kumar', 2100000)
+    ]
+    c.executemany("INSERT INTO portfolios (client_name, total_value) VALUES (?, ?)", portfolios)
     
-    cursor.execute('''
-    SELECT close_price FROM market_data 
-    WHERE stock_symbol = ? 
-    ORDER BY date DESC LIMIT ?
-    ''', (symbol, period))
+    # Get portfolio IDs
+    c.execute("SELECT id FROM portfolios")
+    portfolio_ids = [row[0] for row in c.fetchall()]
     
-    prices = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    
-    if len(prices) < period:
-        return None
-    
-    return sum(prices) / period
-
-def calculate_rsi(symbol, period=14):
-    """Calculate Relative Strength Index for a stock."""
-    conn = sqlite3.connect('portfolio.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-    SELECT close_price FROM market_data 
-    WHERE stock_symbol = ? 
-    ORDER BY date DESC LIMIT ?
-    ''', (symbol, period + 1))
-    
-    prices = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    
-    if len(prices) < period + 1:
-        return None
-    
-    gains = []
-    losses = []
-    
-    for i in range(1, len(prices)):
-        change = prices[i] - prices[i-1]
-        if change > 0:
-            gains.append(change)
-            losses.append(0)
-        else:
-            gains.append(0)
-            losses.append(abs(change))
-    
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
-    
-    if avg_loss == 0:
-        return 100
-    
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
-
-def calculate_macd(symbol, fast_period=12, slow_period=26, signal_period=9):
-    """Calculate MACD indicator for a stock."""
-    conn = sqlite3.connect('portfolio.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-    SELECT close_price FROM market_data 
-    WHERE stock_symbol = ? 
-    ORDER BY date DESC LIMIT ?
-    ''', (symbol, slow_period + signal_period))
-    
-    prices = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    
-    if len(prices) < slow_period + signal_period:
-        return None, None, None
-    
-    # Calculate EMAs
-    def calculate_ema(prices, period):
-        multiplier = 2 / (period + 1)
-        ema = prices[0]
-        
-        for price in prices[1:]:
-            ema = (price - ema) * multiplier + ema
-        
-        return ema
-    
-    fast_ema = calculate_ema(prices[:fast_period][::-1], fast_period)
-    slow_ema = calculate_ema(prices[:slow_period][::-1], slow_period)
-    
-    macd_line = fast_ema - slow_ema
-    signal_line = calculate_ema(prices[:signal_period][::-1], signal_period)
-    histogram = macd_line - signal_line
-    
-    return macd_line, signal_line, histogram
-
-# Advisory Signal Generation
-def generate_advisory_signal(symbol):
-    """Generate Buy/Hold/Sell signal based on technical indicators."""
-    sma = calculate_sma(symbol)
-    rsi = calculate_rsi(symbol)
-    macd_line, signal_line, histogram = calculate_macd(symbol)
-    
-    if sma is None or rsi is None or macd_line is None:
-        return "HOLD", 0.5, "Insufficient data for analysis"
-    
-    score = 0
-    reasoning = []
-    
-    # SMA analysis
-    current_price = get_current_price(symbol)
-    if current_price > sma * 1.05:
-        score += 1
-        reasoning.append("Price above SMA")
-    elif current_price < sma * 0.95:
-        score -= 1
-        reasoning.append("Price below SMA")
-    
-    # RSI analysis
-    if rsi > 70:
-        score -= 1
-        reasoning.append("RSI indicates overbought")
-    elif rsi < 30:
-        score += 1
-        reasoning.append("RSI indicates oversold")
-    
-    # MACD analysis
-    if macd_line > signal_line and histogram > 0:
-        score += 1
-        reasoning.append("MACD bullish")
-    elif macd_line < signal_line and histogram < 0:
-        score -= 1
-        reasoning.append("MACD bearish")
-    
-    # Determine signal
-    if score >= 2:
-        signal = "BUY"
-        confidence = min(0.9, 0.5 + score * 0.1)
-    elif score <= -2:
-        signal = "SELL"
-        confidence = min(0.9, 0.5 + abs(score) * 0.1)
-    else:
-        signal = "HOLD"
-        confidence = 0.5
-    
-    return signal, confidence, "; ".join(reasoning)
-
-def get_current_price(symbol):
-    """Get the most recent price for a symbol."""
-    conn = sqlite3.connect('portfolio.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-    SELECT close_price FROM market_data 
-    WHERE stock_symbol = ? 
-    ORDER BY date DESC LIMIT 1
-    ''', (symbol,))
-    
-    result = cursor.fetchone()
-    conn.close()
-    
-    return result[0] if result else None
-
-# Sector Potential Evaluation
-def evaluate_sector_potential():
-    """Evaluate potential of different sectors."""
-    sectors = ['Energy', 'Financial', 'IT', 'FMCG', 'Healthcare', 'Automobile']
-    sector_scores = {}
-    
-    for sector in sectors:
-        # Simple scoring based on random factors for demo
-        score = random.uniform(0.3, 0.9)
-        sector_scores[sector] = {
-            'score': score,
-            'outlook': 'Bullish' if score > 0.6 else 'Neutral' if score > 0.4 else 'Bearish'
-        }
-    
-    return sector_scores
-
-# Market Buzz Integration (simulated)
-def get_market_buzz():
-    """Get simulated market sentiment data."""
-    buzz_topics = [
-        "RBI policy announcement expected",
-        "IT sector showing strong growth",
-        "Energy sector reforms underway",
-        "FMCG demand rising in urban areas",
-        "Banking sector NPA concerns"
+    # Indian stock symbols with sectors
+    indian_stocks = [
+        ('RELIANCE', 'Energy'), ('INFY', 'IT'), ('HDFCBANK', 'Banking'),
+        ('TCS', 'IT'), ('ICICIBANK', 'Banking'), ('SBIN', 'Banking'),
+        ('BHARTIARTL', 'Telecom'), ('LT', 'Construction'), ('MARUTI', 'Automobile'),
+        ('AXISBANK', 'Banking'), ('ITC', 'FMCG'), ('ONGC', 'Energy'),
+        ('HINDUNILVR', 'FMCG'), ('BAJFINANCE', 'Financial Services'),
+        ('WIPRO', 'IT'), ('HINDALCO', 'Metals'), ('TECHM', 'IT'),
+        ('ADANIPORTS', 'Infrastructure'), ('TATAMOTORS', 'Automobile'),
+        ('NTPC', 'Power')
     ]
     
-    return random.sample(buzz_topics, 3)
-
-# Portfolio Analysis
-def analyze_portfolio_performance(client_name):
-    """Analyze historical performance of a client's portfolio."""
-    conn = sqlite3.connect('portfolio.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-    SELECT stock_symbol, quantity, purchase_price, purchase_date 
-    FROM portfolios WHERE client_name = ?
-    ''', (client_name,))
-    
-    holdings = cursor.fetchall()
-    performance_data = []
-    total_investment = 0
-    total_current_value = 0
-    
-    for holding in holdings:
-        symbol, quantity, purchase_price, purchase_date = holding
-        current_price = get_current_price(symbol)
-        
-        if current_price is not None:
-            investment = quantity * purchase_price
-            current_value = quantity * current_price
-            gain_loss = current_value - investment
-            gain_loss_percent = (gain_loss / investment) * 100 if investment > 0 else 0
-            
-            total_investment += investment
-            total_current_value += current_value
-            
-            performance_data.append({
-                'symbol': symbol,
-                'quantity': quantity,
-                'purchase_price': purchase_price,
-                'current_price': current_price,
-                'investment': investment,
-                'current_value': current_value,
-                'gain_loss': gain_loss,
-                'gain_loss_percent': gain_loss_percent
-            })
-    
-    conn.close()
-    
-    overall_gain_loss = total_current_value - total_investment
-    overall_gain_loss_percent = (overall_gain_loss / total_investment) * 100 if total_investment > 0 else 0
-    
-    return {
-        'holdings': performance_data,
-        'summary': {
-            'total_investment': total_investment,
-            'total_current_value': total_current_value,
-            'overall_gain_loss': overall_gain_loss,
-            'overall_gain_loss_percent': overall_gain_loss_percent
-        }
-    }
-
-# API Routes
-@app.route('/')
-def index():
-    """Serve the main dashboard page."""
-    return render_template('index.html')
-
-@app.route('/api/portfolio/<client_name>')
-def get_portfolio(client_name):
-    """Get portfolio details for a specific client."""
-    conn = sqlite3.connect('portfolio.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-    SELECT stock_symbol, quantity, purchase_price, purchase_date, sector 
-    FROM portfolios WHERE client_name = ?
-    ''', (client_name,))
-    
+    # Insert dummy holdings
     holdings = []
-    for row in cursor.fetchall():
-        symbol, quantity, price, date, sector = row
-        current_price = get_current_price(symbol)
-        signal, confidence, reasoning = generate_advisory_signal(symbol)
+    for portfolio_id in portfolio_ids:
+        num_holdings = np.random.randint(5, 12)
+        selected_stocks = np.random.choice(len(indian_stocks), num_holdings, replace=False)
         
-        holdings.append({
-            'symbol': symbol,
-            'quantity': quantity,
-            'purchase_price': price,
-            'purchase_date': date,
-            'sector': sector,
-            'current_price': current_price,
-            'signal': signal,
-            'confidence': confidence,
-            'reasoning': reasoning
+        for stock_idx in selected_stocks:
+            symbol, sector = indian_stocks[stock_idx]
+            quantity = np.random.randint(10, 101) * 10
+            purchase_price = np.random.uniform(100, 5000)
+            purchase_date = datetime.now() - timedelta(days=np.random.randint(1, 365))
+            
+            holdings.append((
+                portfolio_id, symbol, quantity, purchase_price,
+                purchase_date.strftime('%Y-%m-%d'), sector
+            ))
+    
+    c.executemany('''INSERT INTO holdings 
+                    (portfolio_id, stock_symbol, quantity, purchase_price, purchase_date, sector)
+                    VALUES (?, ?, ?, ?, ?, ?)''', holdings)
+    
+    # Generate initial advisory signals
+    generate_advisory_signals()
+    
+    conn.commit()
+    conn.close()
+
+# Advisory signal generation logic
+def generate_advisory_signals():
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
+    
+    # Get unique stocks from holdings
+    c.execute("SELECT DISTINCT stock_symbol FROM holdings")
+    stocks = [row[0] for row in c.fetchall()]
+    
+    signals = []
+    
+    for symbol in stocks:
+        try:
+            # Get historical data using yfinance (for demonstration)
+            stock_data = yf.Ticker(symbol + ".NS")
+            hist = stock_data.history(period="1mo")
+            
+            if len(hist) > 0:
+                # Simple technical indicators
+                current_price = hist['Close'].iloc[-1]
+                sma_20 = hist['Close'].rolling(window=20).mean().iloc[-1]
+                rsi = calculate_rsi(hist['Close'])
+                
+                # Sector potential (dummy weights)
+                sector_potential = {
+                    'IT': 0.8, 'Banking': 0.6, 'Energy': 0.7, 'FMCG': 0.9,
+                    'Automobile': 0.5, 'Telecom': 0.4, 'Construction': 0.6,
+                    'Financial Services': 0.7, 'Metals': 0.5, 'Infrastructure': 0.8,
+                    'Power': 0.7
+                }
+                
+                # Get sector for this stock
+                c.execute("SELECT sector FROM holdings WHERE stock_symbol = ? LIMIT 1", (symbol,))
+                sector_row = c.fetchone()
+                sector = sector_row[0] if sector_row else 'Unknown'
+                
+                # Market buzz (dummy sentiment)
+                market_buzz = np.random.uniform(0.3, 0.9)
+                
+                # Generate signal based on factors
+                signal, confidence, reasoning = generate_signal(
+                    current_price, sma_20, rsi, 
+                    sector_potential.get(sector, 0.5), 
+                    market_buzz
+                )
+                
+                signals.append((symbol, signal, confidence, reasoning))
+                
+        except Exception as e:
+            print(f"Error processing {symbol}: {e}")
+            continue
+    
+    # Insert signals
+    c.executemany('''INSERT INTO advisory_signals 
+                    (stock_symbol, signal, confidence_score, reasoning)
+                    VALUES (?, ?, ?, ?)''', signals)
+    
+    conn.commit()
+    conn.close()
+
+def calculate_rsi(prices, period=14):
+    if len(prices) < period + 1:
+        return 50  # Neutral RSI if insufficient data
+    
+    delta = prices.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi.iloc[-1] if not pd.isna(rsi.iloc[-1]) else 50
+
+def generate_signal(current_price, sma_20, rsi, sector_potential, market_buzz):
+    # Weighted scoring system
+    weights = {
+        'technical': 0.4,
+        'sector': 0.3,
+        'sentiment': 0.3
+    }
+    
+    # Technical score
+    price_vs_sma = current_price / sma_20
+    if price_vs_sma > 1.1:
+        tech_score = 0.8  # Bullish
+    elif price_vs_sma < 0.9:
+        tech_score = 0.2  # Bearish
+    else:
+        tech_score = 0.5  # Neutral
+    
+    # RSI adjustment
+    if rsi > 70:
+        tech_score *= 0.7  # Overbought
+    elif rsi < 30:
+        tech_score *= 1.3  # Oversold
+    
+    # Combined score
+    total_score = (tech_score * weights['technical'] +
+                  sector_potential * weights['sector'] +
+                  market_buzz * weights['sentiment'])
+    
+    # Determine signal
+    if total_score > 0.7:
+        signal = "BUY"
+        confidence = min(total_score * 100, 95)
+        reasoning = f"Strong fundamentals: technical score {tech_score:.2f}, sector potential {sector_potential:.2f}, market sentiment {market_buzz:.2f}"
+    elif total_score < 0.4:
+        signal = "SELL"
+        confidence = min((1 - total_score) * 100, 95)
+        reasoning = f"Weak performance: technical score {tech_score:.2f}, sector potential {sector_potential:.2f}, market sentiment {market_buzz:.2f}"
+    else:
+        signal = "HOLD"
+        confidence = abs(total_score - 0.5) * 200
+        reasoning = f"Neutral outlook: technical score {tech_score:.2f}, sector potential {sector_potential:.2f}, market sentiment {market_buzz:.2f}"
+    
+    return signal, round(confidence, 2), reasoning
+
+# Flask routes
+@app.route('/')
+def dashboard():
+    return render_template('dashboard.html')
+
+@app.route('/api/portfolios')
+def get_portfolios():
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
+    
+    c.execute('''SELECT p.id, p.client_name, p.total_value, p.created_date,
+                 COUNT(h.id) as num_holdings
+                 FROM portfolios p
+                 LEFT JOIN holdings h ON p.id = h.portfolio_id
+                 GROUP BY p.id''')
+    
+    portfolios = []
+    for row in c.fetchall():
+        portfolios.append({
+            'id': row[0],
+            'client_name': row[1],
+            'total_value': row[2],
+            'created_date': row[3],
+            'num_holdings': row[4]
         })
     
     conn.close()
-    return jsonify({'client': client_name, 'holdings': holdings})
+    return jsonify(portfolios)
 
-@app.route('/api/portfolio/performance/<client_name>')
-def get_portfolio_performance(client_name):
-    """Get performance analysis for a client's portfolio."""
-    performance = analyze_portfolio_performance(client_name)
-    return jsonify(performance)
-
-@app.route('/api/sector-analysis')
-def get_sector_analysis():
-    """Get sector potential evaluation."""
-    sector_scores = evaluate_sector_potential()
-    return jsonify(sector_scores)
-
-@app.route('/api/market-buzz')
-def get_market_buzz_api():
-    """Get market buzz/sentiment data."""
-    buzz = get_market_buzz()
-    return jsonify({'buzz_topics': buzz})
+@app.route('/api/portfolio/<int:portfolio_id>')
+def get_portfolio_details(portfolio_id):
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
+    
+    # Get portfolio basic info
+    c.execute("SELECT * FROM portfolios WHERE id = ?", (portfolio_id,))
+    portfolio = dict(zip([description[0] for description in c.description], c.fetchone()))
+    
+    # Get holdings
+    c.execute('''SELECT h.*, a.signal, a.confidence_score, a.reasoning
+                 FROM holdings h
+                 LEFT JOIN advisory_signals a ON h.stock_symbol = a.stock_symbol
+                 WHERE h.portfolio_id = ?''', (portfolio_id,))
+    
+    holdings = []
+    for row in c.fetchall():
+        holding = dict(zip([description[0] for description in c.description], row))
+        holdings.append(holding)
+    
+    portfolio['holdings'] = holdings
+    conn.close()
+    return jsonify(portfolio)
 
 @app.route('/api/advisory-signals')
 def get_advisory_signals():
-    """Get advisory signals for all stocks in portfolio."""
     conn = sqlite3.connect('portfolio.db')
-    cursor = conn.cursor()
+    c = conn.cursor()
     
-    cursor.execute('SELECT DISTINCT stock_symbol FROM portfolios')
-    symbols = [row[0] for row in cursor.fetchall()]
-    conn.close()
+    c.execute('''SELECT stock_symbol, signal, confidence_score, reasoning, generated_date
+                 FROM advisory_signals
+                 ORDER BY confidence_score DESC''')
     
     signals = []
-    for symbol in symbols:
-        signal, confidence, reasoning = generate_advisory_signal(symbol)
+    for row in c.fetchall():
         signals.append({
-            'symbol': symbol,
-            'signal': signal,
-            'confidence': confidence,
-            'reasoning': reasoning,
-            'timestamp': datetime.now().isoformat()
+            'stock_symbol': row[0],
+            'signal': row[1],
+            'confidence_score': row[2],
+            'reasoning': row[3],
+            'generated_date': row[4]
         })
     
-    return jsonify({'signals': signals})
+    conn.close()
+    return jsonify(signals)
 
-@app.route('/api/technical-indicators/<symbol>')
-def get_technical_indicators(symbol):
-    """Get technical indicators for a specific stock."""
-    sma = calculate_sma(symbol)
-    rsi = calculate_rsi(symbol)
-    macd_line, signal_line, histogram = calculate_macd(symbol)
-    current_price = get_current_price(symbol)
+@app.route('/api/portfolio-performance')
+def get_portfolio_performance():
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
     
-    return jsonify({
-        'symbol': symbol,
-        'current_price': current_price,
-        'sma': sma,
-        'rsi': rsi,
-        'macd': {
-            'macd_line': macd_line,
-            'signal_line': signal_line,
-            'histogram': histogram
-        }
-    })
+    # Get portfolio value trend (dummy data for demonstration)
+    dates = [datetime.now() - timedelta(days=i) for i in range(30, 0, -1)]
+    values = [1000000 + i * 5000 + np.random.randint(-20000, 20000) for i in range(30)]
+    
+    performance_data = {
+        'dates': [date.strftime('%Y-%m-%d') for date in dates],
+        'values': values
+    }
+    
+    conn.close()
+    return jsonify(performance_data)
 
-# Error handling
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({'error': 'Resource not found'}), 404
+@app.route('/api/refresh-signals', methods=['POST'])
+def refresh_signals():
+    try:
+        generate_advisory_signals()
+        return jsonify({'status': 'success', 'message': 'Advisory signals refreshed successfully'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({'error': 'Internal server error'}), 500
-
-# Main application entry point
 if __name__ == '__main__':
     init_db()
-    populate_dummy_data()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    generate_dummy_data()
+    app.run(debug=True, port=5000)

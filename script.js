@@ -1,184 +1,161 @@
-// script.js - Frontend JavaScript for Portfolio Management Application
+// script.js
+// Main JavaScript file for the portfolio management dashboard
+// Handles API calls, chart rendering, and UI interactions
 
-// DOM Elements
-let portfolioTable;
-let performanceChart;
-let advisorySignals;
-let marketBuzzContainer;
+// Global variables
+let portfolioData = [];
+let advisorySignals = [];
+let performanceData = [];
 
-// Initialize application when DOM is loaded
+// DOM Content Loaded Event
 document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
+    initializeDashboard();
+    loadPortfolioData();
+    loadAdvisorySignals();
+    loadPerformanceData();
 });
 
-/**
- * Initialize the application
- */
-function initializeApp() {
-    // Get DOM elements
-    portfolioTable = document.getElementById('portfolio-table');
-    performanceChart = document.getElementById('performance-chart');
-    advisorySignals = document.getElementById('advisory-signals');
-    marketBuzzContainer = document.getElementById('market-buzz');
-    
-    // Load initial data
-    loadPortfolioData();
-    loadPerformanceData();
-    loadAdvisorySignals();
-    loadMarketBuzz();
-    
+// Initialize dashboard components
+function initializeDashboard() {
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
     // Set up event listeners
-    setupEventListeners();
+    document.getElementById('refresh-btn').addEventListener('click', refreshData);
+    document.getElementById('export-report-btn').addEventListener('click', exportReport);
 }
 
-/**
- * Set up event listeners for UI interactions
- */
-function setupEventListeners() {
-    // Refresh button
-    const refreshBtn = document.getElementById('refresh-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', function() {
-            refreshAllData();
-        });
-    }
-    
-    // Portfolio filter
-    const portfolioFilter = document.getElementById('portfolio-filter');
-    if (portfolioFilter) {
-        portfolioFilter.addEventListener('change', function() {
-            filterPortfolio(this.value);
-        });
-    }
-}
-
-/**
- * Load portfolio data from backend API
- */
+// Load portfolio data from backend
 async function loadPortfolioData() {
     try {
         const response = await fetch('/api/portfolio');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
-        const portfolioData = await response.json();
+        portfolioData = await response.json();
         renderPortfolioTable(portfolioData);
+        updatePortfolioSummary(portfolioData);
     } catch (error) {
         console.error('Error loading portfolio data:', error);
-        showError('Failed to load portfolio data');
-        // Fallback to dummy data
-        renderPortfolioTable(getDummyPortfolioData());
+        showError('Failed to load portfolio data. Using demo data.');
+        loadDemoPortfolioData();
     }
 }
 
-/**
- * Load performance data and render chart
- */
-async function loadPerformanceData() {
-    try {
-        const response = await fetch('/api/performance');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const performanceData = await response.json();
-        renderPerformanceChart(performanceData);
-    } catch (error) {
-        console.error('Error loading performance data:', error);
-        showError('Failed to load performance data');
-    }
-}
-
-/**
- * Load advisory signals
- */
+// Load advisory signals from backend
 async function loadAdvisorySignals() {
     try {
         const response = await fetch('/api/advisory-signals');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
-        const signals = await response.json();
-        renderAdvisorySignals(signals);
+        advisorySignals = await response.json();
+        renderAdvisorySignals(advisorySignals);
+        renderSignalDistributionChart(advisorySignals);
     } catch (error) {
         console.error('Error loading advisory signals:', error);
-        showError('Failed to load advisory signals');
-        // Fallback to dummy signals
-        renderAdvisorySignals(generateDummySignals());
+        showError('Failed to load advisory signals.');
     }
 }
 
-/**
- * Load market buzz data
- */
-async function loadMarketBuzz() {
+// Load performance data for charts
+async function loadPerformanceData() {
     try {
-        const response = await fetch('/api/market-buzz');
+        const response = await fetch('/api/performance');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
-        const buzzData = await response.json();
-        renderMarketBuzz(buzzData);
+        performanceData = await response.json();
+        renderPerformanceChart(performanceData);
+        renderSectorAllocationChart(performanceData);
     } catch (error) {
-        console.error('Error loading market buzz:', error);
-        showError('Failed to load market buzz');
-        // Fallback to dummy buzz
-        renderMarketBuzz(generateDummyMarketBuzz());
+        console.error('Error loading performance data:', error);
+        showError('Failed to load performance data.');
     }
 }
 
-/**
- * Render portfolio table with data
- * @param {Array} data - Portfolio data array
- */
+// Render portfolio table
 function renderPortfolioTable(data) {
-    if (!portfolioTable) return;
-    
-    const tbody = portfolioTable.querySelector('tbody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    data.forEach(stock => {
+    const tableBody = document.getElementById('portfolio-table-body');
+    tableBody.innerHTML = '';
+
+    data.forEach(holding => {
         const row = document.createElement('tr');
+        
         row.innerHTML = `
-            <td>${stock.symbol}</td>
-            <td>${stock.name}</td>
-            <td>${stock.quantity}</td>
-            <td>₹${stock.averagePrice.toFixed(2)}</td>
-            <td>₹${stock.currentPrice.toFixed(2)}</td>
-            <td class="${getProfitLossClass(stock.profitLoss)}">
-                ${formatProfitLoss(stock.profitLoss)}
-            </td>
-            <td>${stock.sector}</td>
-            <td><span class="badge ${getSignalBadgeClass(stock.signal)}">${stock.signal}</span></td>
+            <td>${holding.symbol}</td>
+            <td>${holding.company_name}</td>
+            <td>${holding.quantity}</td>
+            <td>₹${holding.average_price.toFixed(2)}</td>
+            <td>₹${holding.current_price.toFixed(2)}</td>
+            <td>₹${(holding.quantity * holding.current_price).toFixed(2)}</td>
+            <td class="${getReturnClass(holding)}">${calculateReturn(holding)}%</td>
+            <td><span class="badge ${getSignalBadgeClass(holding.signal)}">${holding.signal}</span></td>
         `;
-        tbody.appendChild(row);
+        
+        tableBody.appendChild(row);
     });
 }
 
-/**
- * Render performance chart
- * @param {Object} data - Performance data
- */
+// Update portfolio summary
+function updatePortfolioSummary(data) {
+    const totalValue = data.reduce((sum, holding) => sum + (holding.quantity * holding.current_price), 0);
+    const totalInvestment = data.reduce((sum, holding) => sum + (holding.quantity * holding.average_price), 0);
+    const totalReturn = ((totalValue - totalInvestment) / totalInvestment) * 100;
+
+    document.getElementById('total-value').textContent = `₹${totalValue.toFixed(2)}`;
+    document.getElementById('total-investment').textContent = `₹${totalInvestment.toFixed(2)}`;
+    document.getElementById('total-return').textContent = `${totalReturn.toFixed(2)}%`;
+    document.getElementById('total-return').className = `fw-bold ${totalReturn >= 0 ? 'text-success' : 'text-danger'}`;
+}
+
+// Render advisory signals
+function renderAdvisorySignals(signals) {
+    const signalsContainer = document.getElementById('advisory-signals');
+    signalsContainer.innerHTML = '';
+
+    signals.forEach(signal => {
+        const card = document.createElement('div');
+        card.className = 'col-md-6 col-lg-4 mb-3';
+        
+        card.innerHTML = `
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title">${signal.symbol}</h6>
+                    <span class="badge ${getSignalBadgeClass(signal.recommendation)} mb-2">${signal.recommendation}</span>
+                    <p class="card-text small mb-1"><strong>Confidence:</strong> ${signal.confidence_score}%</p>
+                    <p class="card-text small mb-1"><strong>Reason:</strong> ${signal.reason}</p>
+                    <p class="card-text small text-muted">Updated: ${new Date(signal.timestamp).toLocaleDateString()}</p>
+                </div>
+            </div>
+        `;
+        
+        signalsContainer.appendChild(card);
+    });
+}
+
+// Render performance chart using Chart.js
 function renderPerformanceChart(data) {
-    if (!performanceChart) return;
+    const ctx = document.getElementById('performance-chart').getContext('2d');
     
-    // Using Chart.js for performance visualization
-    const ctx = performanceChart.getContext('2d');
-    new Chart(ctx, {
+    if (window.performanceChart) {
+        window.performanceChart.destroy();
+    }
+
+    window.performanceChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: data.labels,
+            labels: data.dates,
             datasets: [{
                 label: 'Portfolio Value',
                 data: data.values,
                 borderColor: '#007bff',
                 backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                fill: true
+                fill: true,
+                tension: 0.4
             }]
         },
         options: {
@@ -191,269 +168,242 @@ function renderPerformanceChart(data) {
             },
             scales: {
                 y: {
-                    beginAtZero: false
+                    beginAtZero: false,
+                    ticks: {
+                        callback: function(value) {
+                            return '₹' + value.toLocaleString();
+                        }
+                    }
                 }
             }
         }
     });
 }
 
-/**
- * Render advisory signals
- * @param {Array} signals - Array of signal objects
- */
-function renderAdvisorySignals(signals) {
-    if (!advisorySignals) return;
+// Render sector allocation chart
+function renderSectorAllocationChart(data) {
+    const ctx = document.getElementById('sector-chart').getContext('2d');
     
-    advisorySignals.innerHTML = '';
-    
+    if (window.sectorChart) {
+        window.sectorChart.destroy();
+    }
+
+    window.sectorChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.sectors,
+            datasets: [{
+                data: data.allocations,
+                backgroundColor: [
+                    '#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8',
+                    '#6f42c1', '#e83e8c', '#fd7e14', '#20c997', '#6c757d'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Sector Allocation'
+                },
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+}
+
+// Render signal distribution chart
+function renderSignalDistributionChart(signals) {
+    const signalCounts = {
+        'Buy': 0,
+        'Hold': 0,
+        'Sell': 0
+    };
+
     signals.forEach(signal => {
-        const card = document.createElement('div');
-        card.className = 'card mb-3';
-        card.innerHTML = `
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">${signal.symbol}</h5>
-                    <span class="badge ${getSignalBadgeClass(signal.recommendation)}">
-                        ${signal.recommendation}
-                    </span>
-                </div>
-                <p class="card-text mt-2">${signal.reason}</p>
-                <div class="text-muted small">
-                    Target: ₹${signal.targetPrice} | Stop Loss: ₹${signal.stopLoss}
-                </div>
-            </div>
-        `;
-        advisorySignals.appendChild(card);
+        signalCounts[signal.recommendation]++;
+    });
+
+    const ctx = document.getElementById('signal-chart').getContext('2d');
+    
+    if (window.signalChart) {
+        window.signalChart.destroy();
+    }
+
+    window.signalChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Buy', 'Hold', 'Sell'],
+            datasets: [{
+                data: [signalCounts.Buy, signalCounts.Hold, signalCounts.Sell],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Signal Distribution'
+                }
+            }
+        }
     });
 }
 
-/**
- * Render market buzz
- * @param {Array} buzzData - Market buzz data
- */
-function renderMarketBuzz(buzzData) {
-    if (!marketBuzzContainer) return;
-    
-    marketBuzzContainer.innerHTML = '';
-    
-    buzzData.forEach(item => {
-        const buzzItem = document.createElement('div');
-        buzzItem.className = 'market-buzz-item';
-        buzzItem.innerHTML = `
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <h6 class="mb-1">${item.title}</h6>
-                    <p class="mb-1 text-muted small">${item.source} • ${formatDate(item.timestamp)}</p>
-                </div>
-                <span class="badge ${getSentimentBadgeClass(item.sentiment)}">
-                    ${item.sentiment}
-                </span>
-            </div>
-            <p class="mb-0 mt-2 small">${item.summary}</p>
-        `;
-        marketBuzzContainer.appendChild(buzzItem);
-    });
+// Helper functions
+function calculateReturn(holding) {
+    const investment = holding.quantity * holding.average_price;
+    const currentValue = holding.quantity * holding.current_price;
+    return (((currentValue - investment) / investment) * 100).toFixed(2);
 }
 
-/**
- * Filter portfolio by sector
- * @param {string} sector - Sector to filter by
- */
-function filterPortfolio(sector) {
-    // This would typically call a filtered API endpoint
-    console.log(`Filtering portfolio by sector: ${sector}`);
-    // For now, we'll just reload all data
-    loadPortfolioData();
+function getReturnClass(holding) {
+    const returnPercent = parseFloat(calculateReturn(holding));
+    return returnPercent >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold';
 }
 
-/**
- * Refresh all data
- */
-function refreshAllData() {
-    loadPortfolioData();
-    loadPerformanceData();
-    loadAdvisorySignals();
-    loadMarketBuzz();
-}
-
-/**
- * Get CSS class for profit/loss display
- * @param {number} profitLoss - Profit/loss amount
- * @returns {string} CSS class
- */
-function getProfitLossClass(profitLoss) {
-    return profitLoss >= 0 ? 'text-success' : 'text-danger';
-}
-
-/**
- * Get CSS class for signal badge
- * @param {string} signal - Signal type
- * @returns {string} CSS class
- */
 function getSignalBadgeClass(signal) {
-    const classes = {
+    const signalClass = {
         'Buy': 'bg-success',
         'Hold': 'bg-warning',
         'Sell': 'bg-danger'
     };
-    return classes[signal] || 'bg-secondary';
+    return signalClass[signal] || 'bg-secondary';
 }
 
-/**
- * Get CSS class for sentiment badge
- * @param {string} sentiment - Sentiment type
- * @returns {string} CSS class
- */
-function getSentimentBadgeClass(sentiment) {
-    const classes = {
-        'Positive': 'bg-success',
-        'Neutral': 'bg-warning',
-        'Negative': 'bg-danger'
-    };
-    return classes[sentiment] || 'bg-secondary';
-}
-
-/**
- * Format profit/loss for display
- * @param {number} profitLoss - Profit/loss amount
- * @returns {string} Formatted string
- */
-function formatProfitLoss(profitLoss) {
-    const sign = profitLoss >= 0 ? '+' : '';
-    return `${sign}₹${Math.abs(profitLoss).toFixed(2)}`;
-}
-
-/**
- * Format date for display
- * @param {string} dateString - Date string
- * @returns {string} Formatted date
- */
-function formatDate(dateString) {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-    });
-}
-
-/**
- * Show error message
- * @param {string} message - Error message
- */
-function showError(message) {
-    // Create or show error toast/notification
-    console.error('Error:', message);
-    // You could implement a toast notification system here
-}
-
-// Dummy data functions for fallback
-function getDummyPortfolioData() {
-    return [
+// Load demo data for fallback
+function loadDemoPortfolioData() {
+    portfolioData = [
         {
             symbol: 'RELIANCE',
-            name: 'Reliance Industries',
-            quantity: 100,
-            averagePrice: 2400,
-            currentPrice: 2600,
-            profitLoss: 20000,
-            sector: 'Energy',
+            company_name: 'Reliance Industries Ltd',
+            quantity: 50,
+            average_price: 2450.75,
+            current_price: 2680.50,
             signal: 'Buy'
         },
         {
-            symbol: 'TCS',
-            name: 'Tata Consultancy Services',
-            quantity: 50,
-            averagePrice: 3200,
-            currentPrice: 3400,
-            profitLoss: 10000,
-            sector: 'IT',
+            symbol: 'INFY',
+            company_name: 'Infosys Ltd',
+            quantity: 75,
+            average_price: 1450.25,
+            current_price: 1520.00,
             signal: 'Hold'
         },
         {
             symbol: 'HDFCBANK',
-            name: 'HDFC Bank',
-            quantity: 75,
-            averagePrice: 1400,
-            currentPrice: 1350,
-            profitLoss: -3750,
-            sector: 'Banking',
+            company_name: 'HDFC Bank Ltd',
+            quantity: 30,
+            average_price: 1560.00,
+            current_price: 1420.75,
             signal: 'Sell'
         }
     ];
+    
+    renderPortfolioTable(portfolioData);
+    updatePortfolioSummary(portfolioData);
 }
 
-function generateDummySignals() {
-    return [
-        {
-            symbol: 'RELIANCE',
-            recommendation: 'Buy',
-            reason: 'Strong technical breakout above resistance',
-            targetPrice: 2800,
-            stopLoss: 2500
-        },
-        {
-            symbol: 'TCS',
-            recommendation: 'Hold',
-            reason: 'Consolidating near support levels',
-            targetPrice: 3500,
-            stopLoss: 3300
-        },
-        {
-            symbol: 'HDFCBANK',
-            recommendation: 'Sell',
-            reason: 'Breaking below key support level',
-            targetPrice: 1300,
-            stopLoss: 1400
+// Refresh all data
+async function refreshData() {
+    const refreshBtn = document.getElementById('refresh-btn');
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Refreshing...';
+
+    try {
+        await Promise.all([
+            loadPortfolioData(),
+            loadAdvisorySignals(),
+            loadPerformanceData()
+        ]);
+        showSuccess('Data refreshed successfully');
+    } catch (error) {
+        console.error('Error refreshing data:', error);
+        showError('Failed to refresh data');
+    } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Data';
+    }
+}
+
+// Export report functionality
+async function exportReport() {
+    try {
+        const response = await fetch('/api/export-report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'portfolio-report.pdf';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            showSuccess('Report exported successfully');
+        } else {
+            throw new Error('Export failed');
         }
-    ];
+    } catch (error) {
+        console.error('Error exporting report:', error);
+        showError('Failed to export report');
+    }
 }
 
-function generateDummyMarketBuzz() {
-    return [
-        {
-            title: 'RBI Maintains Interest Rates',
-            source: 'Economic Times',
-            timestamp: new Date().toISOString(),
-            sentiment: 'Neutral',
-            summary: 'RBI keeps repo rate unchanged at 6.5% as expected by market participants.'
-        },
-        {
-            title: 'IT Sector Shows Strong Q4 Results',
-            source: 'Business Standard',
-            timestamp: new Date().toISOString(),
-            sentiment: 'Positive',
-            summary: 'Major IT companies report better-than-expected quarterly earnings.'
-        },
-        {
-            title: 'Banking Sector Under Pressure',
-            source: 'Financial Express',
-            timestamp: new Date().toISOString(),
-            sentiment: 'Negative',
-            summary: 'Rising NPAs and margin pressures affecting banking stocks.'
+// Notification functions
+function showError(message) {
+    showNotification(message, 'danger');
+}
+
+function showSuccess(message) {
+    showNotification(message, 'success');
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
         }
-    ];
+    }, 5000);
 }
 
-// Export functions for testing (if needed)
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        initializeApp,
-        loadPortfolioData,
-        loadPerformanceData,
-        loadAdvisorySignals,
-        loadMarketBuzz,
-        renderPortfolioTable,
-        renderPerformanceChart,
-        renderAdvisorySignals,
-        renderMarketBuzz,
-        getProfitLossClass,
-        getSignalBadgeClass,
-        getSentimentBadgeClass,
-        formatProfitLoss,
-        formatDate,
-        getDummyPortfolioData,
-        generateDummySignals,
-        generateDummyMarketBuzz
-    };
+// Responsive table handling
+function handleResponsiveTables() {
+    const tables = document.querySelectorAll('.table-responsive');
+    tables.forEach(table => {
+        if (table.scrollWidth > table.clientWidth) {
+            table.classList.add('scrollable-table');
+        }
+    });
 }
+
+// Window resize handler
+window.addEventListener('resize', function() {
+    handleResponsiveTables();
+    if (window.performanceChart) window.performanceChart.resize();
+    if (window.sectorChart) window.sectorChart.resize();
+    if (window.signalChart) window.signalChart.resize();
+});
+
+// Initialize responsive tables on load
+setTimeout(handleResponsiveTables, 1000);

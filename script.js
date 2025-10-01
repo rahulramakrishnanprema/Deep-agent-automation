@@ -1,1 +1,1 @@
-Error calling LLM: 429 Client Error: Too Many Requests for url: https://openrouter.ai/api/v1/chat/completions
+Error calling LLM: Expecting value: line 429 column 1 (char 2354)

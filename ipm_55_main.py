@@ -1,8 +1,5 @@
-"""
-IPM-55 Main Application File
-MVP web application for managing client stock portfolios in Indian equity markets.
-This file serves as the main Flask application entry point.
-"""
+# ipm_55_main.py - Main Flask application for Indian Portfolio Manager MVP
+# This file serves as the entry point for the web application, integrating all components
 
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
@@ -13,12 +10,11 @@ from datetime import datetime, timedelta
 import yfinance as yf
 import json
 import os
-from functools import wraps
 
 # Initialize Flask application
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'ipm-55-mvp-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///portfolio_management.db'
+app.config['SECRET_KEY'] = 'your-secret-key-here'  # Change in production
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///portfolio.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
@@ -37,311 +33,181 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class ClientPortfolio(db.Model):
-    __tablename__ = 'client_portfolios'
+class Portfolio(db.Model):
+    __tablename__ = 'portfolios'
     id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     stock_symbol = db.Column(db.String(20), nullable=False)
+    stock_name = db.Column(db.String(100), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     purchase_price = db.Column(db.Float, nullable=False)
     purchase_date = db.Column(db.DateTime, nullable=False)
     sector = db.Column(db.String(50), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class AdvisorySignal(db.Model):
     __tablename__ = 'advisory_signals'
     id = db.Column(db.Integer, primary_key=True)
     stock_symbol = db.Column(db.String(20), nullable=False)
     signal = db.Column(db.String(10), nullable=False)  # 'BUY', 'HOLD', 'SELL'
-    confidence_score = db.Column(db.Float, nullable=False)
+    confidence = db.Column(db.Float, nullable=False)
     reasoning = db.Column(db.Text, nullable=False)
     generated_at = db.Column(db.DateTime, default=datetime.utcnow)
-    advisor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-
-class MarketData(db.Model):
-    __tablename__ = 'market_data'
-    id = db.Column(db.Integer, primary_key=True)
-    stock_symbol = db.Column(db.String(20), nullable=False)
-    date = db.Column(db.DateTime, nullable=False)
-    open_price = db.Column(db.Float, nullable=False)
-    high_price = db.Column(db.Float, nullable=False)
-    low_price = db.Column(db.Float, nullable=False)
-    close_price = db.Column(db.Float, nullable=False)
-    volume = db.Column(db.BigInteger, nullable=False)
-    sector = db.Column(db.String(50), nullable=False)
+    technical_score = db.Column(db.Float)
+    fundamental_score = db.Column(db.Float)
+    sector_score = db.Column(db.Float)
+    market_buzz_score = db.Column(db.Float)
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-def advisor_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != 'advisor':
-            return jsonify({'error': 'Advisor access required'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
-
-# Technical Indicators Calculation
-class TechnicalIndicators:
+# Advisory Signal Generation Functions
+class AdvisorySignalGenerator:
     @staticmethod
-    def calculate_sma(prices, window=20):
-        """Calculate Simple Moving Average"""
-        return prices.rolling(window=window).mean()
-    
-    @staticmethod
-    def calculate_rsi(prices, window=14):
-        """Calculate Relative Strength Index"""
-        delta = prices.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-        rs = gain / loss
-        return 100 - (100 / (1 + rs))
-    
-    @staticmethod
-    def calculate_macd(prices, fast=12, slow=26, signal=9):
-        """Calculate MACD indicator"""
-        ema_fast = prices.ewm(span=fast).mean()
-        ema_slow = prices.ewm(span=slow).mean()
-        macd_line = ema_fast - ema_slow
-        signal_line = macd_line.ewm(span=signal).mean()
-        histogram = macd_line - signal_line
-        return macd_line, signal_line, histogram
-
-# Advisory Signal Generation
-class AdvisoryEngine:
-    def __init__(self):
-        self.technical_indicators = TechnicalIndicators()
-        self.sector_weights = {
-            'Technology': 1.2,
-            'Finance': 1.1,
-            'Healthcare': 1.15,
-            'Energy': 0.9,
-            'Consumer': 1.05,
-            'Industrial': 1.0
-        }
-    
-    def generate_signal(self, stock_symbol, historical_data):
-        """Generate advisory signal based on multiple factors"""
+    def calculate_technical_indicators(stock_symbol):
+        """Calculate technical indicators for a stock"""
         try:
-            # Technical Analysis
-            technical_score = self._calculate_technical_score(historical_data)
+            # Fetch historical data
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=365)
             
-            # Historical Performance
-            historical_score = self._calculate_historical_score(historical_data)
+            stock_data = yf.download(f"{stock_symbol}.NS", start=start_date, end=end_date)
             
-            # Sector Analysis
-            sector_score = self._calculate_sector_score(historical_data['sector'].iloc[0])
+            if stock_data.empty:
+                return 0.5  # Neutral score if no data
             
-            # Market Buzz (simulated)
-            market_buzz_score = self._simulate_market_buzz(stock_symbol)
+            # Calculate RSI
+            delta = stock_data['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            rsi = 100 - (100 / (1 + rs))
+            rsi_score = 1.0 if rsi.iloc[-1] < 30 else 0.0 if rsi.iloc[-1] > 70 else 0.5
             
-            # Composite Score
-            composite_score = (
-                technical_score * 0.4 +
-                historical_score * 0.3 +
+            # Calculate Moving Averages
+            ma_50 = stock_data['Close'].rolling(window=50).mean()
+            ma_200 = stock_data['Close'].rolling(window=200).mean()
+            ma_score = 1.0 if ma_50.iloc[-1] > ma_200.iloc[-1] else 0.0
+            
+            # Calculate MACD
+            exp12 = stock_data['Close'].ewm(span=12, adjust=False).mean()
+            exp26 = stock_data['Close'].ewm(span=26, adjust=False).mean()
+            macd = exp12 - exp26
+            signal = macd.ewm(span=9, adjust=False).mean()
+            macd_score = 1.0 if macd.iloc[-1] > signal.iloc[-1] else 0.0
+            
+            # Average technical score
+            technical_score = (rsi_score + ma_score + macd_score) / 3
+            return technical_score
+            
+        except Exception as e:
+            print(f"Error calculating technical indicators: {e}")
+            return 0.5
+
+    @staticmethod
+    def calculate_fundamental_score(stock_symbol):
+        """Calculate fundamental analysis score"""
+        # Simplified fundamental analysis
+        try:
+            stock = yf.Ticker(f"{stock_symbol}.NS")
+            info = stock.info
+            
+            pe_ratio = info.get('trailingPE', 25)
+            pb_ratio = info.get('priceToBook', 2)
+            debt_to_equity = info.get('debtToEquity', 0.5)
+            
+            # Score based on ratios (lower is better for these metrics)
+            pe_score = 1.0 if pe_ratio < 15 else 0.0 if pe_ratio > 25 else 0.5
+            pb_score = 1.0 if pb_ratio < 1.5 else 0.0 if pb_ratio > 3 else 0.5
+            debt_score = 1.0 if debt_to_equity < 0.5 else 0.0 if debt_to_equity > 1 else 0.5
+            
+            fundamental_score = (pe_score + pb_score + debt_score) / 3
+            return fundamental_score
+            
+        except Exception as e:
+            print(f"Error calculating fundamental score: {e}")
+            return 0.5
+
+    @staticmethod
+    def calculate_sector_potential(sector):
+        """Calculate sector potential score"""
+        # Simplified sector analysis - in real application, use market data
+        sector_potentials = {
+            'Technology': 0.8,
+            'Healthcare': 0.7,
+            'Financial': 0.6,
+            'Automobile': 0.5,
+            'Energy': 0.4,
+            'Consumer': 0.65,
+            'Pharmaceutical': 0.75,
+            'Infrastructure': 0.55
+        }
+        return sector_potentials.get(sector, 0.5)
+
+    @staticmethod
+    def calculate_market_buzz(stock_symbol):
+        """Calculate market buzz score"""
+        # Simplified market sentiment analysis
+        # In real application, integrate with news APIs and social media sentiment analysis
+        popular_stocks = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK']
+        if stock_symbol in popular_stocks:
+            return 0.8
+        return 0.5
+
+    @staticmethod
+    def generate_signal(stock_symbol, sector):
+        """Generate advisory signal for a stock"""
+        try:
+            technical_score = AdvisorySignalGenerator.calculate_technical_indicators(stock_symbol)
+            fundamental_score = AdvisorySignalGenerator.calculate_fundamental_score(stock_symbol)
+            sector_score = AdvisorySignalGenerator.calculate_sector_potential(sector)
+            market_buzz_score = AdvisorySignalGenerator.calculate_market_buzz(stock_symbol)
+            
+            # Weighted average score
+            total_score = (
+                technical_score * 0.3 +
+                fundamental_score * 0.3 +
                 sector_score * 0.2 +
-                market_buzz_score * 0.1
+                market_buzz_score * 0.2
             )
             
-            # Generate Signal
-            if composite_score >= 0.7:
+            # Determine signal
+            if total_score >= 0.7:
                 signal = 'BUY'
-                confidence = composite_score
-                reasoning = f"Strong buy signal based on technical indicators, historical performance, and sector outlook"
-            elif composite_score >= 0.4:
+                confidence = total_score
+                reasoning = f"Strong technical indicators, good fundamentals, positive sector outlook, and market sentiment"
+            elif total_score >= 0.4:
                 signal = 'HOLD'
-                confidence = composite_score
-                reasoning = f"Neutral position recommended based on mixed signals"
+                confidence = total_score
+                reasoning = f"Mixed signals with neutral technical indicators and fundamentals"
             else:
                 signal = 'SELL'
-                confidence = 1 - composite_score
-                reasoning = f"Sell recommendation due to weak technicals and poor outlook"
+                confidence = 1 - total_score
+                reasoning = f"Weak technical indicators, poor fundamentals, and negative market sentiment"
             
             return {
                 'signal': signal,
                 'confidence': confidence,
                 'reasoning': reasoning,
-                'scores': {
-                    'technical': technical_score,
-                    'historical': historical_score,
-                    'sector': sector_score,
-                    'market_buzz': market_buzz_score
-                }
+                'technical_score': technical_score,
+                'fundamental_score': fundamental_score,
+                'sector_score': sector_score,
+                'market_buzz_score': market_buzz_score
             }
             
         except Exception as e:
+            print(f"Error generating signal: {e}")
             return {
                 'signal': 'HOLD',
                 'confidence': 0.5,
-                'reasoning': f'Error in signal generation: {str(e)}',
-                'scores': {'technical': 0.5, 'historical': 0.5, 'sector': 0.5, 'market_buzz': 0.5}
+                'reasoning': 'Unable to generate signal due to data issues',
+                'technical_score': 0.5,
+                'fundamental_score': 0.5,
+                'sector_score': 0.5,
+                'market_buzz_score': 0.5
             }
-    
-    def _calculate_technical_score(self, data):
-        """Calculate technical analysis score"""
-        prices = data['close_price']
-        
-        # Calculate indicators
-        sma_20 = self.technical_indicators.calculate_sma(prices, 20)
-        rsi = self.technical_indicators.calculate_rsi(prices)
-        macd_line, signal_line, histogram = self.technical_indicators.calculate_macd(prices)
-        
-        # Analyze signals
-        current_price = prices.iloc[-1]
-        sma_20_current = sma_20.iloc[-1]
-        rsi_current = rsi.iloc[-1] if not pd.isna(rsi.iloc[-1]) else 50
-        macd_signal = 1 if macd_line.iloc[-1] > signal_line.iloc[-1] else -1
-        
-        # Score components
-        price_vs_sma = 1 if current_price > sma_20_current else 0
-        rsi_score = max(0, min(1, (rsi_current - 30) / 40))  # Normalize RSI between 0-1
-        macd_score = (macd_signal + 1) / 2  # Convert -1/1 to 0/1
-        
-        return (price_vs_sma + rsi_score + macd_score) / 3
-    
-    def _calculate_historical_score(self, data):
-        """Calculate historical performance score"""
-        prices = data['close_price']
-        
-        # Calculate returns
- returns = prices.pct_change().dropna()
-        if len(returns) == 0:
-            return 0.5
-        
-        # Recent performance (last 30 days)
-        recent_returns = returns.tail(30)
-        recent_mean_return = recent_returns.mean()
-        recent_volatility = recent_returns.std()
-        
-        # Long-term performance (all data)
-        long_term_mean = returns.mean()
-        long_term_volatility = returns.std()
-        
-        # Score based on risk-adjusted returns
-        if recent_volatility > 0 and long_term_volatility > 0:
-            sharpe_recent = recent_mean_return / recent_volatility * np.sqrt(252)
-            sharpe_long_term = long_term_mean / long_term_volatility * np.sqrt(252)
-            score = (sharpe_recent + sharpe_long_term) / 2
-            return max(0, min(1, (score + 1) / 2))  # Normalize to 0-1
-        return 0.5
-    
-    def _calculate_sector_score(self, sector):
-        """Calculate sector outlook score"""
-        return self.sector_weights.get(sector, 1.0)
-    
-    def _simulate_market_buzz(self, stock_symbol):
-        """Simulate market buzz factor (dummy implementation)"""
-        # In real implementation, this would integrate with news APIs, social media, etc.
-        buzz_factors = {
-            'RELIANCE': 0.8,
-            'TCS': 0.9,
-            'HDFCBANK': 0.7,
-            'INFY': 0.85,
-            'ICICIBANK': 0.75
-        }
-        return buzz_factors.get(stock_symbol, 0.6)
-
-# Dummy Data Generation
-class DummyDataGenerator:
-    @staticmethod
-    def generate_dummy_data():
-        """Generate dummy data for MVP testing"""
-        print("Generating dummy data...")
-        
-        # Create admin user
-        if not User.query.filter_by(username='admin').first():
-            admin_user = User(
-                username='admin',
-                password='admin123',  # In production, use proper password hashing
-                role='advisor',
-                email='admin@ipm55.com'
-            )
-            db.session.add(admin_user)
-        
-        # Create sample client
-        if not User.query.filter_by(username='client1').first():
-            client_user = User(
-                username='client1',
-                password='client123',
-                role='client',
-                email='client1@ipm55.com'
-            )
-            db.session.add(client_user)
-        
-        db.session.commit()
-        
-        # Generate sample portfolios
-        nifty_50_stocks = [
-            {'symbol': 'RELIANCE', 'sector': 'Energy'},
-            {'symbol': 'TCS', 'sector': 'Technology'},
-            {'symbol': 'HDFCBANK', 'sector': 'Finance'},
-            {'symbol': 'INFY', 'sector': 'Technology'},
-            {'symbol': 'ICICIBANK', 'sector': 'Finance'}
-        ]
-        
-        admin_user = User.query.filter_by(username='admin').first()
-        client_user = User.query.filter_by(username='client1').first()
-        
-        if client_user and not ClientPortfolio.query.filter_by(client_id=client_user.id).first():
-            for stock in nifty_50_stocks:
-                portfolio = ClientPortfolio(
-                    client_id=client_user.id,
-                    stock_symbol=stock['symbol'],
-                    quantity=np.random.randint(10, 100),
-                    purchase_price=np.random.uniform(1000, 5000),
-                    purchase_date=datetime.now() - timedelta(days=np.random.randint(30, 365)),
-                    sector=stock['sector']
-                )
-                db.session.add(portfolio)
-        
-        # Generate sample market data
-        if not MarketData.query.first():
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=365)
-            
-            for stock in nifty_50_stocks:
-                # Download real data for better simulation
-                try:
-                    ticker = yf.Ticker(f"{stock['symbol']}.NS")
-                    hist_data = ticker.history(start=start_date, end=end_date)
-                    
-                    for date, row in hist_data.iterrows():
-                        market_data = MarketData(
-                            stock_symbol=stock['symbol'],
-                            date=date.to_pydatetime(),
-                            open_price=row['Open'],
-                            high_price=row['High'],
-                            low_price=row['Low'],
-                            close_price=row['Close'],
-                            volume=row['Volume'],
-                            sector=stock['sector']
-                        )
-                        db.session.add(market_data)
-                except Exception as e:
-                    print(f"Error downloading data for {stock['symbol']}: {e}")
-                    # Fallback to generated data
-                    base_price = np.random.uniform(1000, 5000)
-                    for i in range(365):
-                        date = start_date + timedelta(days=i)
-                        price_change = np.random.normal(0, 0.02)  # 2% daily volatility
-                        close_price = base_price * (1 + price_change)
-                        
-                        market_data = MarketData(
-                            stock_symbol=stock['symbol'],
-                            date=date,
-                            open_price=close_price * (1 + np.random.uniform(-0.01, 0.01)),
-                            high_price=close_price * (1 + np.random.uniform(0, 0.03)),
-                            low_price=close_price * (1 - np.random.uniform(0, 0.03)),
-                            close_price=close_price,
-                            volume=np.random.randint(1000000, 10000000),
-                            sector=stock['sector']
-                        )
-                        db.session.add(market_data)
-                        base_price = close_price
-        
-        db.session.commit()
-        print("Dummy data generation completed!")
 
 # Routes
 @app.route('/')
@@ -351,21 +217,18 @@ def home():
             return redirect(url_for('advisor_dashboard'))
         else:
             return redirect(url_for('client_portfolio'))
-    return render_template('login.html')
+    return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form['username']
+        password = request.form['password']
         
-        user = User.query.filter_by(username=username, password=password).first()
-        if user:
+        user = User.query.filter_by(username=username).first()
+        if user and user.password == password:  # In production, use proper password hashing
             login_user(user)
-            if user.role == 'advisor':
-                return redirect(url_for('advisor_dashboard'))
-            else:
-                return redirect(url_for('client_portfolio'))
+            return redirect(url_for('home'))
         
         return render_template('login.html', error='Invalid credentials')
     
@@ -381,76 +244,195 @@ def logout():
 @login_required
 def client_portfolio():
     if current_user.role != 'client':
-        return redirect(url_for('advisor_dashboard'))
+        return redirect(url_for('home'))
     
-    portfolios = ClientPortfolio.query.filter_by(client_id=current_user.id).all()
-    return render_template('client_portfolio.html', portfolios=portfolios)
-
-@app.route('/api/portfolio/signals')
-@login_required
-def get_portfolio_signals():
-    """Get advisory signals for client's portfolio"""
-    try:
-        portfolios = ClientPortfolio.query.filter_by(client_id=current_user.id).all()
-        advisory_engine = AdvisoryEngine()
-        signals = []
-        
-        for portfolio in portfolios:
-            # Get historical data for the stock
-            historical_data = MarketData.query.filter_by(
-                stock_symbol=portfolio.stock_symbol
-            ).order_by(MarketData.date).all()
-            
-            if historical_data:
-                # Convert to DataFrame for analysis
-                df = pd.DataFrame([{
-                    'date': md.date,
-                    'close_price': md.close_price,
-                    'sector': md.sector
-                } for md in historical_data])
-                
-                signal = advisory_engine.generate_signal(portfolio.stock_symbol, df)
-                signals.append({
-                    'stock_symbol': portfolio.stock_symbol,
-                    'quantity': portfolio.quantity,
-                    'purchase_price': portfolio.purchase_price,
-                    'current_price': df['close_price'].iloc[-1],
-                    'signal': signal['signal'],
-                    'confidence': signal['confidence'],
-                    'reasoning': signal['reasoning'],
-                    'scores': signal['scores']
-                })
-        
-        return jsonify({'signals': signals})
+    portfolios = Portfolio.query.filter_by(user_id=current_user.id).all()
+    portfolio_data = []
     
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    for portfolio in portfolios:
+        signal_data = AdvisorySignalGenerator.generate_signal(portfolio.stock_symbol, portfolio.sector)
+        portfolio_data.append({
+            'id': portfolio.id,
+            'stock_symbol': portfolio.stock_symbol,
+            'stock_name': portfolio.stock_name,
+            'quantity': portfolio.quantity,
+            'purchase_price': portfolio.purchase_price,
+            'current_price': get_current_price(portfolio.stock_symbol),
+            'sector': portfolio.sector,
+            'signal': signal_data['signal'],
+            'confidence': signal_data['confidence'],
+            'reasoning': signal_data['reasoning']
+        })
+    
+    return render_template('client_portfolio.html', portfolios=portfolio_data)
 
 @app.route('/advisor/dashboard')
 @login_required
-@advisor_required
 def advisor_dashboard():
-    """Advisor-only dashboard with visual reports"""
-    return render_template('advisor_dashboard.html')
+    if current_user.role != 'advisor':
+        return redirect(url_for('home'))
+    
+    # Get all client portfolios
+    all_portfolios = Portfolio.query.all()
+    
+    # Generate analytics data
+    sector_analysis = analyze_sector_performance()
+    top_signals = get_top_advisory_signals()
+    client_summary = get_client_summary()
+    
+    return render_template('advisor_dashboard.html',
+                         sector_analysis=sector_analysis,
+                         top_signals=top_signals,
+                         client_summary=client_summary)
 
-@app.route('/api/advisor/portfolio-overview')
+@app.route('/api/portfolio', methods=['GET', 'POST'])
 @login_required
-@advisor_required
-def get_portfolio_overview():
-    """Get overview of all client portfolios for advisor dashboard"""
+def api_portfolio():
+    if request.method == 'GET':
+        portfolios = Portfolio.query.filter_by(user_id=current_user.id).all()
+        return jsonify([{
+            'id': p.id,
+            'stock_symbol': p.stock_symbol,
+            'stock_name': p.stock_name,
+            'quantity': p.quantity,
+            'purchase_price': p.purchase_price,
+            'sector': p.sector
+        } for p in portfolios])
+    
+    elif request.method == 'POST':
+        data = request.json
+        new_portfolio = Portfolio(
+            user_id=current_user.id,
+            stock_symbol=data['stock_symbol'],
+            stock_name=data['stock_name'],
+            quantity=data['quantity'],
+            purchase_price=data['purchase_price'],
+            purchase_date=datetime.now(),
+            sector=data['sector']
+        )
+        db.session.add(new_portfolio)
+        db.session.commit()
+        return jsonify({'message': 'Portfolio item added successfully'})
+
+@app.route('/api/advisory/signal/<stock_symbol>')
+@login_required
+def api_advisory_signal(stock_symbol):
+    sector = request.args.get('sector', 'Technology')
+    signal_data = AdvisorySignalGenerator.generate_signal(stock_symbol, sector)
+    return jsonify(signal_data)
+
+@app.route('/api/analytics/sector')
+@login_required
+def api_sector_analytics():
+    if current_user.role != 'advisor':
+        return jsonify({'error': 'Access denied'}), 403
+    
+    sector_data = analyze_sector_performance()
+    return jsonify(sector_data)
+
+# Helper Functions
+def get_current_price(stock_symbol):
+    """Get current stock price using yfinance"""
     try:
-        clients = User.query.filter_by(role='client').all()
-        overview = []
+        stock = yf.Ticker(f"{stock_symbol}.NS")
+        return stock.info.get('regularMarketPrice', 0)
+    except:
+        return 0
+
+def analyze_sector_performance():
+    """Analyze sector performance for advisor dashboard"""
+    sectors = db.session.query(Portfolio.sector).distinct().all()
+    sector_data = []
+    
+    for sector in sectors:
+        sector = sector[0]
+        sector_portfolios = Portfolio.query.filter_by(sector=sector).all()
         
-        for client in clients:
-            portfolios = ClientPortfolio.query.filter_by(client_id=client.id).all()
-            total_value = 0
-            stocks_count = len(portfolios)
-            
-            for portfolio in portfolios:
-                latest_price = MarketData.query.filter_by(
-                    stock_symbol=portfolio.stock_symbol
-                ).order_by(MarketData.date.desc()).first()
-                
-                if latest_price:
-                    total_value += portfolio
+        total_investment = sum(p.quantity * p.purchase_price for p in sector_portfolios)
+        current_value = sum(p.quantity * get_current_price(p.stock_symbol) for p in sector_portfolios)
+        
+        sector_data.append({
+            'sector': sector,
+            'total_investment': total_investment,
+            'current_value': current_value,
+            'profit_loss': current_value - total_investment,
+            'profit_loss_percent': ((current_value - total_investment) / total_investment * 100) if total_investment > 0 else 0
+        })
+    
+    return sector_data
+
+def get_top_advisory_signals():
+    """Get top advisory signals for dashboard"""
+    # This would typically query the database for recent signals
+    # For now, generate sample signals for top Indian stocks
+    top_stocks = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK']
+    signals = []
+    
+    for stock in top_stocks:
+        signal_data = AdvisorySignalGenerator.generate_signal(stock, 'Technology')
+        signals.append({
+            'stock_symbol': stock,
+            'signal': signal_data['signal'],
+            'confidence': signal_data['confidence'],
+            'reasoning': signal_data['reasoning']
+        })
+    
+    return signals
+
+def get_client_summary():
+    """Get client portfolio summary for advisor dashboard"""
+    clients = User.query.filter_by(role='client').all()
+    summary = []
+    
+    for client in clients:
+        portfolios = Portfolio.query.filter_by(user_id=client.id).all()
+        total_investment = sum(p.quantity * p.purchase_price for p in portfolios)
+        current_value = sum(p.quantity * get_current_price(p.stock_symbol) for p in portfolios)
+        
+        summary.append({
+            'client_id': client.id,
+            'client_name': client.username,
+            'total_investment': total_investment,
+            'current_value': current_value,
+            'profit_loss': current_value - total_investment,
+            'portfolio_count': len(portfolios)
+        })
+    
+    return summary
+
+def create_dummy_data():
+    """Create dummy data for testing"""
+    # Create admin user
+    admin = User(username='admin', password='admin123', role='advisor', email='admin@ipm.com')
+    db.session.add(admin)
+    
+    # Create client users
+    clients = [
+        User(username='client1', password='client123', role='client', email='client1@ipm.com'),
+        User(username='client2', password='client123', role='client', email='client2@ipm.com')
+    ]
+    db.session.add_all(clients)
+    
+    # Indian stocks data
+    indian_stocks = [
+        {'symbol': 'RELIANCE', 'name': 'Reliance Industries Ltd.', 'sector': 'Energy'},
+        {'symbol': 'TCS', 'name': 'Tata Consultancy Services Ltd.', 'sector': 'Technology'},
+        {'symbol': 'INFY', 'name': 'Infosys Ltd.', 'sector': 'Technology'},
+        {'symbol': 'HDFCBANK', 'name': 'HDFC Bank Ltd.', 'sector': 'Financial'},
+        {'symbol': 'ICICIBANK', 'name': 'ICICI Bank Ltd.', 'sector': 'Financial'},
+        {'symbol': 'HINDUNILVR', 'name': 'Hindustan Unilever Ltd.', 'sector': 'Consumer'},
+        {'symbol': 'ITC', 'name': 'ITC Ltd.', 'sector': 'Consumer'},
+        {'symbol': 'SBIN', 'name': 'State Bank of India', 'sector': 'Financial'}
+    ]
+    
+    # Create sample portfolios
+    portfolios = []
+    for client in clients:
+        for i in range(3):
+            stock = indian_stocks[i % len(indian_stocks)]
+            portfolio = Portfolio(
+                user_id=client.id,
+                stock_symbol=stock['symbol'],
+                stock_name=stock['name'],
+                quantity=100 * (i + 1),
+                purchase_price=1000 + (i *

@@ -1,318 +1,258 @@
-/* style.css - Main stylesheet for Portfolio Management System */
+/* style.css - Main stylesheet for Indian Equity Portfolio Advisor */
 
-/* Import Bootstrap for base styling */
+/* Import Bootstrap CSS */
 @import url('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css');
 
-/* Custom Variables */
-:root {
-  --primary-color: #2c3e50;
-  --secondary-color: #3498db;
-  --accent-color: #e74c3c;
-  --success-color: #27ae60;
-  --warning-color: #f39c12;
-  --light-bg: #f8f9fa;
-  --dark-bg: #343a40;
-  --border-color: #dee2e6;
-  --text-primary: #212529;
-  --text-secondary: #6c757d;
-}
-
 /* Global Styles */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --accent-color: #e74c3c;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+    --light-bg: #f8f9fa;
+    --dark-bg: #343a40;
+    --border-color: #dee2e6;
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: var(--light-bg);
-  color: var(--text-primary);
-  line-height: 1.6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--light-bg);
+    color: #333;
+    line-height: 1.6;
 }
 
 /* Header and Navigation */
-.navbar-custom {
-  background-color: var(--primary-color);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
 .navbar-brand {
-  font-weight: 700;
-  color: white !important;
-  font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--primary-color) !important;
 }
 
 .navbar-nav .nav-link {
-  color: rgba(255, 255, 255, 0.85) !important;
-  font-weight: 500;
-  transition: color 0.3s ease;
+    color: var(--primary-color);
+    font-weight: 500;
 }
 
 .navbar-nav .nav-link:hover {
-  color: white !important;
+    color: var(--secondary-color);
 }
 
-/* Main Content Area */
-.main-container {
-  padding: 2rem 0;
-  min-height: calc(100vh - 120px);
+/* Dashboard Styles */
+.dashboard-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
 }
 
-/* Dashboard Cards */
 .dashboard-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  margin-bottom: 1.5rem;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+    transition: transform 0.3s ease;
 }
 
 .dashboard-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    transform: translateY(-5px);
 }
 
-.card-header-custom {
-  background-color: var(--primary-color);
-  color: white;
-  border-radius: 12px 12px 0 0 !important;
-  padding: 1rem 1.5rem;
-  font-weight: 600;
+.card-header {
+    background: var(--primary-color);
+    color: white;
+    font-weight: bold;
+    border-radius: 10px 10px 0 0 !important;
 }
 
-/* Portfolio Table */
-.portfolio-table {
-  width: 100%;
-  border-collapse: collapse;
+/* Portfolio Management Styles */
+.portfolio-summary {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.portfolio-table th {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 1rem;
-  text-align: left;
-  font-weight: 600;
+.stock-card {
+    border-left: 4px solid var(--secondary-color);
+    margin-bottom: 1rem;
 }
 
-.portfolio-table td {
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
+.stock-card.buy {
+    border-left-color: var(--success-color);
 }
 
-.portfolio-table tr:hover {
-  background-color: rgba(52, 152, 219, 0.05);
+.stock-card.sell {
+    border-left-color: var(--accent-color);
 }
 
-/* Signal Indicators */
+.stock-card.hold {
+    border-left-color: var(--warning-color);
+}
+
+/* Advisory Signals Styles */
+.signal-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+}
+
 .signal-buy {
-  color: var(--success-color);
-  font-weight: 600;
-  background-color: rgba(39, 174, 96, 0.1);
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  display: inline-block;
-}
-
-.signal-hold {
-  color: var(--warning-color);
-  font-weight: 600;
-  background-color: rgba(243, 156, 18, 0.1);
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  display: inline-block;
+    background-color: var(--success-color);
+    color: white;
 }
 
 .signal-sell {
-  color: var(--accent-color);
-  font-weight: 600;
-  background-color: rgba(231, 76, 60, 0.1);
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  display: inline-block;
+    background-color: var(--accent-color);
+    color: white;
 }
 
-/* Charts and Graphs */
+.signal-hold {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+/* Visual Reports Styles */
 .chart-container {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1.5rem;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
 }
 
-.chart-title {
-  color: var(--primary-color);
-  margin-bottom: 1rem;
-  font-weight: 600;
+.performance-metric {
+    text-align: center;
+    padding: 1rem;
 }
 
-/* Forms */
-.form-control-custom {
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.75rem;
-  transition: border-color 0.3s ease;
+.metric-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary-color);
 }
 
-.form-control-custom:focus {
-  border-color: var(--secondary-color);
-  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+.metric-label {
+    color: #666;
+    font-size: 0.9rem;
 }
 
-.btn-custom {
-  background-color: var(--secondary-color);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: background-color 0.3s ease;
+/* Forms and Inputs */
+.form-control:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
 }
 
-.btn-custom:hover {
-  background-color: #2980b9;
-  color: white;
+.btn-primary {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.btn-danger {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+/* Tables */
+.table th {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(52, 152, 219, 0.1);
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .main-container {
-    padding: 1rem 0;
-  }
-  
-  .dashboard-card {
-    margin-bottom: 1rem;
-  }
-  
-  .portfolio-table {
-    font-size: 0.9rem;
-  }
-  
-  .portfolio-table th,
-  .portfolio-table td {
-    padding: 0.5rem;
-  }
-  
-  .chart-container {
-    padding: 1rem;
-  }
+    .dashboard-header h1 {
+        font-size: 1.8rem;
+    }
+    
+    .dashboard-card {
+        margin-bottom: 1rem;
+    }
+    
+    .chart-container {
+        padding: 1rem;
+    }
+    
+    .performance-metric {
+        margin-bottom: 1rem;
+    }
 }
 
 @media (max-width: 576px) {
-  .navbar-brand {
-    font-size: 1.2rem;
-  }
-  
-  .card-header-custom {
-    padding: 0.75rem 1rem;
-  }
-  
-  .btn-custom {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-  }
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+    
+    .dashboard-header {
+        padding: 1.5rem 0;
+    }
+    
+    .metric-value {
+        font-size: 1.5rem;
+    }
 }
 
-/* Loading States */
+/* Loading and Animation Styles */
 .loading-spinner {
-  display: inline-block;
-  width: 2rem;
-  height: 2rem;
-  border: 3px solid rgba(52, 152, 219, 0.3);
-  border-radius: 50%;
-  border-top-color: var(--secondary-color);
-  animation: spin 1s ease-in-out infinite;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--secondary-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 2rem auto;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
-/* Error States */
-.error-message {
-  background-color: rgba(231, 76, 60, 0.1);
-  color: var(--accent-color);
-  padding: 1rem;
-  border-radius: 8px;
-  border-left: 4px solid var(--accent-color);
-  margin-bottom: 1rem;
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
 }
 
-/* Success States */
-.success-message {
-  background-color: rgba(39, 174, 96, 0.1);
-  color: var(--success-color);
-  padding: 1rem;
-  border-radius: 8px;
-  border-left: 4px solid var(--success-color);
-  margin-bottom: 1rem;
-}
-
-/* Advisor-only Elements */
-.advisor-only {
-  border: 2px dashed var(--secondary-color);
-  background-color: rgba(52, 152, 219, 0.05);
-}
-
-.advisor-badge {
-  background-color: var(--secondary-color);
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin-left: 0.5rem;
-}
-
-/* Footer */
-.footer {
-  background-color: var(--dark-bg);
-  color: white;
-  padding: 1.5rem 0;
-  margin-top: 2rem;
-}
-
-.footer a {
-  color: rgba(255, 255, 255, 0.8);
-  text-decoration: none;
-  transition: color 0.3s ease;
-}
-
-.footer a:hover {
-  color: white;
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* Custom Utilities */
 .text-primary-custom {
-  color: var(--primary-color) !important;
-}
-
-.text-secondary-custom {
-  color: var(--secondary-color) !important;
+    color: var(--primary-color) !important;
 }
 
 .bg-light-custom {
-  background-color: var(--light-bg) !important;
+    background-color: var(--light-bg) !important;
 }
 
 .border-custom {
-  border-color: var(--border-color) !important;
+    border-color: var(--border-color) !important;
 }
 
 /* Print Styles */
 @media print {
-  .navbar, .footer, .btn {
-    display: none !important;
-  }
-  
-  body {
-    background: white !important;
-    color: black !important;
-  }
-  
-  .dashboard-card {
-    box-shadow: none !important;
-    border: 1px solid #000 !important;
-  }
+    .navbar, .btn, .no-print {
+        display: none !important;
+    }
+    
+    .dashboard-card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
 }

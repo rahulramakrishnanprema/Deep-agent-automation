@@ -1,1 +1,277 @@
-Error calling LLM: Expecting value: line 185 column 1 (char 1012)
+/* 
+ * style.css - Main stylesheet for Portfolio Management System
+ * Indian Equity Market Focus - Advisor Dashboard & Client Portfolio Management
+ * Responsive design with Bootstrap integration
+ */
+
+/* Import Bootstrap for responsive design */
+@import url('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css');
+
+/* Custom Variables */
+:root {
+  --primary-color: #2c3e50;
+  --secondary-color: #3498db;
+  --accent-color: #e74c3c;
+  --success-color: #27ae60;
+  --warning-color: #f39c12;
+  --light-bg: #f8f9fa;
+  --dark-bg: #343a40;
+  --text-dark: #2c3e50;
+  --text-light: #ecf0f1;
+  --border-color: #dee2e6;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Global Styles */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--light-bg);
+  color: var(--text-dark);
+  line-height: 1.6;
+}
+
+/* Header & Navigation */
+.navbar-custom {
+  background-color: var(--primary-color);
+  box-shadow: var(--shadow);
+}
+
+.navbar-brand {
+  font-weight: 700;
+  color: var(--text-light) !important;
+}
+
+.navbar-nav .nav-link {
+  color: var(--text-light) !important;
+  transition: color 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover {
+  color: var(--secondary-color) !important;
+}
+
+/* Dashboard Cards */
+.dashboard-card {
+  border: none;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.card-header-custom {
+  background-color: var(--primary-color);
+  color: var(--text-light);
+  border-radius: 10px 10px 0 0 !important;
+  padding: 1rem 1.25rem;
+  font-weight: 600;
+}
+
+/* Signal Indicators */
+.signal-buy {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+.signal-hold {
+  color: var(--warning-color);
+  font-weight: 600;
+}
+
+.signal-sell {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.signal-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.indicator-buy {
+  background-color: var(--success-color);
+}
+
+.indicator-hold {
+  background-color: var(--warning-color);
+}
+
+.indicator-sell {
+  background-color: var(--accent-color);
+}
+
+/* Portfolio Table */
+.portfolio-table {
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.portfolio-table th {
+  background-color: var(--primary-color);
+  color: var(--text-light);
+  font-weight: 600;
+  padding: 1rem;
+}
+
+.portfolio-table td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+}
+
+.portfolio-table tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.portfolio-table tr:hover {
+  background-color: rgba(52, 152, 219, 0.05);
+}
+
+/* Charts Container */
+.charts-container {
+  background-color: white;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+}
+
+.chart-title {
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+/* Forms */
+.form-control-custom {
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 0.75rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-control-custom:focus {
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+}
+
+.btn-custom-primary {
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.btn-custom-primary:hover {
+  background-color: #2980b9;
+  border-color: #2980b9;
+  transform: translateY(-2px);
+}
+
+/* Advisor Dashboard Specific Styles */
+.advisor-only {
+  border-left: 4px solid var(--secondary-color);
+}
+
+.performance-metric {
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.metric-label {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .dashboard-card {
+    margin-bottom: 1rem;
+  }
+  
+  .portfolio-table {
+    font-size: 0.9rem;
+  }
+  
+  .metric-value {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .navbar-brand {
+    font-size: 1.1rem;
+  }
+  
+  .card-header-custom {
+    padding: 0.75rem 1rem;
+  }
+  
+  .portfolio-table th,
+  .portfolio-table td {
+    padding: 0.5rem;
+  }
+}
+
+/* Loading States */
+.loading-spinner {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid var(--secondary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Utility Classes */
+.text-small {
+  font-size: 0.875rem;
+}
+
+.text-tiny {
+  font-size: 0.75rem;
+}
+
+.border-custom {
+  border: 1px solid var(--border-color);
+}
+
+.shadow-custom {
+  box-shadow: var(--shadow);
+}
+
+/* Print Styles */
+@media print {
+  .navbar-custom,
+  .btn-custom-primary {
+    display: none !important;
+  }
+  
+  .dashboard-card {
+    box-shadow: none;
+    border: 1px solid var(--border-color);
+  }
+}

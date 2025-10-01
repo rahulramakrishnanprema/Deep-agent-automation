@@ -1,5 +1,5 @@
-// script.js - Frontend JavaScript for Portfolio Management System
-// Handles UI interactions, API calls, and data display for the portfolio management application
+// script.js - Frontend JavaScript for Indian Equity Portfolio Management Dashboard
+// This file handles frontend interactions, API calls, and dynamic content rendering
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize the application
@@ -10,364 +10,501 @@ document.addEventListener('DOMContentLoaded', function() {
  * Initialize the application
  */
 function initApp() {
-    loadPortfolioData();
+    checkAuthentication();
     setupEventListeners();
-    checkUserRole();
+    loadDashboardData();
+}
+
+/**
+ * Check if user is authenticated and handle access control
+ */
+function checkAuthentication() {
+    const token = localStorage.getItem('advisor_token');
+    if (!token) {
+        redirectToLogin();
+        return;
+    }
+    
+    // Verify token validity with backend
+    fetch('/api/auth/verify', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            redirectToLogin();
+        }
+    })
+    .catch(error => {
+        console.error('Auth verification failed:', error);
+        redirectToLogin();
+    });
+}
+
+/**
+ * Redirect to login page
+ */
+function redirectToLogin() {
+    window.location.href = '/login.html';
 }
 
 /**
  * Set up event listeners for UI interactions
  */
 function setupEventListeners() {
-    // Portfolio form submission
-    const portfolioForm = document.getElementById('portfolioForm');
-    if (portfolioForm) {
-        portfolioForm.addEventListener('submit', handlePortfolioSubmit);
-    }
+    // Portfolio management
+    document.getElementById('addPortfolioBtn')?.addEventListener('click', showAddPortfolioModal);
+    document.getElementById('portfolioForm')?.addEventListener('submit', handlePortfolioSubmit);
+    
+    // Navigation
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', handleNavigation);
+    });
+    
+    // Logout
+    document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+    
+    // Refresh data
+    document.getElementById('refreshBtn')?.addEventListener('click', refreshData);
+}
 
-    // Refresh button
-    const refreshBtn = document.getElementById('refreshBtn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadPortfolioData);
-    }
-
-    // Advisor dashboard toggle
-    const advisorToggle = document.getElementById('advisorToggle');
-    if (advisorToggle) {
-        advisorToggle.addEventListener('change', toggleAdvisorView);
+/**
+ * Load dashboard data from backend
+ */
+async function loadDashboardData() {
+    try {
+        showLoadingState();
+        
+        const [portfolioData, signalsData, reportsData] = await Promise.all([
+            fetchPortfolios(),
+            fetchAdvisorySignals(),
+            fetchVisualReports()
+        ]);
+        
+        renderPortfolioTable(portfolioData);
+        renderAdvisorySignals(signalsData);
+        renderVisualReports(reportsData);
+        
+        hideLoadingState();
+    } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+        showError('Failed to load data. Please try again.');
+        hideLoadingState();
     }
 }
 
 /**
- * Load portfolio data from backend API
+ * Fetch portfolios from backend
  */
-async function loadPortfolioData() {
-    try {
-        showLoading(true);
-        
-        const response = await fetch('/api/portfolio', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getAuthToken()}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+async function fetchPortfolios() {
+    const token = localStorage.getItem('advisor_token');
+    const response = await fetch('/api/portfolios', {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
         }
-
-        const portfolioData = await response.json();
-        displayPortfolioData(portfolioData);
-        
-        // Load advisory signals if user is advisor
-        if (isAdvisorUser()) {
-            await loadAdvisorySignals(portfolioData);
-        }
-
-    } catch (error) {
-        console.error('Error loading portfolio data:', error);
-        showError('Failed to load portfolio data. Please try again.');
-    } finally {
-        showLoading(false);
+    });
+    
+    if (!response.ok) {
+        throw new Error('Failed to fetch portfolios');
     }
+    
+    return await response.json();
+}
+
+/**
+ * Fetch advisory signals from backend
+ */
+async function fetchAdvisorySignals() {
+    const token = localStorage.getItem('advisor_token');
+    const response = await fetch('/api/advisory/signals', {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    
+    if (!response.ok) {
+        throw new Error('Failed to fetch advisory signals');
+    }
+    
+    return await response.json();
+}
+
+/**
+ * Fetch visual reports from backend
+ */
+async function fetchVisualReports() {
+    const token = localStorage.getItem('advisor_token');
+    const response = await fetch('/api/reports/dashboard', {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    
+    if (!response.ok) {
+        throw new Error('Failed to fetch reports');
+    }
+    
+    return await response.json();
+}
+
+/**
+ * Render portfolio table with data
+ */
+function renderPortfolioTable(portfolios) {
+    const tableBody = document.getElementById('portfolioTableBody');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '';
+    
+    portfolios.forEach(portfolio => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${portfolio.client_name}</td>
+            <td>${portfolio.equity_symbol}</td>
+            <td>${portfolio.quantity}</td>
+            <td>₹${portfolio.average_price.toLocaleString()}</td>
+            <td>₹${portfolio.current_value.toLocaleString()}</td>
+            <td><span class="badge ${getSignalBadgeClass(portfolio.signal)}">${portfolio.signal}</span></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="editPortfolio(${portfolio.id})">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deletePortfolio(${portfolio.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+/**
+ * Render advisory signals
+ */
+function renderAdvisorySignals(signals) {
+    const signalsContainer = document.getElementById('advisorySignals');
+    if (!signalsContainer) return;
+    
+    signalsContainer.innerHTML = '';
+    
+    signals.forEach(signal => {
+        const card = document.createElement('div');
+        card.className = 'col-md-6 col-lg-4 mb-3';
+        card.innerHTML = `
+            <div class="card h-100 signal-card ${getSignalCardClass(signal.recommendation)}">
+                <div class="card-body">
+                    <h5 class="card-title">${signal.equity_symbol}</h5>
+                    <h6 class="card-subtitle mb-2 ${getSignalTextClass(signal.recommendation)}">
+                        ${signal.recommendation}
+                    </h6>
+                    <p class="card-text">${signal.reasoning}</p>
+                    <small class="text-muted">Generated: ${new Date(signal.generated_at).toLocaleString()}</small>
+                </div>
+            </div>
+        `;
+        signalsContainer.appendChild(card);
+    });
+}
+
+/**
+ * Render visual reports using Chart.js
+ */
+function renderVisualReports(reports) {
+    renderPortfolioValueChart(reports.portfolio_value_trend);
+    renderSectorAllocationChart(reports.sector_allocation);
+    renderPerformanceMetrics(reports.performance_metrics);
+}
+
+/**
+ * Render portfolio value trend chart
+ */
+function renderPortfolioValueChart(data) {
+    const ctx = document.getElementById('portfolioValueChart');
+    if (!ctx) return;
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Portfolio Value (₹)',
+                data: data.values,
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Portfolio Value Trend'
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Render sector allocation chart
+ */
+function renderSectorAllocationChart(data) {
+    const ctx = document.getElementById('sectorAllocationChart');
+    if (!ctx) return;
+    
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: data.sectors,
+            datasets: [{
+                data: data.percentages,
+                backgroundColor: [
+                    'rgb(255, 99, 132)',
+                    'rgb(54, 162, 235)',
+                    'rgb(255, 205, 86)',
+                    'rgb(75, 192, 192)',
+                    'rgb(153, 102, 255)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Sector Allocation'
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Render performance metrics
+ */
+function renderPerformanceMetrics(metrics) {
+    document.getElementById('totalValue').textContent = `₹${metrics.total_value.toLocaleString()}`;
+    document.getElementById('totalGain').textContent = `₹${metrics.total_gain.toLocaleString()}`;
+    document.getElementById('gainPercentage').textContent = `${metrics.gain_percentage}%`;
+    document.getElementById('totalStocks').textContent = metrics.total_stocks;
+}
+
+/**
+ * Show add portfolio modal
+ */
+function showAddPortfolioModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addPortfolioModal'));
+    modal.show();
 }
 
 /**
  * Handle portfolio form submission
- * @param {Event} event - Form submit event
  */
 async function handlePortfolioSubmit(event) {
     event.preventDefault();
     
     const formData = new FormData(event.target);
     const portfolioData = {
-        stock_symbol: formData.get('stock_symbol'),
+        client_name: formData.get('client_name'),
+        equity_symbol: formData.get('equity_symbol'),
         quantity: parseInt(formData.get('quantity')),
-        purchase_price: parseFloat(formData.get('purchase_price')),
-        sector: formData.get('sector')
+        average_price: parseFloat(formData.get('average_price'))
     };
-
+    
     try {
-        const response = await fetch('/api/portfolio', {
+        const token = localStorage.getItem('advisor_token');
+        const response = await fetch('/api/portfolios', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getAuthToken()}`
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(portfolioData)
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        showSuccess('Portfolio item added successfully!');
-        loadPortfolioData();
-        event.target.reset();
-
-    } catch (error) {
-        console.error('Error adding portfolio item:', error);
-        showError('Failed to add portfolio item. Please try again.');
-    }
-}
-
-/**
- * Display portfolio data in the UI
- * @param {Array} portfolioData - Array of portfolio items
- */
-function displayPortfolioData(portfolioData) {
-    const portfolioTable = document.getElementById('portfolioTable');
-    const portfolioBody = document.getElementById('portfolioBody');
-    
-    if (!portfolioBody) return;
-
-    portfolioBody.innerHTML = '';
-
-    portfolioData.forEach(item => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${item.stock_symbol}</td>
-            <td>${item.quantity}</td>
-            <td>₹${item.purchase_price.toFixed(2)}</td>
-            <td>₹${(item.quantity * item.purchase_price).toFixed(2)}</td>
-            <td>${item.sector}</td>
-            <td class="signal-${item.advisory_signal?.toLowerCase() || 'hold'}">
-                ${item.advisory_signal || 'N/A'}
-            </td>
-        `;
-        portfolioBody.appendChild(row);
-    });
-
-    // Show table if hidden
-    if (portfolioTable && portfolioTable.classList.contains('d-none')) {
-        portfolioTable.classList.remove('d-none');
-    }
-}
-
-/**
- * Load advisory signals for portfolio items
- * @param {Array} portfolioData - Array of portfolio items
- */
-async function loadAdvisorySignals(portfolioData) {
-    try {
-        const stockSymbols = portfolioData.map(item => item.stock_symbol);
         
-        const response = await fetch('/api/advisory/signals', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getAuthToken()}`
-            },
-            body: JSON.stringify({ stocks: stockSymbols })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.ok) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addPortfolioModal'));
+            modal.hide();
+            event.target.reset();
+            refreshData();
+            showSuccess('Portfolio added successfully!');
+        } else {
+            throw new Error('Failed to add portfolio');
         }
-
-        const signals = await response.json();
-        updatePortfolioWithSignals(signals);
-
     } catch (error) {
-        console.error('Error loading advisory signals:', error);
+        console.error('Error adding portfolio:', error);
+        showError('Failed to add portfolio. Please try again.');
     }
 }
 
 /**
- * Update portfolio display with advisory signals
- * @param {Object} signals - Advisory signals data
+ * Edit portfolio
  */
-function updatePortfolioWithSignals(signals) {
-    const portfolioBody = document.getElementById('portfolioBody');
-    if (!portfolioBody) return;
-
-    const rows = portfolioBody.querySelectorAll('tr');
-    rows.forEach(row => {
-        const symbol = row.querySelector('td:first-child').textContent;
-        const signalCell = row.querySelector('td:nth-child(6)');
-        
-        if (signals[symbol]) {
-            signalCell.textContent = signals[symbol].signal;
-            signalCell.className = `signal-${signals[symbol].signal.toLowerCase()}`;
-            
-            // Add tooltip for signal details
-            signalCell.title = `Confidence: ${signals[symbol].confidence}% | Reason: ${signals[symbol].reason}`;
-        }
-    });
+async function editPortfolio(portfolioId) {
+    // Implementation for editing portfolio
+    console.log('Edit portfolio:', portfolioId);
 }
 
 /**
- * Toggle advisor view based on user role and toggle state
+ * Delete portfolio
  */
-function toggleAdvisorView() {
-    const advisorToggle = document.getElementById('advisorToggle');
-    const advisorDashboard = document.getElementById('advisorDashboard');
+async function deletePortfolio(portfolioId) {
+    if (!confirm('Are you sure you want to delete this portfolio?')) {
+        return;
+    }
     
-    if (!advisorToggle || !advisorDashboard) return;
-
-    if (advisorToggle.checked && isAdvisorUser()) {
-        loadAdvisorDashboard();
-        advisorDashboard.classList.remove('d-none');
-    } else {
-        advisorDashboard.classList.add('d-none');
-    }
-}
-
-/**
- * Load advisor dashboard data
- */
-async function loadAdvisorDashboard() {
     try {
-        const response = await fetch('/api/advisory/dashboard', {
-            method: 'GET',
+        const token = localStorage.getItem('advisor_token');
+        const response = await fetch(`/api/portfolios/${portfolioId}`, {
+            method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${getAuthToken()}`
+                'Authorization': `Bearer ${token}`
             }
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        
+        if (response.ok) {
+            refreshData();
+            showSuccess('Portfolio deleted successfully!');
+        } else {
+            throw new Error('Failed to delete portfolio');
         }
-
-        const dashboardData = await response.json();
-        renderAdvisorDashboard(dashboardData);
-
     } catch (error) {
-        console.error('Error loading advisor dashboard:', error);
-        showError('Failed to load advisor dashboard. Access may be restricted.');
+        console.error('Error deleting portfolio:', error);
+        showError('Failed to delete portfolio. Please try again.');
     }
 }
 
 /**
- * Render advisor dashboard with visual reports
- * @param {Object} dashboardData - Dashboard data from backend
+ * Handle navigation
  */
-function renderAdvisorDashboard(dashboardData) {
-    // Implementation for charts and visual reports would go here
-    // Using Chart.js or similar library for visualization
+function handleNavigation(event) {
+    event.preventDefault();
+    const target = event.target.getAttribute('data-target');
     
-    console.log('Rendering advisor dashboard with data:', dashboardData);
+    // Hide all sections
+    document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.add('d-none');
+    });
     
-    // Placeholder for chart rendering
-    const chartsContainer = document.getElementById('advisorCharts');
-    if (chartsContainer) {
-        chartsContainer.innerHTML = `
-            <div class="alert alert-info">
-                Advisor dashboard visualization would be implemented here with Chart.js
-                showing portfolio performance, sector analysis, and market trends.
-            </div>
-        `;
+    // Show target section
+    document.getElementById(target)?.classList.remove('d-none');
+    
+    // Load specific data if needed
+    if (target === 'portfolios') {
+        loadPortfolioData();
+    } else if (target === 'reports') {
+        loadReportsData();
     }
 }
 
 /**
- * Check user role and adjust UI accordingly
+ * Handle logout
  */
-function checkUserRole() {
-    const advisorSection = document.getElementById('advisorSection');
-    const advisorToggle = document.getElementById('advisorToggle');
-    
-    if (isAdvisorUser()) {
-        if (advisorSection) advisorSection.classList.remove('d-none');
-        if (advisorToggle) advisorToggle.disabled = false;
-    } else {
-        if (advisorSection) advisorSection.classList.add('d-none');
-        if (advisorToggle) advisorToggle.disabled = true;
-    }
+function handleLogout() {
+    localStorage.removeItem('advisor_token');
+    redirectToLogin();
 }
 
 /**
- * Check if current user is an advisor
- * @returns {boolean} True if user is advisor
+ * Refresh all data
  */
-function isAdvisorUser() {
-    // In a real implementation, this would check JWT token or user session
-    // For demo purposes, using a simple flag
-    return localStorage.getItem('userRole') === 'advisor';
-}
-
-/**
- * Get authentication token from storage
- * @returns {string} Auth token
- */
-function getAuthToken() {
-    return localStorage.getItem('authToken') || 'demo-token';
+function refreshData() {
+    loadDashboardData();
 }
 
 /**
  * Show loading state
- * @param {boolean} show - Whether to show loading indicator
  */
-function showLoading(show) {
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const mainContent = document.getElementById('mainContent');
-    
-    if (loadingIndicator && mainContent) {
-        if (show) {
-            loadingIndicator.classList.remove('d-none');
-            mainContent.classList.add('d-none');
-        } else {
-            loadingIndicator.classList.add('d-none');
-            mainContent.classList.remove('d-none');
-        }
-    }
+function showLoadingState() {
+    document.getElementById('loadingSpinner').classList.remove('d-none');
+    document.getElementById('contentArea').classList.add('d-none');
 }
 
 /**
- * Show error message
- * @param {string} message - Error message to display
+ * Hide loading state
  */
-function showError(message) {
-    const errorAlert = document.getElementById('errorAlert');
-    const errorMessage = document.getElementById('errorMessage');
-    
-    if (errorAlert && errorMessage) {
-        errorMessage.textContent = message;
-        errorAlert.classList.remove('d-none');
-        
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            errorAlert.classList.add('d-none');
-        }, 5000);
-    }
+function hideLoadingState() {
+    document.getElementById('loadingSpinner').classList.add('d-none');
+    document.getElementById('contentArea').classList.remove('d-none');
 }
 
 /**
  * Show success message
- * @param {string} message - Success message to display
  */
 function showSuccess(message) {
-    const successAlert = document.getElementById('successAlert');
-    const successMessage = document.getElementById('successMessage');
+    showAlert(message, 'success');
+}
+
+/**
+ * Show error message
+ */
+function showError(message) {
+    showAlert(message, 'danger');
+}
+
+/**
+ * Show alert message
+ */
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
     
-    if (successAlert && successMessage) {
-        successMessage.textContent = message;
-        successAlert.classList.remove('d-none');
-        
-        // Auto-hide after 3 seconds
-        setTimeout(() => {
-            successAlert.classList.add('d-none');
-        }, 3000);
-    }
+    const container = document.getElementById('alertsContainer');
+    container.appendChild(alertDiv);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
 }
 
-// Utility function for formatting numbers
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR'
-    }).format(amount);
-}
-
-// Export functions for testing purposes
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        initApp,
-        loadPortfolioData,
-        displayPortfolioData,
-        isAdvisorUser,
-        formatCurrency
+/**
+ * Get CSS class for signal badge
+ */
+function getSignalBadgeClass(signal) {
+    const signalMap = {
+        'BUY': 'bg-success',
+        'HOLD': 'bg-warning',
+        'SELL': 'bg-danger'
     };
+    return signalMap[signal] || 'bg-secondary';
 }
+
+/**
+ * Get CSS class for signal card
+ */
+function getSignalCardClass(recommendation) {
+    const signalMap = {
+        'BUY': 'border-success',
+        'HOLD': 'border-warning',
+        'SELL': 'border-danger'
+    };
+    return signalMap[recommendation] || '';
+}
+
+/**
+ * Get CSS class for signal text
+ */
+function getSignalTextClass(recommendation) {
+    const signalMap = {
+        'BUY': 'text-success',
+        'HOLD': 'text-warning',
+        'SELL': 'text-danger'
+    };
+    return signalMap[recommendation] || 'text-muted';
+}
+
+// Export functions for global access (if needed)
+window.editPortfolio = editPortfolio;
+window.deletePortfolio = deletePortfolio;

@@ -3,479 +3,527 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Indian Equity Portfolio Advisor</title>
+    <title>Portfolio Manager - Indian Equity Markets</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Chart.js for visual reports -->
+    <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
     <style>
-        .sidebar {
-            min-height: 100vh;
-            background-color: #f8f9fa;
-            border-right: 1px solid #dee2e6;
-        }
-        .dashboard-card {
+        .portfolio-card {
             transition: transform 0.2s;
         }
-        .dashboard-card:hover {
+        .portfolio-card:hover {
             transform: translateY(-5px);
         }
-        .signal-buy { background-color: #d4edda !important; }
-        .signal-hold { background-color: #fff3cd !important; }
-        .signal-sell { background-color: #f8d7da !important; }
-        .portfolio-table th { background-color: #f8f9fa; }
+        .signal-buy {
+            color: #198754;
+        }
+        .signal-sell {
+            color: #dc3545;
+        }
+        .signal-hold {
+            color: #ffc107;
+        }
+        .dashboard-card {
+            height: 100%;
+        }
+        .sector-badge {
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
     <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
-                <i class="bi bi-graph-up"></i> Portfolio Advisor
-            </a>
+            <a class="navbar-brand" href="#">Portfolio Manager</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="#" onclick="showDashboard()">Dashboard</a>
+                        <a class="nav-link active" href="#" id="dashboard-link">Dashboard</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showPortfolio()">Portfolio</a>
+                        <a class="nav-link" href="#" id="portfolio-link">Portfolios</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showReports()">Reports</a>
+                        <a class="nav-link" href="#" id="analysis-link">Market Analysis</a>
                     </li>
                 </ul>
-                <div class="d-flex">
-                    <span class="navbar-text me-3">Advisor: John Doe</span>
-                    <button class="btn btn-outline-light btn-sm" onclick="logout()">Logout</button>
+                <div class="navbar-nav">
+                    <a class="nav-link" href="#" id="login-link">Login</a>
                 </div>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-2 sidebar d-none d-md-block">
-                <div class="p-3">
-                    <h6 class="text-muted">QUICK ACTIONS</h6>
-                    <div class="d-grid gap-2">
-                        <button class="btn btn-outline-primary btn-sm" onclick="addNewHolding()">
-                            Add New Holding
-                        </button>
-                        <button class="btn btn-outline-secondary btn-sm" onclick="generateReport()">
-                            Generate Report
-                        </button>
+    <!-- Main Content Container -->
+    <div class="container-fluid mt-4">
+        <!-- Dashboard Section -->
+        <section id="dashboard-section">
+            <div class="row">
+                <div class="col-12">
+                    <h2 class="mb-4">Investment Dashboard</h2>
+                </div>
+            </div>
+            
+            <!-- Portfolio Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card dashboard-card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Portfolio Value</h5>
+                            <h3 class="card-text" id="total-portfolio-value">₹0.00</h3>
+                        </div>
                     </div>
-                    
-                    <h6 class="text-muted mt-4">PORTFOLIO SUMMARY</h6>
-                    <div class="small">
-                        <div class="d-flex justify-content-between">
-                            <span>Total Value:</span>
-                            <span id="sidebar-total-value">₹0</span>
+                </div>
+                <div class="col-md-3">
+                    <div class="card dashboard-card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Today's Gain/Loss</h5>
+                            <h3 class="card-text" id="daily-change">₹0.00</h3>
                         </div>
-                        <div class="d-flex justify-content-between">
-                            <span>Holdings:</span>
-                            <span id="sidebar-holdings">0</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card dashboard-card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Active Signals</h5>
+                            <h3 class="card-text" id="active-signals">0</h3>
                         </div>
-                        <div class="d-flex justify-content-between">
-                            <span>Signals:</span>
-                            <span id="sidebar-signals">0</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card dashboard-card bg-warning text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Sectors Covered</h5>
+                            <h3 class="card-text" id="sectors-covered">0</h3>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Main Content -->
-            <div class="col-md-10">
-                <!-- Dashboard Section -->
-                <div id="dashboard-section">
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <h2>Dashboard Overview</h2>
-                            <div class="row">
-                                <div class="col-md-3 mb-3">
-                                    <div class="card dashboard-card">
-                                        <div class="card-body">
-                                            <h6 class="card-title">Total Portfolio Value</h6>
-                                            <h3 id="total-value">₹0</h3>
-                                            <span class="text-success small" id="portfolio-change">+0%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <div class="card dashboard-card">
-                                        <div class="card-body">
-                                            <h6 class="card-title">Number of Holdings</h6>
-                                            <h3 id="holdings-count">0</h3>
-                                            <span class="text-muted small">Indian Equities</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <div class="card dashboard-card">
-                                        <div class="card-body">
-                                            <h6 class="card-title">Buy Signals</h6>
-                                            <h3 id="buy-signals">0</h3>
-                                            <span class="text-success small">Recommended</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <div class="card dashboard-card">
-                                        <div class="card-body">
-                                            <h6 class="card-title">Market Performance</h6>
-                                            <h3 id="market-performance">0%</h3>
-                                            <span class="text-muted small">Nifty 50</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row mt-4">
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h6>Portfolio Allocation</h6>
-                                </div>
-                                <div class="card-body">
-                                    <canvas id="allocation-chart" height="250"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h6>Recent Signals</h6>
-                                </div>
-                                <div class="card-body">
-                                    <div id="recent-signals">
-                                        <div class="text-center py-4">
-                                            <div class="spinner-border text-primary" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+            <!-- Charts Row -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card dashboard-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Portfolio Performance</h5>
+                            <canvas id="performance-chart" height="250"></canvas>
                         </div>
                     </div>
                 </div>
-
-                <!-- Portfolio Section -->
-                <div id="portfolio-section" style="display: none;">
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h2>Portfolio Management</h2>
-                                <button class="btn btn-primary" onclick="showAddHoldingModal()">
-                                    Add Holding
-                                </button>
-                            </div>
-                            
-                            <div class="card mt-3">
-                                <div class="card-body">
-                                    <div class="table-responsive">
-                                        <table class="table table-hover portfolio-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Stock</th>
-                                                    <th>Quantity</th>
-                                                    <th>Avg Price</th>
-                                                    <th>Current Price</th>
-                                                    <th>Value</th>
-                                                    <th>Signal</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="portfolio-table-body">
-                                                <tr>
-                                                    <td colspan="7" class="text-center py-4">
-                                                        <div class="spinner-border text-primary" role="status">
-                                                            <span class="visually-hidden">Loading...</span>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
+                <div class="col-md-6">
+                    <div class="card dashboard-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Sector Allocation</h5>
+                            <canvas id="sector-chart" height="250"></canvas>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Reports Section -->
-                <div id="reports-section" style="display: none;">
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <h2>Performance Reports</h2>
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <div class="card">
-                                        <div class="card-header">
-                                            <h6>Portfolio Performance</h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <canvas id="performance-chart" height="300"></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card">
-                                        <div class="card-header">
-                                            <h6>Signal Distribution</h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <canvas id="signal-chart" height="250"></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="row mt-4">
-                                <div class="col-12">
-                                    <div class="card">
-                                        <div class="card-header">
-                                            <h6>Sector Analysis</h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <canvas id="sector-chart" height="200"></canvas>
-                                        </div>
-                                    </div>
-                                </div>
+            <!-- Recent Signals -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Recent Advisory Signals</h5>
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="signals-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Stock</th>
+                                            <th>Sector</th>
+                                            <th>Signal</th>
+                                            <th>Price</th>
+                                            <th>Change</th>
+                                            <th>Timestamp</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Signals will be populated dynamically -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <!-- Add Holding Modal -->
-    <div class="modal fade" id="addHoldingModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add New Holding</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="add-holding-form">
-                        <div class="mb-3">
-                            <label class="form-label">Stock Symbol</label>
-                            <input type="text" class="form-control" name="symbol" required 
-                                   placeholder="e.g., RELIANCE, INFY">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Quantity</label>
-                            <input type="number" class="form-control" name="quantity" required min="1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Average Price (₹)</label>
-                            <input type="number" class="form-control" name="avg_price" required step="0.01" min="0">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Purchase Date</label>
-                            <input type="date" class="form-control" name="purchase_date" required>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="saveHolding()">Save Holding</button>
+        <!-- Portfolio Management Section -->
+        <section id="portfolio-section" class="d-none">
+            <div class="row mb-4">
+                <div class="col-12 d-flex justify-content-between align-items-center">
+                    <h2>Portfolio Management</h2>
+                    <button class="btn btn-primary" id="create-portfolio-btn">Create New Portfolio</button>
                 </div>
             </div>
-        </div>
+
+            <!-- Portfolio List -->
+            <div class="row" id="portfolio-list">
+                <!-- Portfolios will be populated dynamically -->
+            </div>
+
+            <!-- Create Portfolio Modal -->
+            <div class="modal fade" id="createPortfolioModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Create New Portfolio</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="portfolio-form">
+                                <div class="mb-3">
+                                    <label for="portfolio-name" class="form-label">Portfolio Name</label>
+                                    <input type="text" class="form-control" id="portfolio-name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="portfolio-description" class="form-label">Description</label>
+                                    <textarea class="form-control" id="portfolio-description" rows="3"></textarea>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="save-portfolio-btn">Create Portfolio</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Market Analysis Section -->
+        <section id="analysis-section" class="d-none">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h2>Market Analysis & Sentiment</h2>
+                </div>
+            </div>
+
+            <!-- Sector Performance -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Sector Performance</h5>
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="sector-performance-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Sector</th>
+                                            <th>Performance</th>
+                                            <th>Sentiment</th>
+                                            <th>Top Stock</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Sector data will be populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Market Sentiment Overview -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Market Sentiment Overview</h5>
+                            <canvas id="sentiment-chart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Key Metrics</h5>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Market Breadth:</span>
+                                <span id="market-breadth">-</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Advance/Decline:</span>
+                                <span id="advance-decline">-</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Volatility Index:</span>
+                                <span id="volatility-index">-</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Overall Sentiment:</span>
+                                <span id="overall-sentiment">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
     </div>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
+    <!-- Custom JavaScript -->
     <script>
         // Global variables
-        let portfolioData = [];
-        let signalsData = [];
+        let currentUser = null;
+        let portfolios = [];
+        let marketData = [];
+        let advisorySignals = [];
 
-        // Initialize application
+        // DOM Content Loaded
         document.addEventListener('DOMContentLoaded', function() {
-            loadPortfolioData();
-            loadSignals();
-            updateDashboard();
+            initializeApplication();
+            setupEventListeners();
+            loadDummyData();
         });
 
-        // Navigation functions
-        function showDashboard() {
-            document.getElementById('dashboard-section').style.display = 'block';
-            document.getElementById('portfolio-section').style.display = 'none';
-            document.getElementById('reports-section').style.display = 'none';
-            updateDashboard();
-        }
-
-        function showPortfolio() {
-            document.getElementById('dashboard-section').style.display = 'none';
-            document.getElementById('portfolio-section').style.display = 'block';
-            document.getElementById('reports-section').style.display = 'none';
-            loadPortfolioData();
-        }
-
-        function showReports() {
-            document.getElementById('dashboard-section').style.display = 'none';
-            document.getElementById('portfolio-section').style.display = 'none';
-            document.getElementById('reports-section').style.display = 'block';
-            generateReports();
-        }
-
-        // API Functions
-        async function loadPortfolioData() {
-            try {
-                const response = await fetch('/api/portfolio');
-                if (!response.ok) throw new Error('Failed to fetch portfolio data');
-                
-                portfolioData = await response.json();
-                renderPortfolioTable();
-                updateSidebarSummary();
-            } catch (error) {
-                console.error('Error loading portfolio:', error);
-                // Fallback to dummy data
-                portfolioData = getDummyPortfolioData();
-                renderPortfolioTable();
-                updateSidebarSummary();
-            }
-        }
-
-        async function loadSignals() {
-            try {
-                const response = await fetch('/api/signals');
-                if (!response.ok) throw new Error('Failed to fetch signals');
-                
-                signalsData = await response.json();
-                renderRecentSignals();
-            } catch (error) {
-                console.error('Error loading signals:', error);
-                // Fallback to dummy data
-                signalsData = getDummySignals();
-                renderRecentSignals();
-            }
-        }
-
-        async function saveHolding() {
-            const form = document.getElementById('add-holding-form');
-            const formData = new FormData(form);
-            const holdingData = Object.fromEntries(formData.entries());
+        // Initialize application
+        function initializeApplication() {
+            // Check if user is logged in (simulated)
+            checkAuthentication();
             
+            // Load initial data
+            fetchPortfolios();
+            fetchMarketData();
+            fetchAdvisorySignals();
+            
+            // Initialize charts
+            initializeCharts();
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Navigation
+            document.getElementById('dashboard-link').addEventListener('click', showDashboard);
+            document.getElementById('portfolio-link').addEventListener('click', showPortfolioSection);
+            document.getElementById('analysis-link').addEventListener('click', showAnalysisSection);
+            document.getElementById('login-link').addEventListener('click', handleLogin);
+
+            // Portfolio management
+            document.getElementById('create-portfolio-btn').addEventListener('click', showCreatePortfolioModal);
+            document.getElementById('save-portfolio-btn').addEventListener('click', createPortfolio);
+        }
+
+        // Authentication functions
+        function checkAuthentication() {
+            // Simulated authentication check
+            currentUser = { id: 1, name: 'Demo Advisor', role: 'advisor' };
+            updateUIForUserRole();
+        }
+
+        function updateUIForUserRole() {
+            if (currentUser && currentUser.role === 'advisor') {
+                // Show advisor-specific features
+                document.getElementById('analysis-link').classList.remove('d-none');
+            }
+        }
+
+        function handleLogin() {
+            // Simulated login - in real app, this would show login modal
+            alert('Login functionality would be implemented here');
+        }
+
+        // Section navigation
+        function showDashboard() {
+            hideAllSections();
+            document.getElementById('dashboard-section').classList.remove('d-none');
+        }
+
+        function showPortfolioSection() {
+            hideAllSections();
+            document.getElementById('portfolio-section').classList.remove('d-none');
+        }
+
+        function showAnalysisSection() {
+            hideAllSections();
+            document.getElementById('analysis-section').classList.remove('d-none');
+        }
+
+        function hideAllSections() {
+            document.getElementById('dashboard-section').classList.add('d-none');
+            document.getElementById('portfolio-section').classList.add('d-none');
+            document.getElementById('analysis-section').classList.add('d-none');
+        }
+
+        // API Integration functions
+        async function fetchPortfolios() {
             try {
-                const response = await fetch('/api/portfolio', {
+                const response = await fetch('/api/portfolios');
+                if (response.ok) {
+                    portfolios = await response.json();
+                    renderPortfolios();
+                } else {
+                    console.error('Failed to fetch portfolios');
+                }
+            } catch (error) {
+                console.error('Error fetching portfolios:', error);
+                // Fall back to dummy data
+                renderPortfolios();
+            }
+        }
+
+        async function fetchMarketData() {
+            try {
+                const response = await fetch('/api/market-data');
+                if (response.ok) {
+                    marketData = await response.json();
+                    renderMarketData();
+                } else {
+                    console.error('Failed to fetch market data');
+                }
+            } catch (error) {
+                console.error('Error fetching market data:', error);
+                // Fall back to dummy data
+                renderMarketData();
+            }
+        }
+
+        async function fetchAdvisorySignals() {
+            try {
+                const response = await fetch('/api/advisory-signals');
+                if (response.ok) {
+                    advisorySignals = await response.json();
+                    renderAdvisorySignals();
+                } else {
+                    console.error('Failed to fetch advisory signals');
+                }
+            } catch (error) {
+                console.error('Error fetching advisory signals:', error);
+                // Fall back to dummy data
+                renderAdvisorySignals();
+            }
+        }
+
+        async function createPortfolio() {
+            const name = document.getElementById('portfolio-name').value;
+            const description = document.getElementById('portfolio-description').value;
+
+            if (!name) {
+                alert('Portfolio name is required');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/portfolios', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(holdingData)
+                    body: JSON.stringify({
+                        name: name,
+                        description: description,
+                        userId: currentUser.id
+                    })
                 });
-                
-                if (!response.ok) throw new Error('Failed to save holding');
-                
-                // Close modal and refresh data
-                bootstrap.Modal.getInstance(document.getElementById('addHoldingModal')).hide();
-                loadPortfolioData();
-                showToast('Holding added successfully!', 'success');
+
+                if (response.ok) {
+                    const newPortfolio = await response.json();
+                    portfolios.push(newPortfolio);
+                    renderPortfolios();
+                    
+                    // Hide modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('createPortfolioModal'));
+                    modal.hide();
+                    
+                    // Reset form
+                    document.getElementById('portfolio-form').reset();
+                } else {
+                    alert('Failed to create portfolio');
+                }
             } catch (error) {
-                console.error('Error saving holding:', error);
-                showToast('Error adding holding. Using dummy data.', 'error');
-                
-                // Fallback: Add to local dummy data
-                const newHolding = {
-                    id: Date.now(),
-                    symbol: holdingData.symbol,
-                    quantity: parseInt(holdingData.quantity),
-                    avg_price: parseFloat(holdingData.avg_price),
-                    current_price: parseFloat(holdingData.avg_price) * (0.9 + Math.random() * 0.2),
-                    signal: Math.random() > 0.33 ? (Math.random() > 0.5 ? 'Buy' : 'Hold') : 'Sell'
-                };
-                portfolioData.push(newHolding);
-                renderPortfolioTable();
-                updateSidebarSummary();
+                console.error('Error creating portfolio:', error);
+                alert('Error creating portfolio');
             }
         }
 
-        async function deleteHolding(id) {
-            try {
-                const response = await fetch(`/api/portfolio/${id}`, {
-                    method: 'DELETE'
-                });
-                
-                if (!response.ok) throw new Error('Failed to delete holding');
-                
-                loadPortfolioData();
-                showToast('Holding deleted successfully!', 'success');
-            } catch (error) {
-                console.error('Error deleting holding:', error);
-                showToast('Error deleting holding. Using dummy data.', 'error');
-                
-                // Fallback: Remove from local data
-                portfolioData = portfolioData.filter(item => item.id !== id);
-                renderPortfolioTable();
-                updateSidebarSummary();
+        // Render functions
+        function renderPortfolios() {
+            const portfolioList = document.getElementById('portfolio-list');
+            portfolioList.innerHTML = '';
+
+            if (portfolios.length === 0) {
+                portfolioList.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            No portfolios found. Create your first portfolio to get started.
+                        </div>
+                    </div>
+                `;
+                return;
             }
-        }
 
-        // UI Rendering Functions
-        function renderPortfolioTable() {
-            const tbody = document.getElementById('portfolio-table-body');
-            tbody.innerHTML = '';
-            
-            portfolioData.forEach(holding => {
-                const row = document.createElement('tr');
-                const totalValue = holding.quantity * holding.current_price;
-                const profitLoss = ((holding.current_price - holding.avg_price) / holding.avg_price) * 100;
-                
-                row.innerHTML = `
-                    <td><strong>${holding.symbol}</strong></td>
-                    <td>${holding.quantity}</td>
-                    <td>₹${holding.avg_price.toFixed(2)}</td>
-                    <td>₹${holding.current_price.toFixed(2)}</td>
-                    <td>₹${totalValue.toFixed(2)}</td>
-                    <td>
-                        <span class="badge ${getSignalClass(holding.signal)}">
-                            ${holding.signal}
-                        </span>
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteHolding(${holding.id})">
-                            Delete
-                        </button>
-                    </td>
+            portfolios.forEach(portfolio => {
+                const portfolioCard = `
+                    <div class="col-md-4 mb-4">
+                        <div class="card portfolio-card">
+                            <div class="card-body">
+                                <h5 class="card-title">${portfolio.name}</h5>
+                                <p class="card-text">${portfolio.description || 'No description'}</p>
+                                <p class="card-text">
+                                    <small class="text-muted">Created: ${new Date(portfolio.createdAt).toLocaleDateString()}</small>
+                                </p>
+                                <div class="d-flex justify-content-between">
+                                    <span class="badge bg-primary">₹${portfolio.totalValue?.toLocaleString('en-IN') || '0'}</span>
+                                    <span class="badge bg-secondary">${portfolio.stockCount || 0} stocks</span>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn btn-outline-primary btn-sm view-portfolio" data-id="${portfolio.id}">View Details</button>
+                                    <button class="btn btn-outline-danger btn-sm delete-portfolio" data-id="${portfolio.id}">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 `;
-                tbody.appendChild(row);
+                portfolioList.innerHTML += portfolioCard;
+            });
+
+            // Add event listeners to portfolio actions
+            document.querySelectorAll('.view-portfolio').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const portfolioId = this.getAttribute('data-id');
+                    viewPortfolioDetails(portfolioId);
+                });
+            });
+
+            document.querySelectorAll('.delete-portfolio').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const portfolioId = this.getAttribute('data-id');
+                    deletePortfolio(portfolioId);
+                });
             });
         }
 
-        function renderRecentSignals() {
-            const container = document.getElementById('recent-signals');
-            container.innerHTML = '';
-            
-            signalsData.slice(0, 5).forEach(signal => {
-                const signalElement = document.createElement('div');
-                signalElement.className = `alert ${getSignalClass(signal.signal)} mb-2`;
-                signalElement.innerHTML = `
-                    <strong>${signal.symbol}</strong>: ${signal.signal} - ${signal.reason}
-                    <br><small class="text-muted">${new Date(signal.timestamp).toLocaleDateString()}</small>
-                `;
-                container.appendChild(signalElement);
-            });
-        }
+        function renderMarketData() {
+            // Render sector performance table
+            const sectorTable = document.getElementById('sector-performance-table').querySelector('tbody');
+            sectorTable.innerHTML = '';
 
-        function updateDashboard() {
-            // Update summary cards
-            const totalValue = portfolioData.reduce((sum, holding) => 
-                sum + (holding.quantity * holding.current_price), 0);
-            document.getElementById('total-value').textContent = `₹${totalValue.toLocaleString()}`;
-            document.getElementById('holdings-count').textContent = portfolioData.length;
-            
-            const buySignals = portfolioData.filter(h => h.signal === 'Buy').length;
-            document.getElementById('buy-signals').textContent
+            // Group by sector and calculate performance
+            const sectorPerformance = {};
+            marketData.forEach(stock => {
+                if (!sectorPerformance[stock.sector]) {
+                    sectorPerformance[stock.sector] = {
+                        stocks: [],
+                        totalChange: 0,
+                        count: 0
+                    };
+                }
+                sectorPerformance[stock.sector].stocks.push(stock);
+                sectorPerformance[stock.sector].totalChange += stock.changePercent;
+                sectorPerformance[stock.sector].count++;
+            });
+
+            // Calculate average performance per sector
+            Object.keys(sectorPerformance).forEach(sector => {
+                const avgChange = sectorPerformance[sector].totalChange

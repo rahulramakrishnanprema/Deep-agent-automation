@@ -1,446 +1,350 @@
-// script.js - Frontend JavaScript for Portfolio Management Dashboard
+// script.js - Frontend JavaScript for Indian Equity Portfolio Management System
 
-// Global variables
-let currentUser = null;
-let portfolioData = [];
-let advisorySignals = [];
-
-// DOM Content Loaded Event
 document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
-});
-
-// Initialize Application
-function initializeApp() {
-    checkAuthentication();
-    setupEventListeners();
-    loadDashboardData();
-}
-
-// Check Authentication Status
-async function checkAuthentication() {
-    try {
-        const response = await fetch('/api/auth/status', {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            currentUser = data.user;
-            updateUIForAuthenticatedUser();
-        } else {
-            redirectToLogin();
-        }
-    } catch (error) {
-        console.error('Authentication check failed:', error);
-        redirectToLogin();
-    }
-}
-
-// Setup Event Listeners
-function setupEventListeners() {
-    // Login Form
+    // Authentication state management
+    let currentUser = null;
+    let authToken = localStorage.getItem('authToken');
+    
+    // DOM Elements
     const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', handleLogin);
-    }
-
-    // Logout Button
+    const portfolioTable = document.getElementById('portfolioTable');
+    const advisorDashboard = document.getElementById('advisorDashboard');
     const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
-    }
-
-    // Portfolio Management
-    const addStockForm = document.getElementById('addStockForm');
-    if (addStockForm) {
-        addStockForm.addEventListener('submit', handleAddStock);
-    }
-
-    // Refresh Data Button
-    const refreshBtn = document.getElementById('refreshBtn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadDashboardData);
-    }
-
-    // Responsive Menu Toggle
-    const menuToggle = document.getElementById('menuToggle');
-    if (menuToggle) {
-        menuToggle.addEventListener('click', toggleMobileMenu);
-    }
-}
-
-// Handle Login
-async function handleLogin(event) {
-    event.preventDefault();
+    const portfolioForm = document.getElementById('portfolioForm');
+    const chartsContainer = document.getElementById('chartsContainer');
     
-    const formData = new FormData(event.target);
-    const credentials = {
-        email: formData.get('email'),
-        password: formData.get('password')
-    };
-
-    try {
-        const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(credentials),
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            currentUser = data.user;
-            window.location.href = '/dashboard.html';
-        } else {
-            showNotification('Login failed. Please check your credentials.', 'error');
-        }
-    } catch (error) {
-        console.error('Login error:', error);
-        showNotification('Network error. Please try again.', 'error');
+    // Initialize application
+    initApp();
+    
+    function initApp() {
+        checkAuthentication();
+        setupEventListeners();
     }
-}
-
-// Handle Logout
-async function handleLogout() {
-    try {
-        await fetch('/api/auth/logout', {
-            method: 'POST',
-            credentials: 'include'
-        });
+    
+    function checkAuthentication() {
+        if (authToken) {
+            verifyToken();
+        } else {
+            showLogin();
+        }
+    }
+    
+    async function verifyToken() {
+        try {
+            const response = await fetch('/api/verify-token', {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+            
+            if (response.ok) {
+                const userData = await response.json();
+                currentUser = userData;
+                showDashboard();
+                loadPortfolioData();
+                if (currentUser.role === 'advisor') {
+                    loadAdvisoryData();
+                }
+            } else {
+                localStorage.removeItem('authToken');
+                showLogin();
+            }
+        } catch (error) {
+            console.error('Token verification failed:', error);
+            showLogin();
+        }
+    }
+    
+    function setupEventListeners() {
+        // Login form submission
+        if (loginForm) {
+            loginForm.addEventListener('submit', handleLogin);
+        }
         
+        // Logout button
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', handleLogout);
+        }
+        
+        // Portfolio form submission
+        if (portfolioForm) {
+            portfolioForm.addEventListener('submit', handlePortfolioSubmit);
+        }
+    }
+    
+    async function handleLogin(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                authToken = data.token;
+                localStorage.setItem('authToken', authToken);
+                currentUser = data.user;
+                showDashboard();
+                loadPortfolioData();
+            } else {
+                alert('Login failed. Please check your credentials.');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Login failed. Please try again.');
+        }
+    }
+    
+    function handleLogout() {
+        localStorage.removeItem('authToken');
+        authToken = null;
         currentUser = null;
-        redirectToLogin();
-    } catch (error) {
-        console.error('Logout error:', error);
+        showLogin();
     }
-}
-
-// Load Dashboard Data
-async function loadDashboardData() {
-    try {
-        showLoadingState(true);
-        
-        // Load portfolio data
-        const portfolioResponse = await fetch('/api/portfolio', {
-            credentials: 'include'
-        });
-        
-        if (portfolioResponse.ok) {
-            portfolioData = await portfolioResponse.json();
-            renderPortfolioTable(portfolioData);
-        }
-
-        // Load advisory signals
-        const signalsResponse = await fetch('/api/advisory/signals', {
-            credentials: 'include'
-        });
-        
-        if (signalsResponse.ok) {
-            advisorySignals = await signalsResponse.json();
-            renderAdvisorySignals(advisorySignals);
-        }
-
-        // Load dashboard charts
-        await loadCharts();
-
-    } catch (error) {
-        console.error('Failed to load dashboard data:', error);
-        showNotification('Failed to load data. Please try again.', 'error');
-    } finally {
-        showLoadingState(false);
-    }
-}
-
-// Handle Add Stock to Portfolio
-async function handleAddStock(event) {
-    event.preventDefault();
     
-    const formData = new FormData(event.target);
-    const stockData = {
-        symbol: formData.get('symbol'),
-        quantity: parseInt(formData.get('quantity')),
-        purchase_price: parseFloat(formData.get('purchase_price')),
-        purchase_date: formData.get('purchase_date')
-    };
-
-    try {
-        const response = await fetch('/api/portfolio', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(stockData),
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            const newStock = await response.json();
-            portfolioData.push(newStock);
-            renderPortfolioTable(portfolioData);
-            event.target.reset();
-            showNotification('Stock added successfully!', 'success');
-            
-            // Refresh advisory signals
-            await loadAdvisorySignals();
+    function showLogin() {
+        document.getElementById('loginSection').classList.remove('d-none');
+        document.getElementById('dashboardSection').classList.add('d-none');
+        document.getElementById('advisorSection').classList.add('d-none');
+    }
+    
+    function showDashboard() {
+        document.getElementById('loginSection').classList.add('d-none');
+        document.getElementById('dashboardSection').classList.remove('d-none');
+        
+        if (currentUser.role === 'advisor') {
+            document.getElementById('advisorSection').classList.remove('d-none');
         } else {
-            showNotification('Failed to add stock. Please try again.', 'error');
+            document.getElementById('advisorSection').classList.add('d-none');
         }
-    } catch (error) {
-        console.error('Add stock error:', error);
-        showNotification('Network error. Please try again.', 'error');
     }
-}
-
-// Render Portfolio Table
-function renderPortfolioTable(data) {
-    const tableBody = document.getElementById('portfolioTableBody');
-    if (!tableBody) return;
-
-    tableBody.innerHTML = '';
     
-    data.forEach(stock => {
-        const row = document.createElement('tr');
-        
-        row.innerHTML = `
-            <td>${stock.symbol}</td>
-            <td>${stock.quantity}</td>
-            <td>₹${stock.purchase_price.toFixed(2)}</td>
-            <td>₹${stock.current_price.toFixed(2)}</td>
-            <td>${calculateProfitLoss(stock)}</td>
-            <td>${getSignalBadge(stock.advisory_signal)}</td>
-            <td>
-                <button class="btn btn-sm btn-danger" onclick="deleteStock(${stock.id})">
-                    Delete
-                </button>
-            </td>
-        `;
-        
-        tableBody.appendChild(row);
-    });
-}
-
-// Render Advisory Signals
-function renderAdvisorySignals(signals) {
-    const container = document.getElementById('advisorySignalsContainer');
-    if (!container) return;
-
-    container.innerHTML = '';
+    async function loadPortfolioData() {
+        try {
+            const response = await fetch('/api/portfolio', {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+            
+            if (response.ok) {
+                const portfolioData = await response.json();
+                renderPortfolioTable(portfolioData);
+                renderPortfolioCharts(portfolioData);
+            }
+        } catch (error) {
+            console.error('Failed to load portfolio:', error);
+        }
+    }
     
-    signals.forEach(signal => {
-        const card = document.createElement('div');
-        card.className = 'col-md-6 col-lg-4 mb-3';
+    async function loadAdvisoryData() {
+        try {
+            const response = await fetch('/api/advisory/signals', {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+            
+            if (response.ok) {
+                const signals = await response.json();
+                renderAdvisorySignals(signals);
+            }
+        } catch (error) {
+            console.error('Failed to load advisory signals:', error);
+        }
+    }
+    
+    async function handlePortfolioSubmit(e) {
+        e.preventDefault();
         
-        card.innerHTML = `
-            <div class="card signal-card ${getSignalClass(signal.signal)}">
+        const formData = new FormData(portfolioForm);
+        const portfolioItem = {
+            stock_symbol: formData.get('stock_symbol'),
+            quantity: parseInt(formData.get('quantity')),
+            purchase_price: parseFloat(formData.get('purchase_price')),
+            purchase_date: formData.get('purchase_date')
+        };
+        
+        try {
+            const response = await fetch('/api/portfolio', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify(portfolioItem)
+            });
+            
+            if (response.ok) {
+                portfolioForm.reset();
+                loadPortfolioData();
+            } else {
+                alert('Failed to add portfolio item');
+            }
+        } catch (error) {
+            console.error('Portfolio submission error:', error);
+            alert('Failed to add portfolio item');
+        }
+    }
+    
+    function renderPortfolioTable(portfolioData) {
+        const tbody = portfolioTable.querySelector('tbody');
+        tbody.innerHTML = '';
+        
+        portfolioData.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${item.stock_symbol}</td>
+                <td>${item.quantity}</td>
+                <td>₹${item.purchase_price.toFixed(2)}</td>
+                <td>₹${item.current_price.toFixed(2)}</td>
+                <td>${item.purchase_date}</td>
+                <td>₹${(item.quantity * item.current_price).toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="deletePortfolioItem(${item.id})">
+                        Delete
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+    
+    function renderPortfolioCharts(portfolioData) {
+        // Clear previous charts
+        chartsContainer.innerHTML = '';
+        
+        // Create allocation chart
+        const allocationCanvas = document.createElement('canvas');
+        allocationCanvas.id = 'allocationChart';
+        chartsContainer.appendChild(allocationCanvas);
+        
+        const allocationData = {
+            labels: portfolioData.map(item => item.stock_symbol),
+            datasets: [{
+                data: portfolioData.map(item => item.quantity * item.current_price),
+                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
+            }]
+        };
+        
+        new Chart(allocationCanvas, {
+            type: 'pie',
+            data: allocationData,
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Portfolio Allocation'
+                    }
+                }
+            }
+        });
+        
+        // Create performance chart
+        const performanceCanvas = document.createElement('canvas');
+        performanceCanvas.id = 'performanceChart';
+        chartsContainer.appendChild(performanceCanvas);
+        
+        const performanceData = {
+            labels: portfolioData.map(item => item.stock_symbol),
+            datasets: [{
+                label: 'Purchase Value',
+                data: portfolioData.map(item => item.quantity * item.purchase_price),
+                backgroundColor: '#36A2EB'
+            }, {
+                label: 'Current Value',
+                data: portfolioData.map(item => item.quantity * item.current_price),
+                backgroundColor: '#FF6384'
+            }]
+        };
+        
+        new Chart(performanceCanvas, {
+            type: 'bar',
+            data: performanceData,
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Investment Performance'
+                    }
+                }
+            }
+        });
+    }
+    
+    function renderAdvisorySignals(signals) {
+        const signalsContainer = document.getElementById('advisorySignals');
+        signalsContainer.innerHTML = '';
+        
+        signals.forEach(signal => {
+            const card = document.createElement('div');
+            card.className = 'card mb-3';
+            
+            let badgeClass = 'bg-secondary';
+            if (signal.recommendation === 'Buy') badgeClass = 'bg-success';
+            else if (signal.recommendation === 'Sell') badgeClass = 'bg-danger';
+            
+            card.innerHTML = `
                 <div class="card-body">
-                    <h5 class="card-title">${signal.symbol}</h5>
-                    <span class="signal-badge ${getSignalClass(signal.signal)}">
-                        ${signal.signal}
-                    </span>
-                    <p class="card-text mt-2">${signal.reason}</p>
-                    <small class="text-muted">Updated: ${new Date(signal.updated_at).toLocaleDateString()}</small>
+                    <h5 class="card-title">
+                        ${signal.stock_symbol}
+                        <span class="badge ${badgeClass} float-end">${signal.recommendation}</span>
+                    </h5>
+                    <p class="card-text">
+                        <strong>Target Price:</strong> ₹${signal.target_price.toFixed(2)}<br>
+                        <strong>Confidence:</strong> ${signal.confidence_score}%<br>
+                        <strong>Reason:</strong> ${signal.reason}
+                    </p>
+                    <small class="text-muted">Last updated: ${new Date(signal.updated_at).toLocaleDateString()}</small>
                 </div>
-            </div>
-        `;
-        
-        container.appendChild(card);
-    });
-}
-
-// Load Charts
-async function loadCharts() {
-    try {
-        // Load portfolio allocation chart
-        const allocationResponse = await fetch('/api/portfolio/allocation', {
-            credentials: 'include'
-        });
-        
-        if (allocationResponse.ok) {
-            const allocationData = await allocationResponse.json();
-            renderAllocationChart(allocationData);
-        }
-
-        // Load performance chart
-        const performanceResponse = await fetch('/api/portfolio/performance', {
-            credentials: 'include'
-        });
-        
-        if (performanceResponse.ok) {
-            const performanceData = await performanceResponse.json();
-            renderPerformanceChart(performanceData);
-        }
-
-    } catch (error) {
-        console.error('Failed to load charts:', error);
-    }
-}
-
-// Render Allocation Chart
-function renderAllocationChart(data) {
-    const ctx = document.getElementById('allocationChart');
-    if (!ctx) return;
-
-    // Using Chart.js (assumed to be included)
-    new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: data.labels,
-            datasets: [{
-                data: data.values,
-                backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
-        }
-    });
-}
-
-// Render Performance Chart
-function renderPerformanceChart(data) {
-    const ctx = document.getElementById('performanceChart');
-    if (!ctx) return;
-
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.dates,
-            datasets: [{
-                label: 'Portfolio Value',
-                data: data.values,
-                borderColor: '#4e73df',
-                fill: false
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
-        }
-    });
-}
-
-// Delete Stock
-async function deleteStock(stockId) {
-    if (!confirm('Are you sure you want to delete this stock?')) return;
-
-    try {
-        const response = await fetch(`/api/portfolio/${stockId}`, {
-            method: 'DELETE',
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            portfolioData = portfolioData.filter(stock => stock.id !== stockId);
-            renderPortfolioTable(portfolioData);
-            showNotification('Stock deleted successfully!', 'success');
+            `;
             
-            // Refresh data
-            await loadDashboardData();
-        } else {
-            showNotification('Failed to delete stock.', 'error');
+            signalsContainer.appendChild(card);
+        });
+    }
+    
+    // Global function for portfolio deletion
+    window.deletePortfolioItem = async function(itemId) {
+        if (!confirm('Are you sure you want to delete this item?')) return;
+        
+        try {
+            const response = await fetch(`/api/portfolio/${itemId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+            
+            if (response.ok) {
+                loadPortfolioData();
+            } else {
+                alert('Failed to delete portfolio item');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            alert('Failed to delete portfolio item');
         }
-    } catch (error) {
-        console.error('Delete stock error:', error);
-        showNotification('Network error. Please try again.', 'error');
-    }
-}
-
-// Helper Functions
-function calculateProfitLoss(stock) {
-    const profitLoss = (stock.current_price - stock.purchase_price) * stock.quantity;
-    const percentage = ((stock.current_price - stock.purchase_price) / stock.purchase_price) * 100;
+    };
     
-    const colorClass = profitLoss >= 0 ? 'text-success' : 'text-danger';
-    return `
-        <span class="${colorClass}">
-            ₹${profitLoss.toFixed(2)} (${percentage.toFixed(2)}%)
-        </span>
-    `;
-}
-
-function getSignalBadge(signal) {
-    const signalClass = getSignalClass(signal);
-    return `<span class="badge ${signalClass}">${signal}</span>`;
-}
-
-function getSignalClass(signal) {
-    switch (signal.toLowerCase()) {
-        case 'buy': return 'bg-success';
-        case 'hold': return 'bg-warning';
-        case 'sell': return 'bg-danger';
-        default: return 'bg-secondary';
-    }
-}
-
-function showLoadingState(show) {
-    const loadingElement = document.getElementById('loadingIndicator');
-    const contentElement = document.getElementById('contentArea');
-    
-    if (loadingElement) loadingElement.style.display = show ? 'block' : 'none';
-    if (contentElement) contentElement.style.display = show ? 'none' : 'block';
-}
-
-function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `alert alert-${type} alert-dismissible fade show`;
-    notification.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-
-    // Add to page
-    const container = document.getElementById('notificationContainer') || document.body;
-    container.appendChild(notification);
-
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        notification.remove();
-    }, 5000);
-}
-
-function updateUIForAuthenticatedUser() {
-    const userElement = document.getElementById('userName');
-    if (userElement && currentUser) {
-        userElement.textContent = currentUser.name;
+    // Responsive design adjustments
+    function handleResize() {
+        const charts = document.querySelectorAll('canvas');
+        charts.forEach(chart => {
+            chart.style.maxWidth = '100%';
+            chart.style.height = 'auto';
+        });
     }
     
-    // Show/hide authenticated elements
-    const authElements = document.querySelectorAll('.auth-only');
-    authElements.forEach(el => el.style.display = 'block');
-    
-    const unauthElements = document.querySelectorAll('.unauth-only');
-    unauthElements.forEach(el => el.style.display = 'none');
-}
-
-function redirectToLogin() {
-    if (!window.location.pathname.includes('login.html')) {
-        window.location.href = '/login.html';
-    }
-}
-
-function toggleMobileMenu() {
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) {
-        sidebar.classList.toggle('mobile-show');
-    }
-}
-
-// Responsive event listeners
-window.addEventListener('resize', function() {
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar && window.innerWidth >= 768) {
-        sidebar.classList.remove('mobile-show');
-    }
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial call
 });
-
-// Export for global access (if needed)
-window.PortfolioManager = {
-    loadDashboardData,
-    deleteStock,
-    handleAddStock
-};

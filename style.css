@@ -1,368 +1,346 @@
-/* CSS for MVP Portfolio Management Web Application */
-/* Responsive design for advisor dashboard with portfolio management and advisory signals */
+/* Portfolio Management Dashboard Styles */
+/* Indian Equity Portfolio Advisor - Responsive Design */
 
-/* Global Styles and Variables */
+/* Import Bootstrap */
+@import url('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css');
+
+/* Custom Variables */
 :root {
-    --primary-color: #2c3e50;
-    --secondary-color: #3498db;
-    --accent-color: #e74c3c;
-    --success-color: #27ae60;
-    --warning-color: #f39c12;
-    --light-gray: #ecf0f1;
-    --dark-gray: #7f8c8d;
-    --text-color: #2c3e50;
-    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --border-radius: 8px;
+    --primary-color: #2c5282;
+    --secondary-color: #3182ce;
+    --success-color: #38a169;
+    --warning-color: #d69e2e;
+    --danger-color: #e53e3e;
+    --light-bg: #f7fafc;
+    --dark-bg: #2d3748;
+    --border-color: #e2e8f0;
+    --text-primary: #2d3748;
+    --text-secondary: #718096;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
+/* Global Styles */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--light-bg);
+    color: var(--text-primary);
     line-height: 1.6;
-    color: var(--text-color);
-    background-color: #f8f9fa;
 }
 
-/* Layout Components */
-.container {
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 15px;
+/* Header and Navigation */
+.navbar-brand {
+    font-weight: 700;
+    color: var(--primary-color);
 }
 
-.header {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 1rem 0;
-    box-shadow: var(--shadow);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-}
-
-.navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.logo {
-    font-size: 1.5rem;
-    font-weight: bold;
-}
-
-.nav-menu {
-    display: flex;
-    list-style: none;
-    gap: 2rem;
-}
-
-.nav-menu a {
-    color: white;
-    text-decoration: none;
+.navbar-nav .nav-link {
+    color: var(--text-primary);
+    font-weight: 500;
     transition: color 0.3s ease;
 }
 
-.nav-menu a:hover {
-    color: var(--secondary-color);
+.navbar-nav .nav-link:hover {
+    color: var(--primary-color);
 }
 
 /* Dashboard Layout */
-.dashboard {
-    display: grid;
-    grid-template-columns: 250px 1fr;
-    gap: 2rem;
+.dashboard-container {
     padding: 2rem 0;
-    min-height: calc(100vh - 80px);
 }
 
 .sidebar {
     background: white;
-    border-radius: var(--border-radius);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
     padding: 1.5rem;
-    box-shadow: var(--shadow);
+    height: fit-content;
 }
 
 .main-content {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 2rem;
+    padding: 0 1.5rem;
 }
 
-/* Cards and Components */
+/* Cards */
 .card {
-    background: white;
-    border-radius: var(--border-radius);
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
+    border: none;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     margin-bottom: 1.5rem;
 }
 
-.card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--light-gray);
-}
-
-.card-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-}
-
-/* Portfolio Management Styles */
-.portfolio-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-}
-
-.portfolio-item {
-    background: white;
-    border-radius: var(--border-radius);
-    padding: 1rem;
-    box-shadow: var(--shadow);
-    transition: transform 0.3s ease;
-}
-
-.portfolio-item:hover {
+.card:hover {
     transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
-.stock-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-}
-
-.stock-name {
+.card-header {
+    background: white;
+    border-bottom: 1px solid var(--border-color);
     font-weight: 600;
+    padding: 1rem 1.5rem;
 }
 
-.stock-symbol {
-    color: var(--dark-gray);
-    font-size: 0.9rem;
+.card-body {
+    padding: 1.5rem;
 }
 
-/* Advisory Signal Styles */
-.signal-buy {
-    color: var(--success-color);
-    background-color: rgba(39, 174, 96, 0.1);
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
+/* Portfolio Summary */
+.portfolio-summary {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+}
+
+.summary-value {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.summary-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+/* Advisory Signals */
+.advisory-signal-buy {
+    background-color: rgba(56, 161, 105, 0.1);
+    border-left: 4px solid var(--success-color);
+}
+
+.advisory-signal-hold {
+    background-color: rgba(214, 158, 46, 0.1);
+    border-left: 4px solid var(--warning-color);
+}
+
+.advisory-signal-sell {
+    background-color: rgba(229, 62, 62, 0.1);
+    border-left: 4px solid var(--danger-color);
+}
+
+.signal-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
     font-weight: 600;
+    font-size: 0.875rem;
 }
 
-.signal-sell {
-    color: var(--accent-color);
-    background-color: rgba(231, 76, 60, 0.1);
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-weight: 600;
+.signal-badge.buy {
+    background-color: var(--success-color);
+    color: white;
 }
 
-.signal-hold {
-    color: var(--warning-color);
-    background-color: rgba(243, 156, 18, 0.1);
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-weight: 600;
+.signal-badge.hold {
+    background-color: var(--warning-color);
+    color: white;
 }
 
-/* Chart and Visualization Styles */
+.signal-badge.sell {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+/* Charts Container */
 .chart-container {
     position: relative;
     height: 300px;
-    width: 100%;
+    margin: 1rem 0;
 }
 
-.report-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 1.5rem;
-}
-
-.report-card {
-    background: white;
-    border-radius: var(--border-radius);
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
-}
-
-/* Forms and Inputs */
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-}
-
-.form-input {
-    width: 100%;
+/* Forms */
+.form-control {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
     padding: 0.75rem;
-    border: 1px solid var(--light-gray);
-    border-radius: var(--border-radius);
-    font-size: 1rem;
+    transition: border-color 0.3s ease;
 }
 
-.form-input:focus {
-    outline: none;
-    border-color: var(--secondary-color);
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-.btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-size: 1rem;
-    transition: all 0.3s ease;
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(44, 82, 130, 0.25);
 }
 
 .btn-primary {
-    background-color: var(--secondary-color);
-    color: white;
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
-    background-color: #2980b9;
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    transform: translateY(-1px);
 }
 
-.btn-danger {
-    background-color: var(--accent-color);
-    color: white;
-}
-
-.btn-danger:hover {
-    background-color: #c0392b;
-}
-
-/* Authentication Styles */
-.auth-container {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--light-gray);
-}
-
-.auth-card {
+/* Tables */
+.table {
     background: white;
-    padding: 2rem;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    width: 100%;
-    max-width: 400px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.table th {
+    background-color: var(--light-bg);
+    border-bottom: 2px solid var(--border-color);
+    font-weight: 600;
+    padding: 1rem;
+}
+
+.table td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(247, 250, 252, 0.5);
+}
+
+/* Loading States */
+.loading-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--border-color);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Advisor Only Sections */
+.advisor-only {
+    border: 2px dashed var(--warning-color);
+    background-color: rgba(214, 158, 46, 0.05);
+}
+
+.advisor-badge {
+    background-color: var(--warning-color);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .dashboard {
-        grid-template-columns: 1fr;
+    .dashboard-container {
+        padding: 1rem 0;
     }
     
-    .sidebar {
-        display: none;
+    .main-content {
+        padding: 0 0.5rem;
     }
     
-    .portfolio-grid {
-        grid-template-columns: 1fr;
+    .summary-value {
+        font-size: 1.5rem;
     }
     
-    .report-grid {
-        grid-template-columns: 1fr;
+    .chart-container {
+        height: 250px;
     }
     
-    .nav-menu {
-        display: none;
-    }
-    
-    .mobile-menu-btn {
-        display: block;
+    .table-responsive {
+        font-size: 0.875rem;
     }
 }
 
-@media (max-width: 480px) {
-    .container {
-        padding: 0 10px;
-    }
-    
-    .card {
+@media (max-width: 576px) {
+    .card-body {
         padding: 1rem;
     }
     
-    .auth-card {
-        padding: 1.5rem;
-        margin: 1rem;
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .chart-container {
+        height: 200px;
     }
 }
 
 /* Utility Classes */
-.text-center {
-    text-align: center;
+.text-small {
+    font-size: 0.875rem;
 }
 
-.mt-1 { margin-top: 0.5rem; }
-.mt-2 { margin-top: 1rem; }
-.mt-3 { margin-top: 1.5rem; }
-
-.mb-1 { margin-bottom: 0.5rem; }
-.mb-2 { margin-bottom: 1rem; }
-.mb-3 { margin-bottom: 1.5rem; }
-
-.hidden {
-    display: none;
+.text-tiny {
+    font-size: 0.75rem;
 }
 
-.visible {
-    display: block;
+.border-radius-sm {
+    border-radius: 4px;
 }
 
-/* Loading and Animation States */
-.loading {
-    opacity: 0.6;
-    pointer-events: none;
+.border-radius-md {
+    border-radius: 8px;
 }
 
-.spinner {
-    border: 2px solid var(--light-gray);
-    border-top: 2px solid var(--secondary-color);
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    animation: spin 1s linear infinite;
+.border-radius-lg {
+    border-radius: 12px;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+/* Animation Classes */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 
 /* Print Styles */
 @media print {
-    .header, .sidebar, .btn {
-        display: none;
-    }
-    
-    .dashboard {
-        grid-template-columns: 1fr;
+    .navbar, .btn, .sidebar {
+        display: none !important;
     }
     
     .card {
-        box-shadow: none;
-        border: 1px solid var(--light-gray);
+        box-shadow: none !important;
+        border: 1px solid var(--border-color);
+    }
+    
+    body {
+        background: white !important;
+        color: black !important;
+    }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    :root {
+        --border-color: #000;
+        --text-primary: #000;
+        --text-secondary: #333;
+    }
+    
+    .card {
+        border: 2px solid var(--border-color);
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }

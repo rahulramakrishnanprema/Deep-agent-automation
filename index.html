@@ -3,123 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Advisor - Indian Equity Markets</title>
+    <title>Indian Equity Portfolio Advisor</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        .advisor-only {
+            display: none;
+        }
+        .advisor-visible .advisor-only {
+            display: block;
+        }
+        .portfolio-card {
+            transition: transform 0.2s;
+        }
+        .portfolio-card:hover {
+            transform: translateY(-5px);
+        }
+        .signal-buy {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .signal-hold {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .signal-sell {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="#">Portfolio Advisor</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">EquityPortfolio Advisor</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="#" id="dashboard-link">Dashboard</a>
+                        <a class="nav-link active" href="#" id="nav-dashboard">Dashboard</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" id="portfolio-link">Portfolio</a>
+                        <a class="nav-link" href="#" id="nav-portfolio">My Portfolio</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="reports-link">Reports</a>
+                    <li class="nav-item advisor-only">
+                        <a class="nav-link" href="#" id="nav-advisor">Advisor Portal</a>
                     </li>
                 </ul>
                 <div class="d-flex">
-                    <span class="navbar-text me-3" id="user-info">Advisor: John Doe</span>
-                    <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
+                    <span class="navbar-text me-3" id="user-info">Guest User</span>
+                    <button class="btn btn-outline-light btn-sm" id="btn-login">Login</button>
+                    <button class="btn btn-outline-light btn-sm ms-2 advisor-only" id="btn-logout">Logout</button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Main Content Container -->
-    <div class="container-fluid mt-4">
-        <!-- Dashboard Section -->
-        <div id="dashboard-section">
-            <div class="row">
-                <div class="col-12">
-                    <h2>Portfolio Overview</h2>
-                </div>
-            </div>
-            
-            <div class="row mb-4">
-                <!-- Summary Cards -->
-                <div class="col-md-3 mb-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">Total Value</h5>
-                            <h3 class="card-text" id="total-value">₹0</h3>
-                        </div>
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <!-- Login Modal -->
+        <div class="modal fade" id="loginModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">User Login</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">Total Gain/Loss</h5>
-                            <h3 class="card-text" id="total-gain-loss">₹0</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">Buy Signals</h5>
-                            <h3 class="card-text" id="buy-signals">0</h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">Sell Signals</h5>
-                            <h3 class="card-text" id="sell-signals">0</h3>
-                        </div>
+                    <div class="modal-body">
+                        <form id="login-form">
+                            <div class="mb-3">
+                                <label for="login-email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="login-email" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="login-password" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="login-password" required>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="login-advisor">
+                                <label class="form-check-label" for="login-advisor">Advisor Login</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Login</button>
+                        </form>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Performance Chart -->
-            <div class="row mb-4">
-                <div class="col-12">
+        <!-- Dashboard Section -->
+        <section id="section-dashboard" class="content-section">
+            <div class="row">
+                <div class="col-md-8">
                     <div class="card">
                         <div class="card-header">
                             <h5>Portfolio Performance</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="performance-chart" height="100"></canvas>
+                            <canvas id="performanceChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Advisory Signals</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="advisory-signals">
+                                <p class="text-center">Login to view advisory signals</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Recent Advisory Signals -->
-            <div class="row">
+            <div class="row mt-4">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <h5>Recent Advisory Signals</h5>
+                            <h5>Top Indian Equities</h5>
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
                                 <table class="table table-striped">
                                     <thead>
                                         <tr>
-                                            <th>Stock</th>
-                                            <th>Current Price</th>
+                                            <th>Symbol</th>
+                                            <th>Company</th>
+                                            <th>Price (₹)</th>
+                                            <th>Change</th>
                                             <th>Signal</th>
-                                            <th>Reason</th>
-                                            <th>Date</th>
+                                            <th>Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="signals-table-body">
-                                        <!-- Signals will be populated dynamically -->
+                                    <tbody id="equities-table">
+                                        <!-- Equity data will be populated by JavaScript -->
                                     </tbody>
                                 </table>
                             </div>
@@ -127,39 +151,58 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
         <!-- Portfolio Management Section -->
-        <div id="portfolio-section" style="display: none;">
+        <section id="section-portfolio" class="content-section" style="display: none;">
             <div class="row">
-                <div class="col-12">
-                    <h2>Portfolio Management</h2>
-                    <button class="btn btn-primary mb-3" id="add-stock-btn">Add New Stock</button>
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>My Portfolio Holdings</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="portfolioAllocationChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Portfolio Summary</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="portfolio-summary">
+                                <p class="text-center">Login to view portfolio summary</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Portfolio Table -->
-            <div class="row">
+            <div class="row mt-4">
                 <div class="col-12">
                     <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5>Portfolio Holdings</h5>
+                            <button class="btn btn-primary btn-sm" id="btn-add-holding">Add Holding</button>
+                        </div>
                         <div class="card-body">
                             <div class="table-responsive">
                                 <table class="table table-striped">
                                     <thead>
                                         <tr>
-                                            <th>Stock Name</th>
                                             <th>Symbol</th>
+                                            <th>Company</th>
                                             <th>Quantity</th>
-                                            <th>Avg. Price</th>
-                                            <th>Current Price</th>
-                                            <th>Value</th>
-                                            <th>Gain/Loss</th>
+                                            <th>Avg Price (₹)</th>
+                                            <th>Current Value (₹)</th>
                                             <th>Signal</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="portfolio-table-body">
-                                        <!-- Portfolio items will be populated dynamically -->
+                                    <tbody id="portfolio-holdings">
+                                        <!-- Portfolio holdings will be populated by JavaScript -->
                                     </tbody>
                                 </table>
                             </div>
@@ -167,101 +210,97 @@
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- Add/Edit Stock Modal -->
-            <div class="modal fade" id="stock-modal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="modal-title">Add Stock</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <form id="stock-form">
-                                <input type="hidden" id="stock-id">
-                                <div class="mb-3">
-                                    <label for="stock-name" class="form-label">Stock Name</label>
-                                    <input type="text" class="form-control" id="stock-name" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="stock-symbol" class="form-label">Symbol</label>
-                                    <input type="text" class="form-control" id="stock-symbol" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="stock-quantity" class="form-label">Quantity</label>
-                                    <input type="number" class="form-control" id="stock-quantity" required min="1">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="stock-price" class="form-label">Average Price (₹)</label>
-                                    <input type="number" class="form-control" id="stock-price" required step="0.01" min="0">
-                                </div>
-                            </form>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" id="save-stock-btn">Save</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Reports Section -->
-        <div id="reports-section" style="display: none;">
-            <div class="row">
-                <div class="col-12">
-                    <h2>Analytical Reports</h2>
-                </div>
-            </div>
-
-            <div class="row mb-4">
-                <div class="col-md-6 mb-3">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>Sector Allocation</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="sector-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>Signal Distribution</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="signal-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+        <!-- Advisor Portal Section -->
+        <section id="section-advisor" class="content-section advisor-only" style="display: none;">
             <div class="row">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <h5>Detailed Performance Report</h5>
+                            <h5>Advisor Dashboard</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body text-center">
+                                            <h3 id="total-clients">0</h3>
+                                            <p>Total Clients</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body text-center">
+                                            <h3 id="total-aum">₹0</h3>
+                                            <p>Total AUM</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Client Portfolios</h5>
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
                                 <table class="table table-striped">
                                     <thead>
                                         <tr>
-                                            <th>Sector</th>
-                                            <th>Investment</th>
-                                            <th>Current Value</th>
-                                            <th>Gain/Loss</th>
-                                            <th>% of Portfolio</th>
+                                            <th>Client</th>
+                                            <th>Portfolio Value</th>
+                                            <th>Number of Holdings</th>
+                                            <th>Overall Signal</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="report-table-body">
-                                        <!-- Report data will be populated dynamically -->
+                                    <tbody id="client-portfolios">
+                                        <!-- Client data will be populated by JavaScript -->
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Add Holding Modal -->
+    <div class="modal fade" id="addHoldingModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Portfolio Holding</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-holding-form">
+                        <div class="mb-3">
+                            <label for="holding-symbol" class="form-label">Stock Symbol</label>
+                            <select class="form-select" id="holding-symbol" required>
+                                <option value="">Select stock...</option>
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="holding-quantity" class="form-label">Quantity</label>
+                            <input type="number" class="form-control" id="holding-quantity" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="holding-price" class="form-label">Average Price (₹)</label>
+                            <input type="number" class="form-control" id="holding-price" step="0.01" min="0" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Add Holding</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -269,233 +308,196 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
     <!-- Custom JavaScript -->
     <script>
-        // Global variables
+        // Global state
+        let currentUser = null;
+        let equitiesData = [];
         let portfolioData = [];
-        let advisorySignals = [];
-        let performanceData = [];
-
-        // DOM Elements
-        const dashboardSection = document.getElementById('dashboard-section');
-        const portfolioSection = document.getElementById('portfolio-section');
-        const reportsSection = document.getElementById('reports-section');
         
-        const dashboardLink = document.getElementById('dashboard-link');
-        const portfolioLink = document.getElementById('portfolio-link');
-        const reportsLink = document.getElementById('reports-link');
-
+        // DOM Elements
+        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+        const addHoldingModal = new bootstrap.Modal(document.getElementById('addHoldingModal'));
+        
         // Initialize application
         document.addEventListener('DOMContentLoaded', function() {
-            setupEventListeners();
+            initializeEventListeners();
+            loadEquitiesData();
             checkAuthentication();
-            loadDashboardData();
         });
-
-        // Event Listeners
-        function setupEventListeners() {
+        
+        function initializeEventListeners() {
             // Navigation
-            dashboardLink.addEventListener('click', showDashboard);
-            portfolioLink.addEventListener('click', showPortfolio);
-            reportsLink.addEventListener('click', showReports);
+            document.getElementById('nav-dashboard').addEventListener('click', () => showSection('dashboard'));
+            document.getElementById('nav-portfolio').addEventListener('click', () => showSection('portfolio'));
+            document.getElementById('nav-advisor').addEventListener('click', () => showSection('advisor'));
             
-            // Portfolio management
-            document.getElementById('add-stock-btn').addEventListener('click', showAddStockModal);
-            document.getElementById('save-stock-btn').addEventListener('click', saveStock);
-            document.getElementById('logout-btn').addEventListener('click', logout);
+            // Authentication
+            document.getElementById('btn-login').addEventListener('click', () => loginModal.show());
+            document.getElementById('btn-logout').addEventListener('click', logout);
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+            
+            // Portfolio Management
+            document.getElementById('btn-add-holding').addEventListener('click', () => addHoldingModal.show());
+            document.getElementById('add-holding-form').addEventListener('submit', handleAddHolding);
         }
-
-        // Authentication check
-        function checkAuthentication() {
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                window.location.href = 'login.html';
-            }
-        }
-
-        // Navigation functions
-        function showDashboard() {
-            dashboardSection.style.display = 'block';
-            portfolioSection.style.display = 'none';
-            reportsSection.style.display = 'none';
-            updateActiveNav('dashboard-link');
-            loadDashboardData();
-        }
-
-        function showPortfolio() {
-            dashboardSection.style.display = 'none';
-            portfolioSection.style.display = 'block';
-            reportsSection.style.display = 'none';
-            updateActiveNav('portfolio-link');
-            loadPortfolioData();
-        }
-
-        function showReports() {
-            dashboardSection.style.display = 'none';
-            portfolioSection.style.display = 'none';
-            reportsSection.style.display = 'block';
-            updateActiveNav('reports-link');
-            loadReportsData();
-        }
-
-        function updateActiveNav(activeId) {
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.classList.remove('active');
-            });
-            document.getElementById(activeId).classList.add('active');
-        }
-
-        // API Functions
-        async function loadDashboardData() {
+        
+        async function loadEquitiesData() {
             try {
-                const response = await fetch('/api/dashboard', {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    updateDashboard(data);
-                } else if (response.status === 401) {
-                    logout();
-                }
+                const response = await fetch('/api/equities');
+                equitiesData = await response.json();
+                populateEquitiesTable();
+                populateHoldingSymbols();
             } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                // Fallback to dummy data
-                loadDummyData();
+                console.error('Error loading equities data:', error);
             }
         }
-
+        
         async function loadPortfolioData() {
+            if (!currentUser) return;
+            
             try {
                 const response = await fetch('/api/portfolio', {
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                        'Authorization': `Bearer ${currentUser.token}`
                     }
                 });
-                
-                if (response.ok) {
-                    portfolioData = await response.json();
-                    renderPortfolioTable();
-                } else if (response.status === 401) {
-                    logout();
-                }
+                portfolioData = await response.json();
+                updatePortfolioDisplay();
             } catch (error) {
                 console.error('Error loading portfolio data:', error);
-                // Fallback to dummy data
-                loadDummyPortfolioData();
             }
         }
-
-        async function loadReportsData() {
+        
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const isAdvisor = document.getElementById('login-advisor').checked;
+            
             try {
-                const response = await fetch('/api/reports', {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                    }
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password, isAdvisor })
                 });
                 
                 if (response.ok) {
-                    const data = await response.json();
-                    renderReports(data);
-                } else if (response.status === 401) {
-                    logout();
+                    const userData = await response.json();
+                    currentUser = userData;
+                    updateUIAfterLogin();
+                    loginModal.hide();
+                } else {
+                    alert('Login failed. Please check your credentials.');
                 }
             } catch (error) {
-                console.error('Error loading reports data:', error);
-                // Fallback to dummy data
-                loadDummyReportsData();
+                console.error('Login error:', error);
+                alert('Login failed. Please try again.');
             }
         }
-
-        async function saveStock() {
-            const formData = {
-                name: document.getElementById('stock-name').value,
-                symbol: document.getElementById('stock-symbol').value,
-                quantity: parseInt(document.getElementById('stock-quantity').value),
-                avgPrice: parseFloat(document.getElementById('stock-price').value)
-            };
-
-            const stockId = document.getElementById('stock-id').value;
-            const url = stockId ? `/api/portfolio/${stockId}` : '/api/portfolio';
-            const method = stockId ? 'PUT' : 'POST';
-
+        
+        async function handleAddHolding(e) {
+            e.preventDefault();
+            const symbol = document.getElementById('holding-symbol').value;
+            const quantity = parseInt(document.getElementById('holding-quantity').value);
+            const price = parseFloat(document.getElementById('holding-price').value);
+            
             try {
-                const response = await fetch(url, {
-                    method: method,
+                const response = await fetch('/api/portfolio/holdings', {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                        'Authorization': `Bearer ${currentUser.token}`
                     },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify({ symbol, quantity, average_price: price })
                 });
-
+                
                 if (response.ok) {
-                    $('#stock-modal').modal('hide');
+                    addHoldingModal.hide();
                     loadPortfolioData();
-                    showDashboard();
-                } else if (response.status === 401) {
-                    logout();
+                    alert('Holding added successfully!');
+                } else {
+                    alert('Failed to add holding. Please try again.');
                 }
             } catch (error) {
-                console.error('Error saving stock:', error);
-                alert('Error saving stock. Please try again.');
+                console.error('Error adding holding:', error);
+                alert('Failed to add holding. Please try again.');
             }
         }
-
-        async function deleteStock(stockId) {
-            if (confirm('Are you sure you want to delete this stock?')) {
-                try {
-                    const response = await fetch(`/api/portfolio/${stockId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                        }
-                    });
-
-                    if (response.ok) {
-                        loadPortfolioData();
-                    } else if (response.status === 401) {
-                        logout();
-                    }
-                } catch (error) {
-                    console.error('Error deleting stock:', error);
-                    alert('Error deleting stock. Please try again.');
-                }
+        
+        function updateUIAfterLogin() {
+            document.getElementById('user-info').textContent = currentUser.name;
+            document.getElementById('btn-login').style.display = 'none';
+            document.getElementById('btn-logout').style.display = 'block';
+            
+            if (currentUser.role === 'advisor') {
+                document.body.classList.add('advisor-visible');
             }
+            
+            loadPortfolioData();
+            loadAdvisorySignals();
+            updateCharts();
         }
-
-        // Dummy data fallback (for development/testing)
-        function loadDummyData() {
-            // This would be replaced with actual API calls in production
-            const dummyData = {
-                totalValue: 1250000,
-                totalGainLoss: 150000,
-                buySignals: 3,
-                sellSignals: 1,
-                performance: [1000000, 1100000, 1150000, 1200000, 1250000],
-                recentSignals: [
-                    { stock: 'RELIANCE', price: 2650, signal: 'BUY', reason: 'Strong fundamentals', date: '2024-01-15' },
-                    { stock: 'HDFC BANK', price: 1650, signal: 'HOLD', reason: 'Market volatility', date: '2024-01-14' },
-                    { stock: 'INFOSYS', price: 1850, signal: 'SELL', reason: 'Overvalued', date: '2024-01-13' }
-                ]
-            };
-            updateDashboard(dummyData);
+        
+        function logout() {
+            currentUser = null;
+            document.getElementById('user-info').textContent = 'Guest User';
+            document.getElementById('btn-login').style.display = 'block';
+            document.getElementById('btn-logout').style.display = 'none';
+            document.body.classList.remove('advisor-visible');
+            
+            // Reset displays
+            document.getElementById('advisory-signals').innerHTML = '<p class="text-center">Login to view advisory signals</p>';
+            document.getElementById('portfolio-summary').innerHTML = '<p class="text-center">Login to view portfolio summary</p>';
+            showSection('dashboard');
         }
-
-        function loadDummyPortfolioData() {
-            portfolioData = [
-                { id: 1, name: 'Reliance Industries', symbol: 'RELIANCE', quantity: 100, avgPrice: 2500, currentPrice: 2650, sector: 'Energy' },
-                { id: 2, name: 'HDFC Bank', symbol: 'HDFCBANK', quantity: 200, avgPrice: 1600, currentPrice: 1650, sector: 'Financial' },
-                { id: 3, name: 'Infosys', symbol: 'INFY', quantity: 150, avgPrice: 1800, currentPrice: 1850, sector: 'IT' },
-                { id: 4, name: 'TCS', symbol: 'TCS', quantity: 80, avgPrice: 3200, currentPrice: 3350, sector: 'IT' }
-            ];
-            renderPortfolioTable();
+        
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // Show selected section
+            document.getElementById(`section-${sectionName}`).style.display = 'block';
+            
+            // Update active nav
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.getElementById(`nav-${sectionName}`).classList.add('active');
         }
-
-        function loadDummyReportsData() {
-            const reportsData = {
-                sectorAllocation: [
-                    { sector: 'Energy', value: 265000 },
-                    { sector: 'Financial', value: 330000
+        
+        function populateEquitiesTable() {
+            const tableBody = document.getElementById('equities-table');
+            tableBody.innerHTML = '';
+            
+            equitiesData.forEach(equity => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${equity.symbol}</td>
+                    <td>${equity.company_name}</td>
+                    <td>₹${equity.current_price.toFixed(2)}</td>
+                    <td class="${equity.price_change >= 0 ? 'text-success' : 'text-danger'}">
+                        ${equity.price_change >= 0 ? '+' : ''}${equity.price_change.toFixed(2)}%
+                    </td>
+                    <td class="signal-${equity.signal.toLowerCase()}">${equity.signal}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="addToWatchlist('${equity.symbol}')">
+                            Watch
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function populateHoldingSymbols() {
+            const select = document.getElementById('holding-symbol');
+            select.innerHTML = '<option value="">Select stock...</option>';
+            
+            equitiesData.forEach(equity => {
+                const option = document.createElement('option');

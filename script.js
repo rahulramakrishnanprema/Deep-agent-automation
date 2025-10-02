@@ -1,600 +1,376 @@
-// script.js - Frontend JavaScript for Investment Portfolio Management MVP
+// script.js - Frontend JavaScript for Portfolio Management Dashboard
+// This file handles UI interactions, API calls, and data visualization for the advisor dashboard
 
-// Global state management
-let currentUser = null;
-let userPortfolios = [];
-let advisorySignals = [];
-let marketData = [];
-
-// DOM Content Loaded Event Listener
 document.addEventListener('DOMContentLoaded', function() {
-    initializeApplication();
-    setupEventListeners();
-    loadInitialData();
+    // Check authentication status
+    checkAuthStatus();
+    
+    // Initialize dashboard components
+    initializeDashboard();
 });
 
-// Initialize application
-function initializeApplication() {
-    checkAuthenticationStatus();
-    setupNavigation();
+// Authentication and Authorization Functions
+function checkAuthStatus() {
+    const token = localStorage.getItem('advisor_token');
+    if (!token) {
+        window.location.href = '/login.html';
+        return;
+    }
+    
+    // Verify token validity
+    fetch('/api/auth/verify', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            localStorage.removeItem('advisor_token');
+            window.location.href = '/login.html';
+        }
+    })
+    .catch(error => {
+        console.error('Auth verification failed:', error);
+        localStorage.removeItem('advisor_token');
+        window.location.href = '/login.html';
+    });
+}
+
+function logout() {
+    localStorage.removeItem('advisor_token');
+    window.location.href = '/login.html';
+}
+
+// Dashboard Initialization
+function initializeDashboard() {
+    loadPortfolioData();
+    loadAdvisorySignals();
     initializeCharts();
+    setupEventListeners();
 }
 
-// Check if user is authenticated
-function checkAuthenticationStatus() {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-        currentUser = JSON.parse(localStorage.getItem('userData'));
-        updateUIForAuthenticatedUser();
-    } else {
-        showLoginView();
-    }
-}
-
-// Setup event listeners
-function setupEventListeners() {
-    // Authentication events
-    document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
-    document.getElementById('registerForm')?.addEventListener('submit', handleRegister);
-    document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
-
-    // Portfolio management events
-    document.getElementById('createPortfolioForm')?.addEventListener('submit', handleCreatePortfolio);
-    document.getElementById('refreshPortfolioBtn')?.addEventListener('click', refreshPortfolios);
-
-    // Navigation events
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', handleNavigation);
-    });
-}
-
-// API Service Functions
-const apiService = {
-    // Authentication endpoints
-    async login(credentials) {
-        const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(credentials)
-        });
-        return handleResponse(response);
-    },
-
-    async register(userData) {
-        const response = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(userData)
-        });
-        return handleResponse(response);
-    },
-
-    // Portfolio endpoints
-    async getPortfolios() {
+// Portfolio Data Management
+async function loadPortfolioData() {
+    try {
+        const token = localStorage.getItem('advisor_token');
         const response = await fetch('/api/portfolios', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
         });
-        return handleResponse(response);
-    },
-
-    async createPortfolio(portfolioData) {
-        const response = await fetch('/api/portfolios', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: JSON.stringify(portfolioData)
-        });
-        return handleResponse(response);
-    },
-
-    async updatePortfolio(portfolioId, portfolioData) {
-        const response = await fetch(`/api/portfolios/${portfolioId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: JSON.stringify(portfolioData)
-        });
-        return handleResponse(response);
-    },
-
-    async deletePortfolio(portfolioId) {
-        const response = await fetch(`/api/portfolios/${portfolioId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-        return handleResponse(response);
-    },
-
-    // Market data endpoints
-    async getMarketData() {
-        const response = await fetch('/api/market/data');
-        return handleResponse(response);
-    },
-
-    async getAdvisorySignals() {
-        const response = await fetch('/api/advisory/signals', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-        return handleResponse(response);
-    },
-
-    async getSectorAnalysis() {
-        const response = await fetch('/api/market/sector-analysis', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-        return handleResponse(response);
-    }
-};
-
-// Response handler
-async function handleResponse(response) {
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Network response was not ok');
-    }
-    return response.json();
-}
-
-// Authentication handlers
-async function handleLogin(event) {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-    const credentials = {
-        email: formData.get('email'),
-        password: formData.get('password')
-    };
-
-    try {
-        const data = await apiService.login(credentials);
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('userData', JSON.stringify(data.user));
-        currentUser = data.user;
-        updateUIForAuthenticatedUser();
-        showNotification('Login successful!', 'success');
-    } catch (error) {
-        showNotification(error.message, 'error');
-    }
-}
-
-async function handleRegister(event) {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-    const userData = {
-        name: formData.get('name'),
-        email: formData.get('email'),
-        password: formData.get('password'),
-        role: formData.get('role') || 'investor'
-    };
-
-    try {
-        const data = await apiService.register(userData);
-        showNotification('Registration successful! Please login.', 'success');
-        switchToLoginView();
-    } catch (error) {
-        showNotification(error.message, 'error');
-    }
-}
-
-function handleLogout() {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
-    currentUser = null;
-    userPortfolios = [];
-    showLoginView();
-    showNotification('Logged out successfully', 'info');
-}
-
-// Portfolio management handlers
-async function handleCreatePortfolio(event) {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-    const portfolioData = {
-        name: formData.get('portfolioName'),
-        description: formData.get('portfolioDescription'),
-        initialInvestment: parseFloat(formData.get('initialInvestment'))
-    };
-
-    try {
-        await apiService.createPortfolio(portfolioData);
-        await refreshPortfolios();
-        event.target.reset();
-        showNotification('Portfolio created successfully!', 'success');
-    } catch (error) {
-        showNotification(error.message, 'error');
-    }
-}
-
-async function refreshPortfolios() {
-    try {
-        userPortfolios = await apiService.getPortfolios();
-        renderPortfolios();
-        updatePortfolioPerformanceCharts();
-    } catch (error) {
-        showNotification('Failed to load portfolios', 'error');
-    }
-}
-
-// Navigation handler
-function handleNavigation(event) {
-    event.preventDefault();
-    const target = event.target.getAttribute('data-target');
-    showView(target);
-}
-
-// View management
-function showView(viewName) {
-    // Hide all views
-    document.querySelectorAll('.view').forEach(view => {
-        view.classList.add('d-none');
-    });
-
-    // Show requested view
-    const targetView = document.getElementById(`${viewName}View`);
-    if (targetView) {
-        targetView.classList.remove('d-none');
         
-        // Load view-specific data
-        switch(viewName) {
-            case 'dashboard':
-                loadDashboardData();
-                break;
-            case 'portfolios':
-                refreshPortfolios();
-                break;
-            case 'advisory':
-                loadAdvisorySignals();
-                break;
-            case 'reports':
-                if (currentUser?.role === 'advisor') {
-                    loadAdvisorReports();
-                }
-                break;
+        if (!response.ok) {
+            throw new Error('Failed to fetch portfolio data');
         }
-    }
-}
-
-function showLoginView() {
-    showView('login');
-    document.getElementById('userMenu').classList.add('d-none');
-}
-
-function updateUIForAuthenticatedUser() {
-    document.getElementById('userMenu').classList.remove('d-none');
-    document.getElementById('userName').textContent = currentUser.name;
-    
-    if (currentUser.role === 'advisor') {
-        document.getElementById('reportsNav').classList.remove('d-none');
-    } else {
-        document.getElementById('reportsNav').classList.add('d-none');
-    }
-    
-    showView('dashboard');
-}
-
-function switchToLoginView() {
-    showView('login');
-}
-
-// Data loading functions
-async function loadInitialData() {
-    try {
-        marketData = await apiService.getMarketData();
-        if (currentUser) {
-            await refreshPortfolios();
-            await loadAdvisorySignals();
-        }
-    } catch (error) {
-        console.error('Failed to load initial data:', error);
-    }
-}
-
-async function loadDashboardData() {
-    try {
-        const [signals, sectorAnalysis] = await Promise.all([
-            apiService.getAdvisorySignals(),
-            apiService.getSectorAnalysis()
-        ]);
         
-        updateDashboardCharts(signals, sectorAnalysis);
-        renderMarketOverview(marketData);
+        const portfolios = await response.json();
+        displayPortfolios(portfolios);
     } catch (error) {
-        showNotification('Failed to load dashboard data', 'error');
+        console.error('Error loading portfolio data:', error);
+        showNotification('Failed to load portfolio data', 'error');
     }
 }
 
+function displayPortfolios(portfolios) {
+    const portfolioList = document.getElementById('portfolio-list');
+    if (!portfolioList) return;
+    
+    portfolioList.innerHTML = portfolios.map(portfolio => `
+        <div class="portfolio-card" data-portfolio-id="${portfolio.id}">
+            <h3>${portfolio.client_name}</h3>
+            <p>Total Value: ₹${portfolio.total_value.toLocaleString()}</p>
+            <p>Stocks: ${portfolio.stocks_count}</p>
+            <button onclick="viewPortfolioDetails(${portfolio.id})">View Details</button>
+        </div>
+    `).join('');
+}
+
+async function viewPortfolioDetails(portfolioId) {
+    try {
+        const token = localStorage.getItem('advisor_token');
+        const response = await fetch(`/api/portfolios/${portfolioId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch portfolio details');
+        }
+        
+        const portfolio = await response.json();
+        showPortfolioModal(portfolio);
+    } catch (error) {
+        console.error('Error loading portfolio details:', error);
+        showNotification('Failed to load portfolio details', 'error');
+    }
+}
+
+// Advisory Signals
 async function loadAdvisorySignals() {
     try {
-        advisorySignals = await apiService.getAdvisorySignals();
-        renderAdvisorySignals();
+        const token = localStorage.getItem('advisor_token');
+        const response = await fetch('/api/advisory/signals', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch advisory signals');
+        }
+        
+        const signals = await response.json();
+        displayAdvisorySignals(signals);
     } catch (error) {
+        console.error('Error loading advisory signals:', error);
         showNotification('Failed to load advisory signals', 'error');
     }
 }
 
-async function loadAdvisorReports() {
-    try {
-        const reportsData = await Promise.all([
-            apiService.getPortfolios(),
-            apiService.getSectorAnalysis(),
-            apiService.getAdvisorySignals()
-        ]);
-        
-        renderAdvisorReports(...reportsData);
-    } catch (error) {
-        showNotification('Failed to load advisor reports', 'error');
-    }
-}
-
-// Rendering functions
-function renderPortfolios() {
-    const container = document.getElementById('portfoliosContainer');
-    if (!container) return;
-
-    container.innerHTML = userPortfolios.length > 0 ? '' : '<div class="col-12"><p class="text-center">No portfolios found</p></div>';
-
-    userPortfolios.forEach(portfolio => {
-        const portfolioCard = createPortfolioCard(portfolio);
-        container.appendChild(portfolioCard);
-    });
-}
-
-function createPortfolioCard(portfolio) {
-    const col = document.createElement('div');
-    col.className = 'col-md-6 col-lg-4 mb-4';
+function displayAdvisorySignals(signals) {
+    const signalsContainer = document.getElementById('advisory-signals');
+    if (!signalsContainer) return;
     
-    const performanceChange = portfolio.performance?.change || 0;
-    const changeClass = performanceChange >= 0 ? 'text-success' : 'text-danger';
-    const changeIcon = performanceChange >= 0 ? '▲' : '▼';
-
-    col.innerHTML = `
-        <div class="card h-100 portfolio-card">
-            <div class="card-body">
-                <h5 class="card-title">${portfolio.name}</h5>
-                <p class="card-text">${portfolio.description || 'No description'}</p>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="h6">₹${portfolio.currentValue?.toLocaleString() || '0'}</span>
-                    <span class="${changeClass}">
-                        ${changeIcon} ${Math.abs(performanceChange)}%
-                    </span>
-                </div>
-            </div>
-            <div class="card-footer">
-                <button class="btn btn-sm btn-outline-primary me-2" onclick="viewPortfolioDetails(${portfolio.id})">
-                    View Details
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deletePortfolio(${portfolio.id})">
-                    Delete
-                </button>
-            </div>
+    signalsContainer.innerHTML = signals.map(signal => `
+        <div class="signal-card ${signal.signal_type.toLowerCase()}">
+            <h4>${signal.stock_symbol}</h4>
+            <p class="signal-type">${signal.signal_type}</p>
+            <p>${signal.recommendation}</p>
+            <p>Confidence: ${signal.confidence_score}%</p>
+            <p>Based on: ${signal.analysis_criteria.join(', ')}</p>
         </div>
-    `;
-    
-    return col;
+    `).join('');
 }
 
-function renderAdvisorySignals() {
-    const container = document.getElementById('advisorySignalsContainer');
-    if (!container) return;
-
-    container.innerHTML = advisorySignals.length > 0 ? '' : '<div class="col-12"><p class="text-center">No advisory signals available</p></div>';
-
-    advisorySignals.forEach(signal => {
-        const signalCard = createSignalCard(signal);
-        container.appendChild(signalCard);
-    });
-}
-
-function createSignalCard(signal) {
-    const col = document.createElement('div');
-    col.className = 'col-md-6 col-lg-4 mb-4';
-    
-    const signalClass = {
-        'Buy': 'success',
-        'Hold': 'warning',
-        'Sell': 'danger'
-    }[signal.recommendation] || 'secondary';
-
-    col.innerHTML = `
-        <div class="card h-100">
-            <div class="card-header bg-${signalClass} text-white">
-                <h6 class="mb-0">${signal.equitySymbol} - ${signal.recommendation}</h6>
-            </div>
-            <div class="card-body">
-                <p><strong>Current Price:</strong> ₹${signal.currentPrice}</p>
-                <p><strong>Target Price:</strong> ₹${signal.targetPrice}</p>
-                <p><strong>Confidence:</strong> ${signal.confidence}%</p>
-                <p><strong>Reason:</strong> ${signal.reason}</p>
-            </div>
-        </div>
-    `;
-    
-    return col;
-}
-
-function renderMarketOverview(data) {
-    const container = document.getElementById('marketOverview');
-    if (!container) return;
-
-    container.innerHTML = `
-        <div class="row">
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body">
-                        <h5>NIFTY 50</h5>
-                        <h3 class="${data.nifty.change >= 0 ? 'text-success' : 'text-danger'}">
-                            ${data.nifty.value} ${data.nifty.change >= 0 ? '▲' : '▼'} ${Math.abs(data.nifty.change)}%
-                        </h3>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body">
-                        <h5>SENSEX</h5>
-                        <h3 class="${data.sensex.change >= 0 ? 'text-success' : 'text-danger'}">
-                            ${data.sensex.value} ${data.sensex.change >= 0 ? '▲' : '▼'} ${Math.abs(data.sensex.change)}%
-                        </h3>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body">
-                        <h5>Advancers</h5>
-                        <h3 class="text-success">${data.advancers}</h3>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body">
-                        <h5>Decliners</h5>
-                        <h3 class="text-danger">${data.decliners}</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// Chart initialization and update functions
+// Chart Visualization
 function initializeCharts() {
-    // Initialize Chart.js instances for dashboard
-    const performanceCtx = document.getElementById('performanceChart')?.getContext('2d');
-    const sectorCtx = document.getElementById('sectorChart')?.getContext('2d');
+    // Initialize performance chart
+    initPerformanceChart();
     
-    if (performanceCtx) {
-        window.performanceChart = new Chart(performanceCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Portfolio Performance',
-                    data: [],
-                    borderColor: '#007bff',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    }
-                }
-            }
-        });
-    }
-
-    if (sectorCtx) {
-        window.sectorChart = new Chart(sectorCtx, {
-            type: 'bar',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Sector Performance',
-                    data: [],
-                    backgroundColor: '#28a745'
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    }
-                }
-            }
-        });
-    }
+    // Initialize sector allocation chart
+    initSectorAllocationChart();
+    
+    // Initialize technical indicators chart
+    initTechnicalIndicatorsChart();
 }
 
-function updateDashboardCharts(signals, sectorAnalysis) {
-    if (window.performanceChart) {
-        window.performanceChart.data.labels = signals.map(s => s.equitySymbol);
-        window.performanceChart.data.datasets[0].data = signals.map(s => s.confidence);
-        window.performanceChart.update();
-    }
-
-    if (window.sectorChart && sectorAnalysis) {
-        window.sectorChart.data.labels = sectorAnalysis.map(s => s.sector);
-        window.sectorChart.data.datasets[0].data = sectorAnalysis.map(s => s.performance);
-        window.sectorChart.update();
-    }
-}
-
-function updatePortfolioPerformanceCharts() {
-    // Update portfolio-specific charts
-    userPortfolios.forEach(portfolio => {
-        if (portfolio.performanceData) {
-            renderPortfolioPerformanceChart(portfolio.id, portfolio.performanceData);
+function initPerformanceChart() {
+    const ctx = document.getElementById('performance-chart');
+    if (!ctx) return;
+    
+    // Mock data for demonstration
+    const performanceData = {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{
+            label: 'Portfolio Performance',
+            data: [100, 115, 125, 130, 140, 155],
+            borderColor: '#4CAF50',
+            tension: 0.1
+        }]
+    };
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: performanceData,
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Portfolio Performance (6 Months)'
+                }
+            }
         }
     });
 }
 
-function renderPortfolioPerformanceChart(portfolioId, performanceData) {
-    const ctx = document.getElementById(`chart-${portfolioId}`)?.getContext('2d');
-    if (ctx) {
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: performanceData.dates,
-                datasets: [{
-                    label: 'Portfolio Value',
-                    data: performanceData.values,
-                    borderColor: '#007bff',
-                    fill: false
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: false
-                    }
+function initSectorAllocationChart() {
+    const ctx = document.getElementById('sector-chart');
+    if (!ctx) return;
+    
+    const sectorData = {
+        labels: ['Technology', 'Financial', 'Healthcare', 'Energy', 'Consumer'],
+        datasets: [{
+            data: [30, 25, 20, 15, 10],
+            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
+        }]
+    };
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: sectorData,
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Sector Allocation'
                 }
             }
+        }
+    });
+}
+
+function initTechnicalIndicatorsChart() {
+    const ctx = document.getElementById('technical-chart');
+    if (!ctx) return;
+    
+    const technicalData = {
+        labels: ['RSI', 'MACD', 'Bollinger', 'Stochastic', 'Volume'],
+        datasets: [{
+            label: 'Technical Indicators',
+            data: [65, 59, 80, 45, 75],
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+        }]
+    };
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: technicalData,
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Technical Indicators Analysis'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+// Event Listeners
+function setupEventListeners() {
+    // Refresh button
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            loadPortfolioData();
+            loadAdvisorySignals();
+            showNotification('Data refreshed successfully', 'success');
         });
+    }
+    
+    // Logout button
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
+    
+    // Search functionality
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(handleSearch, 300));
     }
 }
 
-// Utility functions
+function handleSearch(event) {
+    const searchTerm = event.target.value.toLowerCase();
+    const portfolioCards = document.querySelectorAll('.portfolio-card');
+    
+    portfolioCards.forEach(card => {
+        const clientName = card.querySelector('h3').textContent.toLowerCase();
+        if (clientName.includes(searchTerm)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+// Utility Functions
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 function showNotification(message, type = 'info') {
-    // Create Bootstrap toast notification
-    const toastContainer = document.getElementById('toastContainer');
-    const toastId = 'toast-' + Date.now();
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
     
-    const toast = document.createElement('div');
-    toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type}`;
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
-    toast.setAttribute('aria-atomic', 'true');
-    toast.id = toastId;
+    // Add to DOM
+    document.body.appendChild(notification);
     
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                ${message}
-            </div>
-            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    // Remove after delay
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+function showPortfolioModal(portfolio) {
+    // Create modal content
+    const modalContent = `
+        <div class="modal-header">
+            <h2>${portfolio.client_name}'s Portfolio</h2>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <h3>Holdings</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Stock</th>
+                        <th>Quantity</th>
+                        <th>Current Price</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${portfolio.holdings.map(holding => `
+                        <tr>
+                            <td>${holding.stock_symbol}</td>
+                            <td>${holding.quantity}</td>
+                            <td>₹${holding.current_price}</td>
+                            <td>₹${holding.value}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
         </div>
     `;
     
-    toastContainer.appendChild(toast);
+    // Create and show modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = modalContent;
+    document.body.appendChild(modal);
     
+    // Close modal functionality
+    modal.querySelector('.close').addEventListener('click', () => {
+        modal.remove();
+    });
+    
+    // Close when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+// Export functions for global access (if needed)
+window.viewPortfolioDetails = viewPortfolioDetails;
+window.logout = logout;

@@ -1,346 +1,211 @@
-/* Portfolio Management Dashboard Styles */
-/* Indian Equity Portfolio Advisor - Responsive Design */
+/* style.css - Custom CSS for Indian Equity Portfolio Management Application */
 
-/* Import Bootstrap */
-@import url('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css');
-
-/* Custom Variables */
-:root {
-    --primary-color: #2c5282;
-    --secondary-color: #3182ce;
-    --success-color: #38a169;
-    --warning-color: #d69e2e;
-    --danger-color: #e53e3e;
-    --light-bg: #f7fafc;
-    --dark-bg: #2d3748;
-    --border-color: #e2e8f0;
-    --text-primary: #2d3748;
-    --text-secondary: #718096;
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
+/* Import Bootstrap Icons for enhanced UI */
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css");
 
 /* Global Styles */
+:root {
+  --primary-color: #2c3e50;
+  --secondary-color: #3498db;
+  --success-color: #27ae60;
+  --warning-color: #f39c12;
+  --danger-color: #e74c3c;
+  --light-bg: #f8f9fa;
+  --dark-bg: #343a40;
+  --advisor-accent: #8e44ad;
+}
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: var(--light-bg);
-    color: var(--text-primary);
-    line-height: 1.6;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--light-bg);
+  color: var(--primary-color);
+  line-height: 1.6;
 }
 
 /* Header and Navigation */
 .navbar-brand {
-    font-weight: 700;
-    color: var(--primary-color);
+  font-weight: bold;
+  font-size: 1.5rem;
 }
 
 .navbar-nav .nav-link {
-    color: var(--text-primary);
-    font-weight: 500;
-    transition: color 0.3s ease;
+  font-weight: 500;
+  transition: color 0.3s ease;
 }
 
 .navbar-nav .nav-link:hover {
-    color: var(--primary-color);
+  color: var(--secondary-color);
 }
 
-/* Dashboard Layout */
-.dashboard-container {
-    padding: 2rem 0;
+/* Portfolio Overview Cards */
+.portfolio-card {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.sidebar {
-    background: white;
-    border-radius: 8px;
-    box-shadow: var(--shadow-sm);
-    padding: 1.5rem;
-    height: fit-content;
-}
-
-.main-content {
-    padding: 0 1.5rem;
-}
-
-/* Cards */
-.card {
-    border: none;
-    border-radius: 8px;
-    box-shadow: var(--shadow-sm);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    margin-bottom: 1.5rem;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+.portfolio-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
 }
 
 .card-header {
-    background: white;
-    border-bottom: 1px solid var(--border-color);
-    font-weight: 600;
-    padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  border-radius: 10px 10px 0 0 !important;
 }
 
-.card-body {
-    padding: 1.5rem;
+/* Advisory Signal Styles */
+.signal-buy {
+  border-left: 4px solid var(--success-color);
+  background-color: rgba(39, 174, 96, 0.1);
 }
 
-/* Portfolio Summary */
-.portfolio-summary {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    color: white;
+.signal-hold {
+  border-left: 4px solid var(--warning-color);
+  background-color: rgba(243, 156, 18, 0.1);
 }
 
-.summary-value {
-    font-size: 2rem;
-    font-weight: 700;
+.signal-sell {
+  border-left: 4px solid var(--danger-color);
+  background-color: rgba(231, 76, 60, 0.1);
 }
 
-.summary-label {
-    font-size: 0.875rem;
-    opacity: 0.9;
+.signal-icon {
+  font-size: 1.2rem;
+  margin-right: 0.5rem;
 }
 
-/* Advisory Signals */
-.advisory-signal-buy {
-    background-color: rgba(56, 161, 105, 0.1);
-    border-left: 4px solid var(--success-color);
+/* Dashboard and Analytics */
+.dashboard-widget {
+  background: white;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.advisory-signal-hold {
-    background-color: rgba(214, 158, 46, 0.1);
-    border-left: 4px solid var(--warning-color);
+.analytics-chart {
+  height: 300px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 1rem;
 }
 
-.advisory-signal-sell {
-    background-color: rgba(229, 62, 62, 0.1);
-    border-left: 4px solid var(--danger-color);
+/* Advisor-only Elements */
+.advisor-only {
+  border: 2px dashed var(--advisor-accent);
+  background-color: rgba(142, 68, 173, 0.05);
 }
 
-.signal-badge {
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 0.875rem;
+.advisor-badge {
+  background-color: var(--advisor-accent);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
 }
 
-.signal-badge.buy {
-    background-color: var(--success-color);
-    color: white;
-}
-
-.signal-badge.hold {
-    background-color: var(--warning-color);
-    color: white;
-}
-
-.signal-badge.sell {
-    background-color: var(--danger-color);
-    color: white;
-}
-
-/* Charts Container */
-.chart-container {
-    position: relative;
-    height: 300px;
-    margin: 1rem 0;
-}
-
-/* Forms */
-.form-control {
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 0.75rem;
-    transition: border-color 0.3s ease;
-}
-
+/* Forms and Inputs */
 .form-control:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 0.2rem rgba(44, 82, 130, 0.25);
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
 }
 
 .btn-primary {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-    padding: 0.75rem 1.5rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
 }
 
 .btn-primary:hover {
-    background-color: var(--secondary-color);
-    border-color: var(--secondary-color);
-    transform: translateY(-1px);
+  background-color: #2980b9;
+  border-color: #2980b9;
 }
 
-/* Tables */
-.table {
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-}
-
-.table th {
-    background-color: var(--light-bg);
-    border-bottom: 2px solid var(--border-color);
-    font-weight: 600;
+/* Responsive Design Enhancements */
+@media (max-width: 768px) {
+  .dashboard-widget {
     padding: 1rem;
+  }
+  
+  .portfolio-card {
+    margin-bottom: 1rem;
+  }
+  
+  .navbar-nav {
+    text-align: center;
+  }
 }
 
-.table td {
-    padding: 1rem;
-    vertical-align: middle;
-}
-
-.table-striped tbody tr:nth-of-type(odd) {
-    background-color: rgba(247, 250, 252, 0.5);
+@media (max-width: 576px) {
+  .container {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+  
+  h1 {
+    font-size: 1.75rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
 }
 
 /* Loading States */
 .loading-spinner {
-    display: inline-block;
-    width: 2rem;
-    height: 2rem;
-    border: 3px solid var(--border-color);
-    border-radius: 50%;
-    border-top-color: var(--primary-color);
-    animation: spin 1s ease-in-out infinite;
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  border: 0.25rem solid rgba(52, 152, 219, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--secondary-color);
+  animation: spin 1s ease-in-out infinite;
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* Advisor Only Sections */
-.advisor-only {
-    border: 2px dashed var(--warning-color);
-    background-color: rgba(214, 158, 46, 0.05);
+/* Table Styles */
+.table-hover tbody tr:hover {
+  background-color: rgba(52, 152, 219, 0.05);
 }
 
-.advisor-badge {
-    background-color: var(--warning-color);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
+.table th {
+  border-top: none;
+  font-weight: 600;
+  color: var(--primary-color);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .dashboard-container {
-        padding: 1rem 0;
-    }
-    
-    .main-content {
-        padding: 0 0.5rem;
-    }
-    
-    .summary-value {
-        font-size: 1.5rem;
-    }
-    
-    .chart-container {
-        height: 250px;
-    }
-    
-    .table-responsive {
-        font-size: 0.875rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .card-body {
-        padding: 1rem;
-    }
-    
-    .btn {
-        width: 100%;
-        margin-bottom: 0.5rem;
-    }
-    
-    .chart-container {
-        height: 200px;
-    }
-}
-
-/* Utility Classes */
+/* Custom Utilities */
 .text-small {
-    font-size: 0.875rem;
+  font-size: 0.875rem;
 }
 
-.text-tiny {
-    font-size: 0.75rem;
+.shadow-custom {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
 }
 
-.border-radius-sm {
-    border-radius: 4px;
-}
-
-.border-radius-md {
-    border-radius: 8px;
-}
-
-.border-radius-lg {
-    border-radius: 12px;
-}
-
-/* Animation Classes */
-.fade-in {
-    animation: fadeIn 0.5s ease-in;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.slide-in {
-    animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-    from { transform: translateX(-20px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+.border-radius-custom {
+  border-radius: 15px !important;
 }
 
 /* Print Styles */
 @media print {
-    .navbar, .btn, .sidebar {
-        display: none !important;
-    }
-    
-    .card {
-        box-shadow: none !important;
-        border: 1px solid var(--border-color);
-    }
-    
-    body {
-        background: white !important;
-        color: black !important;
-    }
-}
-
-/* High Contrast Mode Support */
-@media (prefers-contrast: high) {
-    :root {
-        --border-color: #000;
-        --text-primary: #000;
-        --text-secondary: #333;
-    }
-    
-    .card {
-        border: 2px solid var(--border-color);
-    }
-}
-
-/* Reduced Motion Support */
-@media (prefers-reduced-motion: reduce) {
-    * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
+  .navbar, .btn, .advisor-only {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+  }
 }

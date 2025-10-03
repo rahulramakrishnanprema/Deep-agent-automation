@@ -1,486 +1,633 @@
-// script.js - Frontend JavaScript for Portfolio Management Application
-// This file handles frontend logic including API calls, dynamic UI updates, and user interactions
+// script.js - Main JavaScript file for Indian Equity Portfolio Management Dashboard
+// Handles frontend functionality including API calls, UI updates, and chart rendering
 
 // Global variables
-let currentUser = null;
-let portfolioData = [];
+let currentPortfolioId = null;
 let advisorySignals = [];
+let portfolioData = [];
 
 // DOM Content Loaded Event Listener
 document.addEventListener('DOMContentLoaded', function() {
-    initializeApplication();
+    initializeDashboard();
+    setupEventListeners();
 });
 
-// Initialize the application
-function initializeApplication() {
-    checkAuthenticationStatus();
-    setupEventListeners();
-    loadInitialData();
+/**
+ * Initialize dashboard components
+ */
+function initializeDashboard() {
+    checkAuthentication();
+    loadPortfolioList();
+    setupResponsiveDesign();
 }
 
-// Check if user is authenticated
-async function checkAuthenticationStatus() {
-    try {
-        const response = await fetch('/api/auth/status', {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const userData = await response.json();
-            currentUser = userData;
-            updateUIForUserRole(userData.role);
-        } else {
+/**
+ * Check user authentication status
+ */
+function checkAuthentication() {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        redirectToLogin();
+        return;
+    }
+    
+    // Verify token validity
+    fetch('/api/auth/verify', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
             redirectToLogin();
         }
-    } catch (error) {
-        console.error('Authentication check failed:', error);
+    })
+    .catch(error => {
+        console.error('Auth verification failed:', error);
         redirectToLogin();
-    }
+    });
 }
 
-// Setup event listeners
+/**
+ * Redirect to login page
+ */
+function redirectToLogin() {
+    window.location.href = '/login.html';
+}
+
+/**
+ * Set up event listeners for UI interactions
+ */
 function setupEventListeners() {
-    // Login form submission
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', handleLogin);
-    }
-
-    // Logout button
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
-    }
-
-    // Portfolio refresh button
-    const refreshBtn = document.getElementById('refreshPortfolio');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadPortfolioData);
-    }
-
-    // Advisor dashboard toggle
-    const advisorToggle = document.getElementById('advisorDashboardToggle');
-    if (advisorToggle) {
-        advisorToggle.addEventListener('click', toggleAdvisorDashboard);
-    }
-}
-
-// Handle user login
-async function handleLogin(event) {
-    event.preventDefault();
+    // Portfolio selection
+    document.getElementById('portfolio-select').addEventListener('change', handlePortfolioSelect);
     
-    const formData = new FormData(event.target);
-    const credentials = {
-        email: formData.get('email'),
-        password: formData.get('password')
-    };
+    // Refresh button
+    document.getElementById('refresh-btn').addEventListener('click', refreshDashboard);
+    
+    // Logout button
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    
+    // Responsive design listeners
+    window.addEventListener('resize', handleResize);
+}
 
-    try {
-        const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+/**
+ * Handle window resize for responsive design
+ */
+function handleResize() {
+    updateChartSizes();
+    adjustLayout();
+}
+
+/**
+ * Adjust layout based on screen size
+ */
+function adjustLayout() {
+    const screenWidth = window.innerWidth;
+    const dashboard = document.getElementById('dashboard');
+    
+    if (screenWidth < 768) {
+        dashboard.classList.add('mobile-view');
+        document.getElementById('sidebar').classList.add('collapsed');
+    } else {
+        dashboard.classList.remove('mobile-view');
+        document.getElementById('sidebar').classList.remove('collapsed');
+    }
+}
+
+/**
+ * Load portfolio list for the authenticated advisor
+ */
+function loadPortfolioList() {
+    fetch('/api/portfolios', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to load portfolios');
+        }
+        return response.json();
+    })
+    .then(portfolios => {
+        populatePortfolioDropdown(portfolios);
+        if (portfolios.length > 0) {
+            loadPortfolioDetails(portfolios[0].id);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading portfolios:', error);
+        showError('Failed to load portfolios');
+    });
+}
+
+/**
+ * Populate portfolio dropdown
+ * @param {Array} portfolios - Array of portfolio objects
+ */
+function populatePortfolioDropdown(portfolios) {
+    const select = document.getElementById('portfolio-select');
+    select.innerHTML = '';
+    
+    portfolios.forEach(portfolio => {
+        const option = document.createElement('option');
+        option.value = portfolio.id;
+        option.textContent = `${portfolio.client_name} - ${portfolio.portfolio_name}`;
+        select.appendChild(option);
+    });
+}
+
+/**
+ * Handle portfolio selection change
+ * @param {Event} event - Change event
+ */
+function handlePortfolioSelect(event) {
+    const portfolioId = event.target.value;
+    loadPortfolioDetails(portfolioId);
+}
+
+/**
+ * Load detailed portfolio information
+ * @param {number} portfolioId - Portfolio ID
+ */
+function loadPortfolioDetails(portfolioId) {
+    currentPortfolioId = portfolioId;
+    
+    Promise.all([
+        fetchPortfolioHoldings(portfolioId),
+        fetchPortfolioPerformance(portfolioId),
+        fetchAdvisorySignals(portfolioId)
+    ])
+    .then(([holdings, performance, signals]) => {
+        updatePortfolioSummary(holdings, performance);
+        renderHoldingsTable(holdings);
+        renderPerformanceCharts(performance);
+        renderAdvisorySignals(signals);
+    })
+    .catch(error => {
+        console.error('Error loading portfolio details:', error);
+        showError('Failed to load portfolio details');
+    });
+}
+
+/**
+ * Fetch portfolio holdings from API
+ * @param {number} portfolioId - Portfolio ID
+ * @returns {Promise} Promise resolving to holdings data
+ */
+function fetchPortfolioHoldings(portfolioId) {
+    return fetch(`/api/portfolios/${portfolioId}/holdings`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to fetch holdings');
+        }
+        return response.json();
+    });
+}
+
+/**
+ * Fetch portfolio performance data
+ * @param {number} portfolioId - Portfolio ID
+ * @returns {Promise} Promise resolving to performance data
+ */
+function fetchPortfolioPerformance(portfolioId) {
+    return fetch(`/api/portfolios/${portfolioId}/performance`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to fetch performance data');
+        }
+        return response.json();
+    });
+}
+
+/**
+ * Fetch advisory signals for portfolio
+ * @param {number} portfolioId - Portfolio ID
+ * @returns {Promise} Promise resolving to signals data
+ */
+function fetchAdvisorySignals(portfolioId) {
+    return fetch(`/api/portfolios/${portfolioId}/signals`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to fetch advisory signals');
+        }
+        return response.json();
+    });
+}
+
+/**
+ * Update portfolio summary section
+ * @param {Object} holdings - Portfolio holdings data
+ * @param {Object} performance - Portfolio performance data
+ */
+function updatePortfolioSummary(holdings, performance) {
+    const totalValue = holdings.reduce((sum, holding) => sum + (holding.quantity * holding.current_price), 0);
+    const totalInvested = holdings.reduce((sum, holding) => sum + (holding.quantity * holding.average_cost), 0);
+    const totalGainLoss = totalValue - totalInvested;
+    const gainLossPercent = (totalGainLoss / totalInvested) * 100;
+    
+    document.getElementById('total-value').textContent = formatCurrency(totalValue);
+    document.getElementById('total-invested').textContent = formatCurrency(totalInvested);
+    document.getElementById('total-gain-loss').textContent = formatCurrency(totalGainLoss);
+    document.getElementById('gain-loss-percent').textContent = gainLossPercent.toFixed(2) + '%';
+    
+    // Set color based on gain/loss
+    const gainLossElement = document.getElementById('total-gain-loss');
+    const percentElement = document.getElementById('gain-loss-percent');
+    
+    if (totalGainLoss >= 0) {
+        gainLossElement.classList.add('positive');
+        gainLossElement.classList.remove('negative');
+        percentElement.classList.add('positive');
+        percentElement.classList.remove('negative');
+    } else {
+        gainLossElement.classList.add('negative');
+        gainLossElement.classList.remove('positive');
+        percentElement.classList.add('negative');
+        percentElement.classList.remove('positive');
+    }
+}
+
+/**
+ * Render holdings table
+ * @param {Array} holdings - Array of holding objects
+ */
+function renderHoldingsTable(holdings) {
+    const tableBody = document.getElementById('holdings-table-body');
+    tableBody.innerHTML = '';
+    
+    holdings.forEach(holding => {
+        const row = document.createElement('tr');
+        const currentValue = holding.quantity * holding.current_price;
+        const investedValue = holding.quantity * holding.average_cost;
+        const gainLoss = currentValue - investedValue;
+        const gainLossPercent = (gainLoss / investedValue) * 100;
+        
+        row.innerHTML = `
+            <td>${holding.symbol}</td>
+            <td>${holding.name}</td>
+            <td>${holding.quantity}</td>
+            <td>${formatCurrency(holding.average_cost)}</td>
+            <td>${formatCurrency(holding.current_price)}</td>
+            <td>${formatCurrency(currentValue)}</td>
+            <td class="${gainLoss >= 0 ? 'positive' : 'negative'}">${formatCurrency(gainLoss)}</td>
+            <td class="${gainLoss >= 0 ? 'positive' : 'negative'}">${gainLossPercent.toFixed(2)}%</td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+}
+
+/**
+ * Render performance charts using Chart.js
+ * @param {Object} performance - Performance data object
+ */
+function renderPerformanceCharts(performance) {
+    renderReturnsChart(performance.historical_returns);
+    renderSectorAllocationChart(performance.sector_allocation);
+    renderTopHoldingsChart(performance.top_holdings);
+}
+
+/**
+ * Render historical returns chart
+ * @param {Array} returnsData - Historical returns data
+ */
+function renderReturnsChart(returnsData) {
+    const ctx = document.getElementById('returns-chart').getContext('2d');
+    
+    if (window.returnsChart) {
+        window.returnsChart.destroy();
+    }
+    
+    window.returnsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: returnsData.map(item => item.date),
+            datasets: [{
+                label: 'Portfolio Value',
+                data: returnsData.map(item => item.value),
+                borderColor: '#4CAF50',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Portfolio Performance'
+                }
             },
-            body: JSON.stringify(credentials),
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            const userData = await response.json();
-            currentUser = userData;
-            updateUIForUserRole(userData.role);
-            window.location.href = '/dashboard';
-        } else {
-            showNotification('Login failed. Please check your credentials.', 'error');
+            scales: {
+                y: {
+                    beginAtZero: false
+                }
+            }
         }
-    } catch (error) {
-        console.error('Login error:', error);
-        showNotification('Login failed. Please try again.', 'error');
-    }
+    });
 }
 
-// Handle user logout
-async function handleLogout() {
-    try {
-        await fetch('/api/auth/logout', {
-            method: 'POST',
-            credentials: 'include'
-        });
-        
-        currentUser = null;
-        redirectToLogin();
-    } catch (error) {
-        console.error('Logout error:', error);
+/**
+ * Render sector allocation chart
+ * @param {Array} sectorData - Sector allocation data
+ */
+function renderSectorAllocationChart(sectorData) {
+    const ctx = document.getElementById('sector-chart').getContext('2d');
+    
+    if (window.sectorChart) {
+        window.sectorChart.destroy();
     }
-}
-
-// Load initial data based on user role
-async function loadInitialData() {
-    if (currentUser) {
-        await loadPortfolioData();
-        
-        if (currentUser.role === 'advisor') {
-            await loadAdvisorySignals();
-            await loadVisualReports();
+    
+    window.sectorChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: sectorData.map(item => item.sector),
+            datasets: [{
+                data: sectorData.map(item => item.percentage),
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                    '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Sector Allocation'
+                }
+            }
         }
-    }
+    });
 }
 
-// Load portfolio data from backend
-async function loadPortfolioData() {
-    try {
-        showLoading('portfolioSection');
-        
-        const response = await fetch('/api/portfolio', {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            portfolioData = await response.json();
-            renderPortfolioData(portfolioData);
-        } else {
-            throw new Error('Failed to load portfolio data');
+/**
+ * Render top holdings chart
+ * @param {Array} holdingsData - Top holdings data
+ */
+function renderTopHoldingsChart(holdingsData) {
+    const ctx = document.getElementById('holdings-chart').getContext('2d');
+    
+    if (window.holdingsChart) {
+        window.holdingsChart.destroy();
+    }
+    
+    window.holdingsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: holdingsData.map(item => item.symbol),
+            datasets: [{
+                label: 'Portfolio Weight (%)',
+                data: holdingsData.map(item => item.weight),
+                backgroundColor: '#2196F3'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Top Holdings'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
         }
-    } catch (error) {
-        console.error('Error loading portfolio:', error);
-        showNotification('Failed to load portfolio data', 'error');
-        renderPortfolioData(getDummyPortfolioData());
-    } finally {
-        hideLoading('portfolioSection');
-    }
+    });
 }
 
-// Load advisory signals
-async function loadAdvisorySignals() {
-    if (currentUser?.role !== 'advisor') return;
-
-    try {
-        showLoading('advisorySection');
+/**
+ * Render advisory signals
+ * @param {Array} signals - Array of signal objects
+ */
+function renderAdvisorySignals(signals) {
+    const container = document.getElementById('advisory-signals');
+    container.innerHTML = '';
+    
+    advisorySignals = signals;
+    
+    signals.forEach(signal => {
+        const signalElement = document.createElement('div');
+        signalElement.className = `signal-card ${signal.signal.toLowerCase()}`;
         
-        const response = await fetch('/api/advisory/signals', {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            advisorySignals = await response.json();
-            renderAdvisorySignals(advisorySignals);
-        } else {
-            throw new Error('Failed to load advisory signals');
-        }
-    } catch (error) {
-        console.error('Error loading advisory signals:', error);
-        showNotification('Failed to load advisory signals', 'error');
-        renderAdvisorySignals(getDummyAdvisorySignals());
-    } finally {
-        hideLoading('advisorySection');
-    }
-}
-
-// Load visual reports for advisors
-async function loadVisualReports() {
-    if (currentUser?.role !== 'advisor') return;
-
-    try {
-        showLoading('reportsSection');
-        
-        const response = await fetch('/api/reports/analytics', {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const reportsData = await response.json();
-            renderVisualReports(reportsData);
-        } else {
-            throw new Error('Failed to load visual reports');
-        }
-    } catch (error) {
-        console.error('Error loading reports:', error);
-        showNotification('Failed to load visual reports', 'error');
-    } finally {
-        hideLoading('reportsSection');
-    }
-}
-
-// Render portfolio data to UI
-function renderPortfolioData(data) {
-    const portfolioContainer = document.getElementById('portfolioContainer');
-    if (!portfolioContainer) return;
-
-    portfolioContainer.innerHTML = data.map(stock => `
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">${stock.symbol}</h5>
-                    <h6 class="card-subtitle mb-2 text-muted">${stock.name}</h6>
-                    <p class="card-text">
-                        Quantity: ${stock.quantity}<br>
-                        Avg Price: ₹${stock.average_price}<br>
-                        Current Price: ₹${stock.current_price}<br>
-                        P&L: <span class="${stock.pl_percentage >= 0 ? 'text-success' : 'text-danger'}">
-                            ${stock.pl_percentage >= 0 ? '+' : ''}${stock.pl_percentage}%
-                        </span>
-                    </p>
+        signalElement.innerHTML = `
+            <div class="signal-header">
+                <span class="symbol">${signal.symbol}</span>
+                <span class="signal ${signal.signal.toLowerCase()}">${signal.signal}</span>
+            </div>
+            <div class="signal-body">
+                <p>${signal.reasoning}</p>
+                <div class="signal-details">
+                    <span>Strength: ${signal.confidence}/10</span>
+                    <span>Target: ${formatCurrency(signal.target_price)}</span>
+                    <span>Current: ${formatCurrency(signal.current_price)}</span>
                 </div>
             </div>
-        </div>
-    `).join('');
-}
-
-// Render advisory signals
-function renderAdvisorySignals(signals) {
-    const signalsContainer = document.getElementById('advisorySignalsContainer');
-    if (!signalsContainer) return;
-
-    signalsContainer.innerHTML = signals.map(signal => {
-        const signalClass = getSignalClass(signal.recommendation);
-        return `
-            <div class="col-md-6 mb-3">
-                <div class="card">
-                    <div class="card-header ${signalClass}">
-                        <strong>${signal.symbol}</strong> - ${signal.recommendation}
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Reasoning:</strong> ${signal.reasoning}</p>
-                        <p><strong>Confidence:</strong> ${signal.confidence}%</p>
-                        <p><strong>Last Updated:</strong> ${new Date(signal.timestamp).toLocaleString()}</p>
-                    </div>
-                </div>
+            <div class="signal-footer">
+                <span>${new Date(signal.generated_at).toLocaleDateString()}</span>
+                <button class="action-btn" onclick="executeSignal('${signal.symbol}', '${signal.signal}')">
+                    Execute
+                </button>
             </div>
         `;
-    }).join('');
-}
-
-// Render visual reports
-function renderVisualReports(reportsData) {
-    const reportsContainer = document.getElementById('visualReportsContainer');
-    if (!reportsContainer) return;
-
-    // This would typically involve chart rendering libraries like Chart.js
-    // For now, we'll create a simple placeholder
-    reportsContainer.innerHTML = `
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Portfolio Performance</h5>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="performanceChart" width="400" height="200"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Sector Allocation</h5>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="sectorChart" width="400" height="200"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Initialize charts (would be implemented with Chart.js)
-    initializeCharts();
-}
-
-// Get CSS class for signal recommendation
-function getSignalClass(recommendation) {
-    const classes = {
-        'Buy': 'bg-success text-white',
-        'Hold': 'bg-warning text-dark',
-        'Sell': 'bg-danger text-white'
-    };
-    return classes[recommendation] || 'bg-secondary text-white';
-}
-
-// Update UI based on user role
-function updateUIForUserRole(role) {
-    // Show/hide advisor-specific elements
-    const advisorElements = document.querySelectorAll('.advisor-only');
-    advisorElements.forEach(element => {
-        element.style.display = role === 'advisor' ? 'block' : 'none';
-    });
-
-    // Update user display
-    const userDisplay = document.getElementById('userDisplay');
-    if (userDisplay) {
-        userDisplay.textContent = `Logged in as: ${currentUser?.email} (${role})`;
-    }
-}
-
-// Toggle advisor dashboard
-function toggleAdvisorDashboard() {
-    const dashboard = document.getElementById('advisorDashboard');
-    if (dashboard) {
-        dashboard.classList.toggle('d-none');
-    }
-}
-
-// Show loading indicator
-function showLoading(sectionId) {
-    const section = document.getElementById(sectionId);
-    if (section) {
-        const loadingElement = section.querySelector('.loading-spinner') || createLoadingElement();
-        section.appendChild(loadingElement);
-    }
-}
-
-// Hide loading indicator
-function hideLoading(sectionId) {
-    const section = document.getElementById(sectionId);
-    if (section) {
-        const loadingElement = section.querySelector('.loading-spinner');
-        if (loadingElement) {
-            loadingElement.remove();
-        }
-    }
-}
-
-// Create loading element
-function createLoadingElement() {
-    const div = document.createElement('div');
-    div.className = 'loading-spinner text-center my-4';
-    div.innerHTML = `
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="mt-2">Loading...</p>
-    `;
-    return div;
-}
-
-// Show notification
-function showNotification(message, type = 'info') {
-    // Create toast notification
-    const toastContainer = document.getElementById('toastContainer') || createToastContainer();
-    const toastId = 'toast-' + Date.now();
-    
-    const toastHtml = `
-        <div class="toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0" 
-             role="alert" aria-live="assertive" aria-atomic="true" id="${toastId}">
-            <div class="d-flex">
-                <div class="toast-body">
-                    ${message}
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" 
-                        data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-        </div>
-    `;
-    
-    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-    
-    // Show the toast
-    const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement);
-    toast.show();
-    
-    // Remove toast after it hides
-    toastElement.addEventListener('hidden.bs.toast', () => {
-        toastElement.remove();
+        
+        container.appendChild(signalElement);
     });
 }
 
-// Create toast container if it doesn't exist
-function createToastContainer() {
-    const container = document.createElement('div');
-    container.id = 'toastContainer';
-    container.className = 'toast-container position-fixed top-0 end-0 p-3';
-    container.style.zIndex = '9999';
-    document.body.appendChild(container);
-    return container;
+/**
+ * Update chart sizes for responsive design
+ */
+function updateChartSizes() {
+    const charts = [window.returnsChart, window.sectorChart, window.holdingsChart];
+    charts.forEach(chart => {
+        if (chart) {
+            chart.resize();
+        }
+    });
 }
 
-// Redirect to login page
-function redirectToLogin() {
-    if (!window.location.pathname.includes('login')) {
-        window.location.href = '/login';
+/**
+ * Refresh dashboard data
+ */
+function refreshDashboard() {
+    if (currentPortfolioId) {
+        loadPortfolioDetails(currentPortfolioId);
     }
 }
 
-// Dummy data fallbacks
-function getDummyPortfolioData() {
-    return [
-        {
-            symbol: 'RELIANCE',
-            name: 'Reliance Industries Ltd.',
-            quantity: 50,
-            average_price: 2450.75,
-            current_price: 2678.50,
-            pl_percentage: 9.3
+/**
+ * Execute trading signal
+ * @param {string} symbol - Stock symbol
+ * @param {string} signal - Signal type (BUY/SELL/HOLD)
+ */
+function executeSignal(symbol, signal) {
+    if (!confirm(`Execute ${signal} signal for ${symbol}?`)) {
+        return;
+    }
+    
+    fetch('/api/trades/execute', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+            'Content-Type': 'application/json'
         },
-        {
-            symbol: 'INFY',
-            name: 'Infosys Ltd.',
-            quantity: 75,
-            average_price: 1450.25,
-            current_price: 1520.75,
-            pl_percentage: 4.9
-        },
-        {
-            symbol: 'HDFCBANK',
-            name: 'HDFC Bank Ltd.',
-            quantity: 30,
-            average_price: 1567.80,
-            current_price: 1489.25,
-            pl_percentage: -5.0
+        body: JSON.stringify({
+            portfolio_id: currentPortfolioId,
+            symbol: symbol,
+            signal: signal
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to execute trade');
         }
-    ];
+        return response.json();
+    })
+    .then(result => {
+        showSuccess(`Trade executed successfully for ${symbol}`);
+        refreshDashboard();
+    })
+    .catch(error => {
+        console.error('Error executing trade:', error);
+        showError('Failed to execute trade');
+    });
 }
 
-function getDummyAdvisorySignals() {
-    return [
-        {
-            symbol: 'RELIANCE',
-            recommendation: 'Buy',
-            reasoning: 'Strong technical indicators and positive sector outlook',
-            confidence: 85,
-            timestamp: new Date().toISOString()
-        },
-        {
-            symbol: 'INFY',
-            recommendation: 'Hold',
-            reasoning: 'Stable performance but limited upside potential',
-            confidence: 70,
-            timestamp: new Date().toISOString()
-        },
-        {
-            symbol: 'HDFCBANK',
-            recommendation: 'Sell',
-            reasoning: 'Technical breakdown and sector headwinds',
-            confidence: 78,
-            timestamp: new Date().toISOString()
-        }
-    ];
+/**
+ * Handle user logout
+ */
+function handleLogout() {
+    localStorage.removeItem('authToken');
+    redirectToLogin();
 }
 
-// Initialize charts (placeholder for Chart.js integration)
-function initializeCharts() {
-    // This would be implemented with Chart.js in a real scenario
-    console.log('Charts would be initialized here with Chart.js');
+/**
+ * Format currency amount
+ * @param {number} amount - Amount to format
+ * @returns {string} Formatted currency string
+ */
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(amount);
 }
 
-// Error handling for fetch requests
-function handleFetchError(error, context) {
-    console.error(`Error in ${context}:`, error);
-    showNotification(`Failed to ${context}. Please try again.`, 'error');
+/**
+ * Show success message
+ * @param {string} message - Success message
+ */
+function showSuccess(message) {
+    showNotification(message, 'success');
 }
 
-// Export functions for testing (if needed)
+/**
+ * Show error message
+ * @param {string} message - Error message
+ */
+function showError(message) {
+    showNotification(message, 'error');
+}
+
+/**
+ * Show notification
+ * @param {string} message - Notification message
+ * @param {string} type - Notification type (success/error)
+ */
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+/**
+ * Set up responsive design features
+ */
+function setupResponsiveDesign() {
+    // Add touch event listeners for mobile
+    if ('ontouchstart' in window) {
+        document.addEventListener('touchstart', handleTouchStart, false);
+        document.addEventListener('touchmove', handleTouchMove, false);
+    }
+    
+    // Initialize layout
+    adjustLayout();
+}
+
+// Touch event handlers for mobile swipe support
+let touchStartX = 0;
+let touchStartY = 0;
+
+function handleTouchStart(event) {
+    touchStartX = event.touches[0].clientX;
+    touchStartY = event.touches[0].clientY;
+}
+
+function handleTouchMove(event) {
+    if (!touchStartX || !touchStartY) {
+        return;
+    }
+    
+    const touchEndX = event.touches[0].clientX;
+    const touchEndY = event.touches[0].clientY;
+    
+    const diffX = touchStartX - touchEndX;
+    const diffY = touchStartY - touchEndY;
+    
+    // Swipe left to show sidebar
+    if (Math.abs(diffX) > Math.abs(diffY) && diffX > 50) {
+        document.getElementById('sidebar').classList.add('show');
+    }
+    
+    touchStartX = 0;
+    touchStartY = 0;
+}
+
+// Export functions for testing purposes
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        initializeApplication,
-        handleLogin,
-        handleLogout,
-        loadPortfolioData,
-        loadAdvisorySignals,
-        renderPortfolioData,
-        renderAdvisorySignals,
-        getDummyPortfolioData,
-        getDummyAdvisorySignals,
-        getSignalClass
+        formatCurrency,
+        updatePortfolioSummary,
+        renderAdvisorySignals
     };
 }

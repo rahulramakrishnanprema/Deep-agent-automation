@@ -1,29 +1,24 @@
 /* 
- * style.css - Main stylesheet for Portfolio Management System
- * MVP web application for managing client stock portfolios focused on Indian equity markets
- * Features portfolio storage, advisory signals, and advisor-only visual reports
+ * style.css - Main stylesheet for Stock Portfolio Management System
+ * Responsive design for web application managing Indian equity portfolios
+ * Features: Bootstrap integration, advisor dashboard, portfolio management UI
  */
 
-/* Import Bootstrap CSS */
-@import url('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css');
-
-/* Custom Variables */
+/* Global Styles and Variables */
 :root {
     --primary-color: #2c3e50;
     --secondary-color: #3498db;
     --accent-color: #e74c3c;
     --success-color: #27ae60;
     --warning-color: #f39c12;
-    --light-bg: #f8f9fa;
-    --dark-bg: #343a40;
-    --text-light: #ffffff;
-    --text-dark: #212529;
+    --light-bg: #ecf0f1;
+    --dark-text: #2c3e50;
+    --light-text: #ffffff;
     --border-radius: 8px;
     --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     --transition: all 0.3s ease;
 }
 
-/* Global Styles */
 * {
     margin: 0;
     padding: 0;
@@ -33,65 +28,47 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
-    color: var(--text-dark);
+    color: var(--dark-text);
     background-color: var(--light-bg);
-    min-height: 100vh;
 }
 
 /* Header and Navigation */
 .navbar {
     background-color: var(--primary-color);
     box-shadow: var(--box-shadow);
+    padding: 1rem 2rem;
 }
 
 .navbar-brand {
-    font-weight: bold;
+    color: var(--light-text);
     font-size: 1.5rem;
-    color: var(--text-light) !important;
+    font-weight: bold;
 }
 
 .navbar-nav .nav-link {
-    color: var(--text-light) !important;
+    color: var(--light-text);
     transition: var(--transition);
 }
 
 .navbar-nav .nav-link:hover {
-    color: var(--secondary-color) !important;
+    color: var(--secondary-color);
 }
 
-/* Dashboard Layout */
-.dashboard-container {
-    padding: 2rem 0;
-    min-height: calc(100vh - 76px);
+/* Main Content Layout */
+.container-fluid {
+    padding: 2rem;
 }
 
-.sidebar {
-    background-color: var(--light-bg);
-    border-right: 1px solid #dee2e6;
-    height: 100%;
-    padding: 1rem;
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
 }
 
-.sidebar .nav-link {
-    color: var(--text-dark);
-    padding: 0.75rem 1rem;
-    border-radius: var(--border-radius);
-    transition: var(--transition);
-}
-
-.sidebar .nav-link:hover,
-.sidebar .nav-link.active {
-    background-color: var(--secondary-color);
-    color: var(--text-light);
-}
-
-.main-content {
-    padding: 1rem 2rem;
-}
-
-/* Cards and Widgets */
+/* Cards and Components */
 .card {
-    border: none;
+    background: white;
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
     transition: var(--transition);
@@ -100,67 +77,42 @@ body {
 
 .card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
 }
 
 .card-header {
     background-color: var(--primary-color);
-    color: var(--text-light);
-    border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+    color: var(--light-text);
     padding: 1rem 1.5rem;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
 }
 
 .card-body {
     padding: 1.5rem;
 }
 
-/* Portfolio Summary */
-.portfolio-summary {
-    background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-    color: var(--text-light);
-    border-radius: var(--border-radius);
-    padding: 1.5rem;
-}
-
-.portfolio-value {
-    font-size: 2.5rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-}
-
-.portfolio-change {
-    font-size: 1.2rem;
-    opacity: 0.9;
-}
-
-.portfolio-change.positive {
-    color: var(--success-color);
-}
-
-.portfolio-change.negative {
-    color: var(--accent-color);
-}
-
-/* Stock List and Tables */
-.stock-table {
+/* Portfolio Table Styles */
+.portfolio-table {
     width: 100%;
     border-collapse: collapse;
+    margin: 1rem 0;
 }
 
-.stock-table th,
-.stock-table td {
+.portfolio-table th,
+.portfolio-table td {
     padding: 0.75rem;
     text-align: left;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid #ddd;
 }
 
-.stock-table th {
-    background-color: var(--light-bg);
+.portfolio-table th {
+    background-color: var(--primary-color);
+    color: var(--light-text);
     font-weight: 600;
 }
 
-.stock-table tr:hover {
-    background-color: rgba(52, 152, 219, 0.1);
+.portfolio-table tr:hover {
+    background-color: #f5f5f5;
 }
 
 /* Signal Indicators */
@@ -169,76 +121,158 @@ body {
     font-weight: bold;
 }
 
-.signal-sell {
-    color: var(--accent-color);
-    font-weight: bold;
-}
-
 .signal-hold {
     color: var(--warning-color);
     font-weight: bold;
 }
 
-/* Charts and Graphs */
+.signal-sell {
+    color: var(--accent-color);
+    font-weight: bold;
+}
+
+.signal-indicator {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    margin-right: 0.5rem;
+}
+
+/* Charts and Analytics */
 .chart-container {
     position: relative;
     height: 300px;
     margin: 1rem 0;
 }
 
-/* Forms and Inputs */
-.form-control {
+.analytics-panel {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
     border-radius: var(--border-radius);
-    border: 1px solid #ced4da;
+    padding: 1.5rem;
+}
+
+/* Forms and Inputs */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-control {
+    width: 100%;
     padding: 0.75rem;
+    border: 2px solid #ddd;
+    border-radius: var(--border-radius);
     transition: var(--transition);
 }
 
 .form-control:focus {
     border-color: var(--secondary-color);
-    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    outline: none;
 }
 
 .btn {
-    border-radius: var(--border-radius);
     padding: 0.75rem 1.5rem;
-    font-weight: 500;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
     transition: var(--transition);
+    font-weight: 600;
 }
 
 .btn-primary {
     background-color: var(--secondary-color);
-    border-color: var(--secondary-color);
+    color: white;
 }
 
 .btn-primary:hover {
     background-color: #2980b9;
-    border-color: #2980b9;
-    transform: translateY(-1px);
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.btn-danger {
+    background-color: var(--accent-color);
+    color: white;
 }
 
 /* Modal Styles */
-.modal-content {
-    border-radius: var(--border-radius);
-    border: none;
-    box-shadow: var(--box-shadow);
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
 }
 
-.modal-header {
-    background-color: var(--primary-color);
-    color: var(--text-light);
-    border-radius: var(--border-radius) var(--border-radius) 0 0;
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 1rem;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .navbar {
+        padding: 1rem;
+    }
+    
+    .portfolio-table {
+        font-size: 0.875rem;
+    }
+    
+    .portfolio-table th,
+    .portfolio-table td {
+        padding: 0.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .modal-content {
+        width: 95%;
+        padding: 1rem;
+    }
 }
 
 /* Loading States */
 .loading-spinner {
-    display: inline-block;
-    width: 2rem;
-    height: 2rem;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid var(--secondary-color);
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--secondary-color);
     border-radius: 50%;
+    width: 40px;
+    height: 40px;
     animation: spin 1s linear infinite;
+    margin: 2rem auto;
 }
 
 @keyframes spin {
@@ -246,163 +280,75 @@ body {
     100% { transform: rotate(360deg); }
 }
 
-/* Alert Messages */
-.alert {
-    border-radius: var(--border-radius);
-    padding: 1rem 1.5rem;
-    margin-bottom: 1rem;
-    border: none;
-}
-
-.alert-success {
-    background-color: #d4edda;
-    color: #155724;
-}
-
-.alert-danger {
-    background-color: #f8d7da;
-    color: #721c24;
-}
-
-.alert-warning {
-    background-color: #fff3cd;
-    color: #856404;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .sidebar {
-        border-right: none;
-        border-bottom: 1px solid #dee2e6;
-        margin-bottom: 1rem;
-    }
-    
-    .main-content {
-        padding: 1rem;
-    }
-    
-    .portfolio-value {
-        font-size: 2rem;
-    }
-    
-    .chart-container {
-        height: 250px;
-    }
-    
-    .card {
-        margin-bottom: 1rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .navbar-brand {
-        font-size: 1.2rem;
-    }
-    
-    .dashboard-container {
-        padding: 1rem 0;
-    }
-    
-    .portfolio-value {
-        font-size: 1.8rem;
-    }
-    
-    .chart-container {
-        height: 200px;
-    }
-}
-
-/* Advisor-specific Styles */
-.advisor-only {
-    border-left: 4px solid var(--warning-color);
-    background-color: rgba(243, 156, 18, 0.1);
-}
-
-.advisor-chart {
-    background-color: var(--light-bg);
-    border-radius: var(--border-radius);
-    padding: 1rem;
-    margin-bottom: 1rem;
-}
-
-/* Sector Performance */
-.sector-performance {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin: 1rem 0;
-}
-
-.sector-card {
-    background: white;
-    padding: 1rem;
-    border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
-    text-align: center;
-}
-
-.sector-card h5 {
-    color: var(--primary-color);
-    margin-bottom: 0.5rem;
-}
-
-/* Market Buzz Feed */
-.buzz-feed {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-.buzz-item {
-    padding: 1rem;
-    border-bottom: 1px solid #dee2e6;
-    transition: var(--transition);
-}
-
-.buzz-item:hover {
-    background-color: rgba(52, 152, 219, 0.05);
-}
-
-.buzz-item:last-child {
-    border-bottom: none;
-}
-
-.buzz-sentiment-positive {
-    border-left: 4px solid var(--success-color);
-}
-
-.buzz-sentiment-negative {
-    border-left: 4px solid var(--accent-color);
-}
-
-.buzz-sentiment-neutral {
-    border-left: 4px solid var(--warning-color);
-}
-
 /* Utility Classes */
 .text-center { text-align: center; }
 .text-right { text-align: right; }
-.mb-0 { margin-bottom: 0; }
 .mt-1 { margin-top: 0.25rem; }
-.mb-1 { margin-bottom: 0.25rem; }
 .mt-2 { margin-top: 0.5rem; }
-.mb-2 { margin-bottom: 0.5rem; }
 .mt-3 { margin-top: 1rem; }
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
 .mb-3 { margin-bottom: 1rem; }
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 1rem; }
+
+/* Advisor-only Dashboard Components */
+.advisor-dashboard {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: var(--border-radius);
+    padding: 2rem;
+}
+
+.advisor-section {
+    display: none; /* Hidden by default, shown only for advisor users */
+}
+
+.advisor-visible .advisor-section {
+    display: block;
+}
 
 /* Print Styles */
 @media print {
-    .navbar,
-    .sidebar,
-    .btn {
-        display: none !important;
+    .navbar, .btn, .modal-backdrop {
+        display: none;
     }
     
     .card {
         box-shadow: none;
-        border: 1px solid #000;
+        border: 1px solid #ddd;
     }
     
-    .main-content {
-        padding: 0;
+    body {
+        background: white;
+        color: black;
+    }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    :root {
+        --primary-color: #000000;
+        --secondary-color: #0000ff;
+        --accent-color: #ff0000;
+        --light-bg: #ffffff;
+        --dark-text: #000000;
+    }
+    
+    .card {
+        border: 2px solid black;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none;
+        animation: none;
+    }
+    
+    .card:hover {
+        transform: none;
     }
 }

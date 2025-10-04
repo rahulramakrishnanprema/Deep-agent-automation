@@ -1,4 +1,8 @@
-/* style.css - Custom CSS for Indian Equity Portfolio Management System */
+/* style.css - Portfolio Management System CSS Styles */
+/* Custom styles for MVP web application for managing client stock portfolios in Indian equity markets */
+
+/* Import Bootstrap Icons */
+@import url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css');
 
 /* Global Styles */
 :root {
@@ -7,56 +11,54 @@
     --success-color: #27ae60;
     --warning-color: #f39c12;
     --danger-color: #e74c3c;
-    --light-gray: #ecf0f1;
-    --dark-gray: #7f8c8d;
+    --light-bg: #f8f9fa;
+    --dark-bg: #343a40;
+    --advisor-color: #8e44ad;
 }
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8f9fa;
-    color: var(--primary-color);
+    background-color: var(--light-bg);
+    color: #333;
+    line-height: 1.6;
 }
 
-/* Header and Navigation */
+/* Header Styles */
 .navbar-brand {
     font-weight: bold;
     font-size: 1.5rem;
 }
 
-.navbar-dark .navbar-nav .nav-link {
-    color: rgba(255, 255, 255, 0.85);
-    transition: color 0.3s ease;
+.navbar-nav .nav-link {
+    font-weight: 500;
+    padding: 0.5rem 1rem;
 }
 
-.navbar-dark .navbar-nav .nav-link:hover {
-    color: #fff;
+/* Dashboard Styles */
+.dashboard-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
 }
 
-/* Dashboard Cards */
-.dashboard-card {
+.portfolio-summary-card {
     border: none;
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: transform 0.3s ease;
 }
 
-.dashboard-card:hover {
+.portfolio-summary-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
-}
-
-.card-header {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    color: white;
-    border-radius: 10px 10px 0 0 !important;
 }
 
 /* Portfolio Table Styles */
 .portfolio-table {
     background: white;
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .portfolio-table th {
@@ -65,11 +67,11 @@ body {
     font-weight: 600;
 }
 
-.portfolio-table tr:hover {
-    background-color: var(--light-gray);
+.portfolio-table tr:nth-child(even) {
+    background-color: #f8f9fa;
 }
 
-/* Advisory Signal Badges */
+/* Signal Badge Styles */
 .signal-badge {
     padding: 0.5rem 1rem;
     border-radius: 20px;
@@ -92,59 +94,53 @@ body {
     color: white;
 }
 
-/* Chart Containers */
+/* Advisor Only Section */
+.advisor-section {
+    border-left: 4px solid var(--advisor-color);
+    background-color: rgba(142, 68, 173, 0.05);
+    padding: 1.5rem;
+    margin: 1rem 0;
+}
+
+.advisor-only {
+    border: 2px solid var(--advisor-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.advisor-only-header {
+    color: var(--advisor-color);
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+/* Chart Container Styles */
 .chart-container {
     background: white;
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 1.5rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    margin-bottom: 2rem;
-}
-
-.chart-header {
-    border-bottom: 2px solid var(--light-gray);
-    padding-bottom: 1rem;
     margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    height: 400px;
 }
 
-/* Form Styles */
-.form-container {
-    background: white;
-    border-radius: 10px;
-    padding: 2rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.form-label {
-    font-weight: 600;
-    color: var(--primary-color);
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-    border: none;
-    border-radius: 25px;
-    padding: 0.5rem 2rem;
-    font-weight: 600;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    transform: translateY(-2px);
-}
-
-/* Responsive Design */
+/* Responsive Design Enhancements */
 @media (max-width: 768px) {
-    .dashboard-card {
-        margin-bottom: 1.5rem;
+    .dashboard-header h1 {
+        font-size: 1.8rem;
     }
     
-    .portfolio-table {
-        font-size: 0.9rem;
+    .portfolio-summary-card {
+        margin-bottom: 1rem;
     }
     
     .chart-container {
-        padding: 1rem;
+        height: 300px;
+    }
+    
+    .table-responsive {
+        font-size: 0.9rem;
     }
 }
 
@@ -153,13 +149,14 @@ body {
         font-size: 1.2rem;
     }
     
-    .form-container {
-        padding: 1rem;
-    }
-    
     .signal-badge {
         font-size: 0.8rem;
         padding: 0.4rem 0.8rem;
+    }
+    
+    .chart-container {
+        height: 250px;
+        padding: 1rem;
     }
 }
 
@@ -168,63 +165,127 @@ body {
     display: inline-block;
     width: 2rem;
     height: 2rem;
-    border: 3px solid var(--light-gray);
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid var(--secondary-color);
     border-radius: 50%;
-    border-top-color: var(--secondary-color);
-    animation: spin 1s ease-in-out infinite;
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
-/* Custom Utilities */
-.text-indian-market {
-    color: #ff9933; /* Saffron color from Indian flag */
+/* Custom Button Styles */
+.btn-primary-custom {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: white;
 }
 
-.bg-gradient-primary {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+.btn-primary-custom:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
 }
 
-.shadow-custom {
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+/* Form Styles */
+.form-control:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
 }
 
-/* Hover Effects */
-.hover-lift {
-    transition: transform 0.3s ease;
+/* Card Hover Effects */
+.card-hover {
+    transition: all 0.3s ease;
 }
 
-.hover-lift:hover {
-    transform: translateY(-3px);
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
 }
 
-/* Status Indicators */
-.status-indicator {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 0.5rem;
+/* Indian Market Specific Styles */
+.indian-market-badge {
+    background-color: #ff9933;
+    color: #ffffff;
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
 }
 
-.status-active {
-    background-color: var(--success-color);
+/* Performance Indicators */
+.performance-positive {
+    color: var(--success-color);
+    font-weight: 600;
 }
 
-.status-inactive {
-    background-color: var(--danger-color);
+.performance-negative {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.performance-neutral {
+    color: var(--warning-color);
+    font-weight: 600;
 }
 
 /* Print Styles */
 @media print {
-    .navbar, .btn, .no-print {
+    .no-print {
         display: none !important;
     }
     
-    .card {
-        border: 1px solid #000 !important;
-        box-shadow: none !important;
+    .advisor-only {
+        border: 1px solid #000;
+        page-break-inside: avoid;
+    }
+    
+    .chart-container {
+        height: 300px;
+        page-break-inside: avoid;
+    }
+}
+
+/* Accessibility Improvements */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .signal-buy {
+        background-color: #004400;
+    }
+    
+    .signal-hold {
+        background-color: #884400;
+    }
+    
+    .signal-sell {
+        background-color: #880000;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #1a1a1a;
+        color: #e6e6e6;
+    }
+    
+    .portfolio-table,
+    .chart-container,
+    .portfolio-summary-card {
+        background-color: #2d2d2d;
+        color: #e6e6e6;
+    }
+    
+    .portfolio-table tr:nth-child(even) {
+        background-color: #3d3d3d;
     }
 }

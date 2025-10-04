@@ -1,479 +1,358 @@
-import os
-import json
 import sqlite3
-from datetime import datetime, timedelta
-from flask import Flask, render_template, jsonify, request, session, redirect, url_for
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-import yfinance as yf
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')
-import io
-import base64
+from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from functools import wraps
+import json
+import random
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'
-app.config['SQLITE_DB'] = 'portfolio_management.db'
-
-# Initialize login manager
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
+app.secret_key = 'your-secret-key-here'  # Change this in production
 
 # Database setup
 def init_db():
-    """Initialize the SQLite database with required tables"""
-    conn = sqlite3.connect(app.config['SQLITE_DB'])
-    cursor = conn.cursor()
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
     
-    # Users table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'client',
-            email TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
+    # Create tables
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  username TEXT UNIQUE NOT NULL,
+                  password TEXT NOT NULL,
+                  role TEXT NOT NULL DEFAULT 'client')''')
     
-    # Stocks table (Indian equity focus)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS stocks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            sector TEXT NOT NULL,
-            exchange TEXT DEFAULT 'NSE',
-            current_price REAL,
-            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
+    c.execute('''CREATE TABLE IF NOT EXISTS portfolios
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id INTEGER,
+                  stock_symbol TEXT NOT NULL,
+                  quantity INTEGER NOT NULL,
+                  purchase_price REAL NOT NULL,
+                  purchase_date TEXT NOT NULL,
+                  FOREIGN KEY (user_id) REFERENCES users (id))''')
     
-    # Portfolio table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS portfolio (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            stock_id INTEGER NOT NULL,
-            quantity INTEGER NOT NULL,
-            purchase_price REAL NOT NULL,
-            purchase_date DATE NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            FOREIGN KEY (stock_id) REFERENCES stocks (id)
-        )
-    ''')
+    c.execute('''CREATE TABLE IF NOT EXISTS market_data
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  stock_symbol TEXT NOT NULL,
+                  price REAL NOT NULL,
+                  date TEXT NOT NULL,
+                  volume INTEGER,
+                  high REAL,
+                  low REAL)''')
     
-    # Advisory signals table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS advisory_signals (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            stock_id INTEGER NOT NULL,
-            signal_type TEXT NOT NULL,
-            confidence_score REAL,
-            reasoning TEXT,
-            generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            valid_until TIMESTAMP,
-            FOREIGN KEY (stock_id) REFERENCES stocks (id)
-        )
-    ''')
-    
-    # User roles table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user_roles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            role_name TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-    ''')
+    # Create indexes
+    c.execute('CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios (user_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_market_data_symbol ON market_data (stock_symbol)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_market_data_date ON market_data (date)')
     
     conn.commit()
     conn.close()
 
-# User class for Flask-Login
-class User(UserMixin):
-    def __init__(self, id, username, role):
-        self.id = id
-        self.username = username
-        self.role = role
+# Initialize database
+init_db()
 
-@login_manager.user_loader
-def load_user(user_id):
-    conn = sqlite3.connect(app.config['SQLITE_DB'])
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, username, role FROM users WHERE id = ?', (user_id,))
-    user_data = cursor.fetchone()
-    conn.close()
+# Dummy data population
+def populate_dummy_data():
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
     
-    if user_data:
-        return User(user_data[0], user_data[1], user_data[2])
-    return None
-
-def role_required(role):
-    """Decorator to require specific role for access"""
-    def decorator(f):
-        @wraps(f)
-        @login_required
-        def decorated_function(*args, **kwargs):
-            if current_user.role != role:
-                return jsonify({'error': 'Access denied'}), 403
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
-
-def generate_dummy_data():
-    """Generate dummy data for Indian equity markets"""
-    conn = sqlite3.connect(app.config['SQLITE_DB'])
-    cursor = conn.cursor()
-    
-    # Indian stocks data
-    indian_stocks = [
-        ('RELIANCE', 'Reliance Industries Ltd', 'Energy', 2750.50),
-        ('TCS', 'Tata Consultancy Services Ltd', 'IT', 3850.75),
-        ('HDFCBANK', 'HDFC Bank Ltd', 'Banking', 1650.25),
-        ('INFY', 'Infosys Ltd', 'IT', 1850.30),
-        ('ICICIBANK', 'ICICI Bank Ltd', 'Banking', 950.40),
-        ('HINDUNILVR', 'Hindustan Unilever Ltd', 'FMCG', 2450.60),
-        ('SBIN', 'State Bank of India', 'Banking', 650.15),
-        ('BHARTIARTL', 'Bharti Airtel Ltd', 'Telecom', 850.80),
-        ('ITC', 'ITC Ltd', 'FMCG', 450.25),
-        ('AXISBANK', 'Axis Bank Ltd', 'Banking', 1050.35)
-    ]
-    
-    # Insert stocks
-    for symbol, name, sector, price in indian_stocks:
-        cursor.execute('''
-            INSERT OR IGNORE INTO stocks (symbol, name, sector, current_price)
-            VALUES (?, ?, ?, ?)
-        ''', (symbol, name, sector, price))
-    
-    # Create demo users
-    demo_users = [
-        ('advisor', 'advisor123', 'advisor', 'advisor@example.com'),
-        ('client', 'client123', 'client', 'client@example.com')
-    ]
-    
-    for username, password, role, email in demo_users:
-        cursor.execute('''
-            INSERT OR IGNORE INTO users (username, password, role, email)
-            VALUES (?, ?, ?, ?)
-        ''', (username, password, role, email))
-    
-    # Get user IDs
-    cursor.execute('SELECT id FROM users WHERE username = "client"')
-    client_id = cursor.fetchone()[0]
-    
-    # Create sample portfolio for client
-    for i, (symbol, _, _, _) in enumerate(indian_stocks[:5]):
-        cursor.execute('SELECT id FROM stocks WHERE symbol = ?', (symbol,))
-        stock_id = cursor.fetchone()[0]
+    # Check if data already exists
+    c.execute("SELECT COUNT(*) FROM users")
+    if c.fetchone()[0] == 0:
+        # Add sample users
+        users = [
+            ('advisor1', 'password123', 'advisor'),
+            ('client1', 'password123', 'client'),
+            ('client2', 'password123', 'client')
+        ]
+        c.executemany("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", users)
         
-        cursor.execute('''
-            INSERT INTO portfolio (user_id, stock_id, quantity, purchase_price, purchase_date)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (client_id, stock_id, (i+1)*10, price * 0.9, 
-              (datetime.now() - timedelta(days=30+i*5)).strftime('%Y-%m-%d')))
+        # Add sample portfolios
+        stocks = ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK']
+        portfolios = []
+        for user_id in [2, 3]:  # client users
+            for symbol in stocks:
+                portfolios.append((
+                    user_id,
+                    symbol,
+                    random.randint(10, 100),
+                    round(random.uniform(1000, 5000), 2),
+                    (datetime.now() - timedelta(days=random.randint(1, 365))).strftime('%Y-%m-%d')
+                ))
+        
+        c.executemany("INSERT INTO portfolios (user_id, stock_symbol, quantity, purchase_price, purchase_date) VALUES (?, ?, ?, ?, ?)", portfolios)
+        
+        # Add sample market data
+        market_data = []
+        dates = [(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(30)]
+        for symbol in stocks:
+            base_price = random.uniform(1000, 5000)
+            for date in dates:
+                price = round(base_price * random.uniform(0.9, 1.1), 2)
+                market_data.append((
+                    symbol,
+                    price,
+                    date,
+                    random.randint(10000, 1000000),
+                    round(price * random.uniform(1.01, 1.05), 2),
+                    round(price * random.uniform(0.95, 0.99), 2)
+                ))
+        
+        c.executemany("INSERT INTO market_data (stock_symbol, price, date, volume, high, low) VALUES (?, ?, ?, ?, ?, ?)", market_data)
     
     conn.commit()
     conn.close()
 
-def calculate_technical_indicators(symbol, period='1y'):
-    """Calculate technical indicators for a stock"""
-    try:
-        # Add .NS suffix for NSE stocks
-        stock_data = yf.download(f'{symbol}.NS', period=period)
-        
-        if stock_data.empty:
-            return {}
-        
-        # Calculate SMA
-        stock_data['SMA_50'] = stock_data['Close'].rolling(window=50).mean()
-        stock_data['SMA_200'] = stock_data['Close'].rolling(window=200).mean()
-        
-        # Calculate RSI
-        delta = stock_data['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        stock_data['RSI'] = 100 - (100 / (1 + rs))
-        
-        # Calculate MACD
-        exp12 = stock_data['Close'].ewm(span=12, adjust=False).mean()
-        exp26 = stock_data['Close'].ewm(span=26, adjust=False).mean()
-        stock_data['MACD'] = exp12 - exp26
-        stock_data['Signal_Line'] = stock_data['MACD'].ewm(span=9, adjust=False).mean()
-        
-        latest_data = stock_data.iloc[-1]
-        
-        return {
-            'sma_50': latest_data['SMA_50'],
-            'sma_200': latest_data['SMA_200'],
-            'rsi': latest_data['RSI'],
-            'macd': latest_data['MACD'],
-            'signal_line': latest_data['Signal_Line'],
-            'current_price': latest_data['Close']
-        }
-    except Exception as e:
-        print(f"Error calculating technical indicators for {symbol}: {e}")
-        return {}
+populate_dummy_data()
 
-def analyze_sector_potential(sector):
-    """Analyze sector potential for Indian markets"""
-    sector_analysis = {
-        'IT': {'potential': 'High', 'growth_outlook': 'Positive', 'reasoning': 'Digital transformation driving demand'},
-        'Banking': {'potential': 'Medium', 'growth_outlook': 'Stable', 'reasoning': 'Economic recovery supporting credit growth'},
-        'Energy': {'potential': 'Medium', 'growth_outlook': 'Moderate', 'reasoning': 'Renewable energy transition ongoing'},
-        'FMCG': {'potential': 'High', 'growth_outlook': 'Positive', 'reasoning': 'Consumption growth in rural markets'},
-        'Telecom': {'potential': 'Low', 'growth_outlook': 'Challenged', 'reasoning': 'Intense competition and ARPU pressure'}
-    }
-    return sector_analysis.get(sector, {'potential': 'Unknown', 'growth_outlook': 'Unknown', 'reasoning': 'No data available'})
+# Authentication decorators
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Authentication required'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
-def analyze_market_sentiment(symbol):
-    """Simple market sentiment analysis based on recent performance"""
-    try:
-        stock_data = yf.download(f'{symbol}.NS', period='1mo')
-        
-        if stock_data.empty:
-            return 'Neutral'
-        
-        price_change = (stock_data['Close'].iloc[-1] - stock_data['Close'].iloc[0]) / stock_data['Close'].iloc[0] * 100
-        
-        if price_change > 5:
-            return 'Positive'
-        elif price_change < -5:
-            return 'Negative'
-        else:
-            return 'Neutral'
-            
-    except Exception as e:
-        print(f"Error analyzing market sentiment for {symbol}: {e}")
-        return 'Neutral'
+def advisor_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session or session.get('role') != 'advisor':
+            return jsonify({'error': 'Advisor access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
-def generate_advisory_signal(stock_id):
-    """Generate advisory signal based on multiple factors"""
-    conn = sqlite3.connect(app.config['SQLITE_DB'])
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT symbol, sector FROM stocks WHERE id = ?', (stock_id,))
-    stock_data = cursor.fetchone()
-    
-    if not stock_data:
-        return None
-    
-    symbol, sector = stock_data
-    
-    # Get technical indicators
-    technicals = calculate_technical_indicators(symbol)
-    
-    if not technicals:
-        return None
-    
-    # Analyze sector potential
-    sector_analysis = analyze_sector_potential(sector)
-    
-    # Analyze market sentiment
-    sentiment = analyze_market_sentiment(symbol)
-    
-    # Generate signal based on rules
-    signal_score = 0
-    reasoning = []
-    
-    # Technical analysis (50%)
-    if technicals['current_price'] > technicals['sma_50']:
-        signal_score += 0.3
-        reasoning.append("Price above 50-day SMA")
-    else:
-        signal_score -= 0.3
-        reasoning.append("Price below 50-day SMA")
-    
-    if technicals['rsi'] < 30:
-        signal_score += 0.2
-        reasoning.append("RSI indicates oversold")
-    elif technicals['rsi'] > 70:
-        signal_score -= 0.2
-        reasoning.append("RSI indicates overbought")
-    
-    # Sector analysis (30%)
-    if sector_analysis['potential'] == 'High':
-        signal_score += 0.3
-        reasoning.append(f"{sector} sector has high growth potential")
-    elif sector_analysis['potential'] == 'Low':
-        signal_score -= 0.3
-        reasoning.append(f"{sector} sector has low growth potential")
-    
-    # Market sentiment (20%)
-    if sentiment == 'Positive':
-        signal_score += 0.2
-        reasoning.append("Positive market sentiment")
-    elif sentiment == 'Negative':
-        signal_score -= 0.2
-        reasoning.append("Negative market sentiment")
-    
-    # Determine final signal
-    if signal_score >= 0.3:
-        signal_type = 'Buy'
-        confidence = min(100, int((signal_score + 1) * 50))
-    elif signal_score <= -0.3:
-        signal_type = 'Sell'
-        confidence = min(100, int((1 - signal_score) * 50))
-    else:
-        signal_type = 'Hold'
-        confidence = 50
-    
-    # Store signal in database
-    valid_until = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
-    
-    cursor.execute('''
-        INSERT INTO advisory_signals (stock_id, signal_type, confidence_score, reasoning, valid_until)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (stock_id, signal_type, confidence, ' | '.join(reasoning), valid_until))
-    
-    conn.commit()
-    conn.close()
-    
-    return {
-        'signal': signal_type,
-        'confidence': confidence,
-        'reasoning': reasoning,
-        'valid_until': valid_until
-    }
-
-def create_visualization(portfolio_data):
-    """Create visualization for portfolio reports"""
-    plt.figure(figsize=(12, 8))
-    
-    # Sector allocation pie chart
-    sector_allocation = {}
-    for item in portfolio_data:
-        sector = item['sector']
-        value = item['current_value']
-        sector_allocation[sector] = sector_allocation.get(sector, 0) + value
-    
-    plt.subplot(2, 2, 1)
-    plt.pie(sector_allocation.values(), labels=sector_allocation.keys(), autopct='%1.1f%%')
-    plt.title('Sector Allocation')
-    
-    # Performance line chart
-    plt.subplot(2, 2, 2)
-    symbols = [item['symbol'] for item in portfolio_data]
-    performance_data = []
-    
-    for symbol in symbols:
-        try:
-            stock_history = yf.download(f'{symbol}.NS', period='3mo')
-            if not stock_history.empty:
-                performance_data.append({
-                    'symbol': symbol,
-                    'performance': (stock_history['Close'].iloc[-1] - stock_history['Close'].iloc[0]) / stock_history['Close'].iloc[0] * 100
-                })
-        except:
-            continue
-    
-    if performance_data:
-        performance_df = pd.DataFrame(performance_data)
-        plt.bar(performance_df['symbol'], performance_df['performance'])
-        plt.title('3-Month Performance (%)')
-        plt.xticks(rotation=45)
-    
-    # Risk-return scatter plot
-    plt.subplot(2, 2, 3)
-    risk_return_data = []
-    
-    for symbol in symbols:
-        try:
-            stock_history = yf.download(f'{symbol}.NS', period='3mo')
-            if len(stock_history) > 1:
-                returns = stock_history['Close'].pct_change().dropna()
-                risk_return_data.append({
-                    'symbol': symbol,
-                    'return': returns.mean() * 100,
-                    'risk': returns.std() * 100
-                })
-        except:
-            continue
-    
-    if risk_return_data:
-        risk_return_df = pd.DataFrame(risk_return_data)
-        plt.scatter(risk_return_df['risk'], risk_return_df['return'])
-        for i, row in risk_return_df.iterrows():
-            plt.annotate(row['symbol'], (row['risk'], row['return']))
-        plt.xlabel('Risk (Std Dev %)')
-        plt.ylabel('Return (%)')
-        plt.title('Risk-Return Profile')
-    
-    plt.tight_layout()
-    
-    # Save plot to bytes buffer
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=100)
-    buf.seek(0)
-    
-    # Encode plot to base64
-    plot_data = base64.b64encode(buf.getvalue()).decode('utf-8')
-    buf.close()
-    
-    return plot_data
-
-# Routes
-@app.route('/')
-def home():
-    if current_user.is_authenticated:
-        if current_user.role == 'advisor':
-            return redirect(url_for('advisor_dashboard'))
-        else:
-            return redirect(url_for('client_portfolio'))
-    return redirect(url_for('login'))
-
-@app.route('/login', methods=['GET', 'POST'])
+# Authentication routes
+@app.route('/api/login', methods=['POST'])
 def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
-        conn = sqlite3.connect(app.config['SQLITE_DB'])
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, username, password, role FROM users WHERE username = ?', (username,))
-        user_data = cursor.fetchone()
-        conn.close()
-        
-        if user_data and user_data[2] == password:  # Simple password check
-            user = User(user_data[0], user_data[1], user_data[3])
-            login_user(user)
-            return redirect(url_for('home'))
-        
-        return render_template('login.html', error='Invalid credentials')
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
     
-    return render_template('login.html')
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
+    c.execute("SELECT id, username, role FROM users WHERE username = ? AND password = ?", (username, password))
+    user = c.fetchone()
+    conn.close()
+    
+    if user:
+        session['user_id'] = user[0]
+        session['username'] = user[1]
+        session['role'] = user[2]
+        return jsonify({'message': 'Login successful', 'role': user[2]})
+    else:
+        return jsonify({'error': 'Invalid credentials'}), 401
 
-@app.route('/logout')
-@login_required
+@app.route('/api/logout')
 def logout():
-    logout_user()
-    return redirect(url_for('login'))
+    session.clear()
+    return jsonify({'message': 'Logout successful'})
 
-@app.route('/client/portfolio')
+# Portfolio management routes
+@app.route('/api/portfolio', methods=['GET'])
 @login_required
-@role_required('client')
-def client_portfolio():
-    conn = sqlite3.connect(app.config['SQLITE_DB'])
-    cursor = conn.cursor()
+def get_portfolio():
+    user_id = session['user_id']
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
     
-    cursor.execute('''
-        SELECT p.id, s.symbol, s.name, s.sector, p.quantity, p.purchase_price, 
-               s.current_price, p.purchase_date
-        FROM portfolio p
-        JOIN stocks s ON p.stock_id = s.id
-        WHERE p.user_id = ?
-    ''', (current_user.id,))
+    if session.get('role') == 'advisor' and request.args.get('client_id'):
+        user_id = request.args.get('client_id')
     
-    portfolio_items = []
-    total_investment = 0
-    total_current = 0
+    c.execute('''SELECT p.stock_symbol, p.quantity, p.purchase_price, p.purchase_date, 
+                        md.price as current_price
+                 FROM portfolios p
+                 LEFT JOIN market_data md ON p.stock_symbol = md.stock_symbol 
+                 WHERE p.user_id = ? AND md.date = (SELECT MAX(date) FROM market_data WHERE stock_symbol = p.stock_symbol)''', (user_id,))
     
-    for item in cursor.fetchall():
-        current_value = item[5] *
+    portfolio = []
+    for row in c.fetchall():
+        current_value = row[1] * row[4]
+        purchase_value = row[1] * row[2]
+        gain_loss = current_value - purchase_value
+        gain_loss_percent = (gain_loss / purchase_value) * 100 if purchase_value > 0 else 0
+        
+        portfolio.append({
+            'symbol': row[0],
+            'quantity': row[1],
+            'purchase_price': row[2],
+            'purchase_date': row[3],
+            'current_price': row[4],
+            'current_value': round(current_value, 2),
+            'gain_loss': round(gain_loss, 2),
+            'gain_loss_percent': round(gain_loss_percent, 2)
+        })
+    
+    conn.close()
+    return jsonify(portfolio)
+
+@app.route('/api/portfolio', methods=['POST'])
+@login_required
+def add_to_portfolio():
+    data = request.get_json()
+    stock_symbol = data.get('symbol')
+    quantity = data.get('quantity')
+    purchase_price = data.get('purchase_price')
+    purchase_date = data.get('purchase_date') or datetime.now().strftime('%Y-%m-%d')
+    
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO portfolios (user_id, stock_symbol, quantity, purchase_price, purchase_date) VALUES (?, ?, ?, ?, ?)",
+              (session['user_id'], stock_symbol, quantity, purchase_price, purchase_date))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': 'Stock added to portfolio'})
+
+# Advisory signal generation
+def generate_advisory_signals(user_id):
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
+    
+    # Get user's portfolio
+    c.execute('''SELECT p.stock_symbol, p.quantity, p.purchase_price, p.purchase_date, 
+                        md.price as current_price
+                 FROM portfolios p
+                 LEFT JOIN market_data md ON p.stock_symbol = md.stock_symbol 
+                 WHERE p.user_id = ? AND md.date = (SELECT MAX(date) FROM market_data WHERE stock_symbol = p.stock_symbol)''', (user_id,))
+    
+    portfolio = c.fetchall()
+    signals = []
+    
+    for holding in portfolio:
+        symbol = holding[0]
+        quantity = holding[1]
+        purchase_price = holding[2]
+        current_price = holding[4]
+        
+        # Calculate historical performance
+        c.execute('''SELECT price FROM market_data 
+                     WHERE stock_symbol = ? AND date >= ?
+                     ORDER BY date DESC LIMIT 30''', (symbol, holding[3]))
+        historical_prices = [row[0] for row in c.fetchall()]
+        
+        if len(historical_prices) >= 2:
+            price_change = ((current_price - historical_prices[-1]) / historical_prices[-1]) * 100
+        else:
+            price_change = 0
+        
+        # Technical indicators (simplified)
+        if len(historical_prices) >= 20:
+            sma_20 = sum(historical_prices[:20]) / 20
+            trend = 'Bullish' if current_price > sma_20 else 'Bearish'
+        else:
+            trend = 'Neutral'
+        
+        # Sector potential (dummy implementation)
+        sector_score = random.uniform(0.5, 1.5)
+        
+        # Market buzz (dummy implementation)
+        buzz_score = random.uniform(0.7, 1.3)
+        
+        # Generate signal
+        score = price_change * 0.3 + (1 if trend == 'Bullish' else -1) * 20 + (sector_score - 1) * 50 + (buzz_score - 1) * 30
+        
+        if score > 30:
+            signal = 'Buy'
+        elif score > -10:
+            signal = 'Hold'
+        else:
+            signal = 'Sell'
+        
+        signals.append({
+            'symbol': symbol,
+            'signal': signal,
+            'score': round(score, 2),
+            'price_change': round(price_change, 2),
+            'trend': trend,
+            'sector_score': round(sector_score, 2),
+            'buzz_score': round(buzz_score, 2),
+            'reasoning': f"Price change: {round(price_change, 2)}%, Trend: {trend}, Sector potential: {round(sector_score, 2)}, Market buzz: {round(buzz_score, 2)}"
+        })
+    
+    conn.close()
+    return signals
+
+@app.route('/api/advisory-signals', methods=['GET'])
+@login_required
+def get_advisory_signals():
+    user_id = session['user_id']
+    if session.get('role') == 'advisor' and request.args.get('client_id'):
+        user_id = request.args.get('client_id')
+    
+    signals = generate_advisory_signals(user_id)
+    return jsonify(signals)
+
+# Advisor-only reports
+@app.route('/api/advisor/reports/performance', methods=['GET'])
+@advisor_required
+def get_performance_report():
+    conn = sqlite3.connect('portfolio.db')
+    c = conn.cursor()
+    
+    # Get all clients
+    c.execute("SELECT id, username FROM users WHERE role = 'client'")
+    clients = [{'id': row[0], 'name': row[1]} for row in c.fetchall()]
+    
+    report_data = []
+    for client in clients:
+        # Get client portfolio value
+        c.execute('''SELECT SUM(p.quantity * md.price) as total_value
+                     FROM portfolios p
+                     JOIN market_data md ON p.stock_symbol = md.stock_symbol
+                     WHERE p.user_id = ? AND md.date = (SELECT MAX(date) FROM market_data)''', (client['id'],))
+        total_value = c.fetchone()[0] or 0
+        
+        # Get portfolio cost
+        c.execute('''SELECT SUM(quantity * purchase_price) as total_cost
+                     FROM portfolios WHERE user_id = ?''', (client['id'],))
+        total_cost = c.fetchone()[0] or 0
+        
+        # Calculate performance
+        gain_loss = total_value - total_cost
+        gain_loss_percent = (gain_loss / total_cost * 100) if total_cost > 0 else 0
+        
+        report_data.append({
+            'client_id': client['id'],
+            'client_name': client['name'],
+            'portfolio_value': round(total_value, 2),
+            'total_cost': round(total_cost, 2),
+            'gain_loss': round(gain_loss, 2),
+            'gain_loss_percent': round(gain_loss_percent, 2)
+        })
+    
+    conn.close()
+    return jsonify(report_data)
+
+@app.route('/api/advisor/reports/sector-analysis', methods=['GET'])
+@advisor_required
+def get_sector_analysis():
+    # Dummy sector analysis
+    sectors = {
+        'Technology': random.uniform(0.8, 1.2),
+        'Banking': random.uniform(0.7, 1.3),
+        'Energy': random.uniform(0.9, 1.1),
+        'Healthcare': random.uniform(0.6, 1.4),
+        'Automobile': random.uniform(0.8, 1.2)
+    }
+    
+    return jsonify([
+        {'sector': sector, 'performance_score': round(score, 2)}
+        for sector, score in sectors.items()
+    ])
+
+# Frontend routes
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    return render_template('dashboard.html', role=session.get('role'))
+
+@app.route('/advisor-dashboard')
+@advisor_required
+def advisor_dashboard():
+    return render_template('advisor_dashboard.html')
+
+if __name__ == '__main__':
+    app.run(debug=True)

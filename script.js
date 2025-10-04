@@ -1,559 +1,433 @@
 // script.js - Frontend JavaScript for Portfolio Management Dashboard
-// This file handles UI interactions, API calls, and data visualization for the portfolio management system
 
+// Global variables
+let currentUser = null;
+let portfolioData = [];
+let advisorySignals = [];
+
+// DOM Content Loaded Event
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize the application
-    initApp();
+    initializeApp();
 });
 
-/**
- * Initialize the application
- */
-function initApp() {
-    // Check user authentication status
-    checkAuthStatus();
-    
-    // Load portfolio data
-    loadPortfolioData();
-    
-    // Set up event listeners
+// Initialize Application
+function initializeApp() {
+    checkAuthentication();
     setupEventListeners();
+    loadInitialData();
 }
 
-/**
- * Check user authentication status and handle UI accordingly
- */
-async function checkAuthStatus() {
+// Check User Authentication
+async function checkAuthentication() {
     try {
         const response = await fetch('/api/auth/status', {
             credentials: 'include'
         });
         
         if (response.ok) {
-            const data = await response.json();
-            updateUIForUserRole(data.user);
+            const userData = await response.json();
+            currentUser = userData;
+            updateUIForUserRole();
         } else {
-            // Redirect to login if not authenticated
-            window.location.href = '/login';
+            redirectToLogin();
         }
     } catch (error) {
-        console.error('Auth status check failed:', error);
-        showNotification('Authentication check failed', 'error');
+        console.error('Authentication check failed:', error);
+        redirectToLogin();
     }
 }
 
-/**
- * Update UI based on user role (advisor vs client)
- */
-function updateUIForUserRole(user) {
-    const advisorSections = document.querySelectorAll('.advisor-only');
-    const clientSections = document.querySelectorAll('.client-only');
-    
-    if (user.role === 'advisor') {
-        advisorSections.forEach(section => section.style.display = 'block');
-        clientSections.forEach(section => section.style.display = 'none');
-        loadAdvisorySignals();
-        loadAdvisorReports();
-    } else {
-        advisorSections.forEach(section => section.style.display = 'none');
-        clientSections.forEach(section => section.style.display = 'block');
+// Setup Event Listeners
+function setupEventListeners() {
+    // Portfolio form submission
+    const portfolioForm = document.getElementById('portfolioForm');
+    if (portfolioForm) {
+        portfolioForm.addEventListener('submit', handlePortfolioSubmit);
     }
-    
-    // Update user info in navbar
-    const userInfoElement = document.getElementById('user-info');
-    if (userInfoElement) {
-        userInfoElement.textContent = `${user.name} (${user.role})`;
+
+    // Logout button
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+
+    // Advisor reports toggle
+    const reportsToggle = document.getElementById('reportsToggle');
+    if (reportsToggle) {
+        reportsToggle.addEventListener('click', toggleAdvisorReports);
+    }
+
+    // Refresh data button
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', refreshData);
     }
 }
 
-/**
- * Load portfolio data from backend API
- */
+// Load Initial Data
+async function loadInitialData() {
+    try {
+        await Promise.all([
+            loadPortfolioData(),
+            loadAdvisorySignals()
+        ]);
+        
+        updateDashboard();
+    } catch (error) {
+        showError('Failed to load initial data');
+        console.error('Data loading error:', error);
+    }
+}
+
+// Load Portfolio Data from Backend
 async function loadPortfolioData() {
     try {
-        showLoading('portfolio-container');
-        
         const response = await fetch('/api/portfolio', {
             credentials: 'include'
         });
         
-        if (response.ok) {
-            const portfolioData = await response.json();
-            renderPortfolioTable(portfolioData);
-            renderPortfolioSummary(portfolioData);
-        } else {
+        if (!response.ok) {
             throw new Error('Failed to fetch portfolio data');
         }
+        
+        portfolioData = await response.json();
+        return portfolioData;
     } catch (error) {
-        console.error('Error loading portfolio:', error);
-        showNotification('Failed to load portfolio data', 'error');
-    } finally {
-        hideLoading('portfolio-container');
+        console.error('Portfolio data loading error:', error);
+        throw error;
     }
 }
 
-/**
- * Render portfolio data in table format
- */
-function renderPortfolioTable(portfolioData) {
-    const tableBody = document.getElementById('portfolio-table-body');
-    if (!tableBody) return;
-    
-    tableBody.innerHTML = '';
-    
-    portfolioData.holdings.forEach(holding => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${holding.symbol}</td>
-            <td>${holding.name}</td>
-            <td>${holding.quantity}</td>
-            <td>₹${holding.average_price.toFixed(2)}</td>
-            <td>₹${holding.current_price.toFixed(2)}</td>
-            <td>₹${(holding.current_price * holding.quantity).toFixed(2)}</td>
-            <td class="${getProfitLossClass(holding.profit_loss_percentage)}">
-                ${holding.profit_loss_percentage}%
-            </td>
-            <td>
-                <span class="badge ${getSignalBadgeClass(holding.signal)}">
-                    ${holding.signal}
-                </span>
-            </td>
-        `;
-        tableBody.appendChild(row);
-    });
-}
-
-/**
- * Render portfolio summary information
- */
-function renderPortfolioSummary(portfolioData) {
-    const summaryElement = document.getElementById('portfolio-summary');
-    if (!summaryElement) return;
-    
-    summaryElement.innerHTML = `
-        <div class="row">
-            <div class="col-md-3">
-                <div class="card bg-primary text-white">
-                    <div class="card-body">
-                        <h6>Total Investment</h6>
-                        <h4>₹${portfolioData.total_investment.toFixed(2)}</h4>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card bg-info text-white">
-                    <div class="card-body">
-                        <h6>Current Value</h6>
-                        <h4>₹${portfolioData.current_value.toFixed(2)}</h4>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card ${getProfitLossCardClass(portfolioData.total_profit_loss_percentage)}">
-                    <div class="card-body">
-                        <h6>Total P&L</h6>
-                        <h4>${portfolioData.total_profit_loss_percentage}%</h4>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card bg-secondary text-white">
-                    <div class="card-body">
-                        <h6>Holdings</h6>
-                        <h4>${portfolioData.holdings_count}</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Load advisory signals for advisor view
- */
+// Load Advisory Signals from Backend
 async function loadAdvisorySignals() {
     try {
-        showLoading('signals-container');
-        
         const response = await fetch('/api/advisory/signals', {
             credentials: 'include'
         });
         
-        if (response.ok) {
-            const signals = await response.json();
-            renderAdvisorySignals(signals);
+        if (!response.ok) {
+            throw new Error('Failed to fetch advisory signals');
         }
+        
+        advisorySignals = await response.json();
+        return advisorySignals;
     } catch (error) {
-        console.error('Error loading signals:', error);
-        showNotification('Failed to load advisory signals', 'error');
-    } finally {
-        hideLoading('signals-container');
+        console.error('Advisory signals loading error:', error);
+        throw error;
     }
 }
 
-/**
- * Render advisory signals table
- */
-function renderAdvisorySignals(signals) {
-    const container = document.getElementById('signals-container');
-    if (!container) return;
+// Handle Portfolio Form Submission
+async function handlePortfolioSubmit(event) {
+    event.preventDefault();
     
-    let html = `
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Symbol</th>
-                        <th>Name</th>
-                        <th>Signal</th>
-                        <th>Confidence</th>
-                        <th>Historical</th>
-                        <th>Technical</th>
-                        <th>Sector</th>
-                        <th>Market Buzz</th>
-                        <th>Last Updated</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
+    const formData = new FormData(event.target);
+    const portfolioItem = {
+        stock_symbol: formData.get('stock_symbol'),
+        quantity: parseInt(formData.get('quantity')),
+        purchase_price: parseFloat(formData.get('purchase_price')),
+        sector: formData.get('sector')
+    };
     
-    signals.forEach(signal => {
-        html += `
-            <tr>
-                <td>${signal.symbol}</td>
-                <td>${signal.name}</td>
-                <td><span class="badge ${getSignalBadgeClass(signal.signal)}">${signal.signal}</span></td>
-                <td>${signal.confidence_score}%</td>
-                <td>${signal.historical_score}</td>
-                <td>${signal.technical_score}</td>
-                <td>${signal.sector_score}</td>
-                <td>${signal.market_buzz_score}</td>
-                <td>${new Date(signal.last_updated).toLocaleDateString()}</td>
-            </tr>
-        `;
-    });
-    
-    html += `
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    container.innerHTML = html;
+    try {
+        const response = await fetch('/api/portfolio', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify(portfolioItem)
+        });
+        
+        if (response.ok) {
+            await loadPortfolioData();
+            await loadAdvisorySignals();
+            updateDashboard();
+            event.target.reset();
+            showSuccess('Portfolio item added successfully');
+        } else {
+            throw new Error('Failed to add portfolio item');
+        }
+    } catch (error) {
+        showError('Failed to add portfolio item');
+        console.error('Portfolio submission error:', error);
+    }
 }
 
-/**
- * Load advisor reports and visualizations
- */
+// Update Dashboard UI
+function updateDashboard() {
+    updatePortfolioTable();
+    updatePerformanceSummary();
+    updateAdvisorySignals();
+    
+    if (currentUser && currentUser.role === 'advisor') {
+        loadAdvisorReports();
+    }
+}
+
+// Update Portfolio Table
+function updatePortfolioTable() {
+    const tableBody = document.getElementById('portfolioTableBody');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '';
+    
+    portfolioData.forEach(item => {
+        const row = document.createElement('tr');
+        
+        row.innerHTML = `
+            <td>${item.stock_symbol}</td>
+            <td>${item.quantity}</td>
+            <td>₹${item.purchase_price.toFixed(2)}</td>
+            <td>₹${item.current_price?.toFixed(2) || 'N/A'}</td>
+            <td>${item.sector}</td>
+            <td>
+                <button class="btn btn-sm btn-danger" onclick="deletePortfolioItem(${item.id})">
+                    Delete
+                </button>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+}
+
+// Update Performance Summary
+function updatePerformanceSummary() {
+    const summaryElement = document.getElementById('performanceSummary');
+    if (!summaryElement) return;
+    
+    const totalValue = portfolioData.reduce((sum, item) => {
+        return sum + (item.current_price * item.quantity);
+    }, 0);
+    
+    const totalInvestment = portfolioData.reduce((sum, item) => {
+        return sum + (item.purchase_price * item.quantity);
+    }, 0);
+    
+    const profitLoss = totalValue - totalInvestment;
+    const profitLossPercent = totalInvestment > 0 ? (profitLoss / totalInvestment * 100) : 0;
+    
+    summaryElement.innerHTML = `
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Portfolio Summary</h5>
+                <p>Total Value: ₹${totalValue.toFixed(2)}</p>
+                <p>Total Investment: ₹${totalInvestment.toFixed(2)}</p>
+                <p class="${profitLoss >= 0 ? 'text-success' : 'text-danger'}">
+                    P&L: ₹${profitLoss.toFixed(2)} (${profitLossPercent.toFixed(2)}%)
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+// Update Advisory Signals
+function updateAdvisorySignals() {
+    const signalsContainer = document.getElementById('advisorySignals');
+    if (!signalsContainer) return;
+    
+    signalsContainer.innerHTML = '';
+    
+    advisorySignals.forEach(signal => {
+        const badgeClass = getSignalBadgeClass(signal.signal);
+        const card = document.createElement('div');
+        card.className = 'card mb-2';
+        
+        card.innerHTML = `
+            <div class="card-body">
+                <h6 class="card-title">${signal.stock_symbol}</h6>
+                <span class="badge ${badgeClass}">${signal.signal}</span>
+                <p class="card-text mt-2">${signal.reason}</p>
+                <small class="text-muted">Confidence: ${signal.confidence}%</small>
+            </div>
+        `;
+        
+        signalsContainer.appendChild(card);
+    });
+}
+
+// Get CSS Class for Signal Badge
+function getSignalBadgeClass(signal) {
+    switch (signal) {
+        case 'BUY': return 'bg-success';
+        case 'SELL': return 'bg-danger';
+        case 'HOLD': return 'bg-warning';
+        default: return 'bg-secondary';
+    }
+}
+
+// Load Advisor Reports
 async function loadAdvisorReports() {
     try {
-        showLoading('reports-container');
-        
         const response = await fetch('/api/advisory/reports', {
             credentials: 'include'
         });
         
         if (response.ok) {
             const reports = await response.json();
-            renderReportsVisualizations(reports);
+            renderAdvisorReports(reports);
         }
     } catch (error) {
-        console.error('Error loading reports:', error);
-        showNotification('Failed to load reports', 'error');
-    } finally {
-        hideLoading('reports-container');
+        console.error('Failed to load advisor reports:', error);
     }
 }
 
-/**
- * Render reports and visualizations for advisors
- */
-function renderReportsVisualizations(reports) {
-    const container = document.getElementById('reports-container');
+// Render Advisor Reports
+function renderAdvisorReports(reports) {
+    const reportsContainer = document.getElementById('advisorReports');
+    if (!reportsContainer) return;
+    
+    reportsContainer.innerHTML = '';
+    
+    reports.forEach(report => {
+        const reportCard = document.createElement('div');
+        reportCard.className = 'card mb-3';
+        
+        reportCard.innerHTML = `
+            <div class="card-header">
+                <h5>${report.title}</h5>
+            </div>
+            <div class="card-body">
+                <div id="chart-${report.id}" style="height: 300px;"></div>
+                <p class="mt-3">${report.insights}</p>
+            </div>
+        `;
+        
+        reportsContainer.appendChild(reportCard);
+        renderChart(`chart-${report.id}`, report.chartData);
+    });
+}
+
+// Render Chart (Placeholder - would integrate with Chart.js)
+function renderChart(containerId, chartData) {
+    const container = document.getElementById(containerId);
     if (!container) return;
     
-    // Render sector allocation chart
-    renderSectorAllocationChart(reports.sector_allocation);
-    
-    // Render performance chart
-    renderPerformanceChart(reports.performance_data);
-    
-    // Render signal distribution
-    renderSignalDistribution(reports.signal_distribution);
+    // Placeholder for chart rendering
+    container.innerHTML = `
+        <div class="text-center text-muted p-5">
+            <i class="fas fa-chart-line fa-3x mb-3"></i>
+            <p>Chart visualization would be implemented here</p>
+            <small>Using Chart.js or similar library</small>
+        </div>
+    `;
 }
 
-/**
- * Render sector allocation pie chart
- */
-function renderSectorAllocationChart(sectorData) {
-    const ctx = document.getElementById('sector-allocation-chart');
-    if (!ctx) return;
-    
-    // Using Chart.js for visualization
-    new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: sectorData.map(s => s.sector),
-            datasets: [{
-                data: sectorData.map(s => s.percentage),
-                backgroundColor: [
-                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-                    '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Sector Allocation'
-                }
-            }
-        }
-    });
+// Toggle Advisor Reports Visibility
+function toggleAdvisorReports() {
+    const reportsSection = document.getElementById('advisorReportsSection');
+    if (reportsSection) {
+        reportsSection.classList.toggle('d-none');
+    }
 }
 
-/**
- * Render performance line chart
- */
-function renderPerformanceChart(performanceData) {
-    const ctx = document.getElementById('performance-chart');
-    if (!ctx) return;
-    
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: performanceData.dates,
-            datasets: [{
-                label: 'Portfolio Value',
-                data: performanceData.values,
-                borderColor: '#36A2EB',
-                tension: 0.1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Portfolio Performance'
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: false
-                }
-            }
-        }
-    });
-}
-
-/**
- * Render signal distribution chart
- */
-function renderSignalDistribution(signalData) {
-    const ctx = document.getElementById('signal-distribution-chart');
-    if (!ctx) return;
-    
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['Buy', 'Hold', 'Sell'],
-            datasets: [{
-                label: 'Number of Stocks',
-                data: [
-                    signalData.buy,
-                    signalData.hold,
-                    signalData.sell
-                ],
-                backgroundColor: [
-                    '#28a745', '#ffc107', '#dc3545'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Signal Distribution'
-                }
-            }
-        }
-    });
-}
-
-/**
- * Set up event listeners for UI interactions
- */
-function setupEventListeners() {
-    // Refresh button
-    const refreshBtn = document.getElementById('refresh-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            loadPortfolioData();
-            if (document.querySelector('.advisor-only').style.display === 'block') {
-                loadAdvisorySignals();
-                loadAdvisorReports();
-            }
-        });
+// Delete Portfolio Item
+async function deletePortfolioItem(itemId) {
+    if (!confirm('Are you sure you want to delete this portfolio item?')) {
+        return;
     }
     
-    // Logout button
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
-    }
-    
-    // Responsive layout adjustments
-    window.addEventListener('resize', handleResize);
-}
-
-/**
- * Handle logout action
- */
-async function handleLogout() {
     try {
-        const response = await fetch('/api/auth/logout', {
-            method: 'POST',
+        const response = await fetch(`/api/portfolio/${itemId}`, {
+            method: 'DELETE',
             credentials: 'include'
         });
         
         if (response.ok) {
-            window.location.href = '/login';
+            await loadPortfolioData();
+            await loadAdvisorySignals();
+            updateDashboard();
+            showSuccess('Portfolio item deleted successfully');
+        } else {
+            throw new Error('Failed to delete portfolio item');
         }
     } catch (error) {
-        console.error('Logout failed:', error);
-        showNotification('Logout failed', 'error');
+        showError('Failed to delete portfolio item');
+        console.error('Delete error:', error);
     }
 }
 
-/**
- * Handle window resize for responsive adjustments
- */
-function handleResize() {
-    // Re-render charts if they exist
-    const advisorSections = document.querySelectorAll('.advisor-only');
-    if (advisorSections[0]?.style.display === 'block') {
-        loadAdvisorReports();
+// Refresh Data
+async function refreshData() {
+    try {
+        await loadInitialData();
+        showSuccess('Data refreshed successfully');
+    } catch (error) {
+        showError('Failed to refresh data');
     }
 }
 
-/**
- * Show loading indicator
- */
-function showLoading(containerId) {
-    const container = document.getElementById(containerId);
-    if (container) {
-        container.innerHTML = `
-            <div class="text-center py-4">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2">Loading...</p>
-            </div>
-        `;
+// Handle Logout
+async function handleLogout() {
+    try {
+        await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include'
+        });
+        
+        redirectToLogin();
+    } catch (error) {
+        console.error('Logout error:', error);
+        redirectToLogin();
     }
 }
 
-/**
- * Hide loading indicator
- */
-function hideLoading(containerId) {
-    const container = document.getElementById(containerId);
-    if (container && container.querySelector('.spinner-border')) {
-        // Loading will be replaced by actual content
+// Update UI Based on User Role
+function updateUIForUserRole() {
+    const advisorElements = document.querySelectorAll('.advisor-only');
+    const clientElements = document.querySelectorAll('.client-only');
+    
+    if (currentUser && currentUser.role === 'advisor') {
+        advisorElements.forEach(el => el.classList.remove('d-none'));
+        clientElements.forEach(el => el.classList.add('d-none'));
+    } else {
+        advisorElements.forEach(el => el.classList.add('d-none'));
+        clientElements.forEach(el => el.classList.remove('d-none'));
+    }
+    
+    // Update user display
+    const userDisplay = document.getElementById('userDisplay');
+    if (userDisplay && currentUser) {
+        userDisplay.textContent = `Welcome, ${currentUser.name} (${currentUser.role})`;
     }
 }
 
-/**
- * Show notification to user
- */
-function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `alert alert-${type} alert-dismissible fade show`;
-    notification.style.position = 'fixed';
-    notification.style.top = '20px';
-    notification.style.right = '20px';
-    notification.style.zIndex = '1050';
-    notification.style.minWidth = '300px';
-    notification.innerHTML = `
+// Redirect to Login Page
+function redirectToLogin() {
+    window.location.href = '/login.html';
+}
+
+// Show Success Message
+function showSuccess(message) {
+    showAlert(message, 'success');
+}
+
+// Show Error Message
+function showError(message) {
+    showAlert(message, 'danger');
+}
+
+// Show Alert Message
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alertContainer');
+    if (!alertContainer) return;
+    
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
-    document.body.appendChild(notification);
+    alertContainer.appendChild(alert);
     
     // Auto remove after 5 seconds
     setTimeout(() => {
-        if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
+        alert.remove();
     }, 5000);
 }
 
-/**
- * Get CSS class for profit/loss display based on value
- */
-function getProfitLossClass(value) {
-    if (value > 0) return 'text-success';
-    if (value < 0) return 'text-danger';
-    return 'text-muted';
-}
-
-/**
- * Get CSS class for profit/loss card based on value
- */
-function getProfitLossCardClass(value) {
-    if (value > 0) return 'bg-success text-white';
-    if (value < 0) return 'bg-danger text-white';
-    return 'bg-secondary text-white';
-}
-
-/**
- * Get CSS class for signal badges
- */
-function getSignalBadgeClass(signal) {
-    switch (signal.toLowerCase()) {
-        case 'buy': return 'bg-success';
-        case 'hold': return 'bg-warning';
-        case 'sell': return 'bg-danger';
-        default: return 'bg-secondary';
-    }
-}
-
-// Error handling for fetch requests
-const originalFetch = window.fetch;
-window.fetch = async function(...args) {
-    try {
-        const response = await originalFetch.apply(this, args);
-        
-        if (!response.ok) {
-            const error = new Error(`HTTP error! status: ${response.status}`);
-            error.response = response;
-            throw error;
-        }
-        
-        return response;
-    } catch (error) {
-        console.error('Fetch error:', error);
-        
-        if (error.response?.status === 401) {
-            // Unauthorized - redirect to login
-            window.location.href = '/login';
-        } else if (error.response?.status === 403) {
-            // Forbidden - show access denied
-            showNotification('Access denied. Insufficient permissions.', 'error');
-        } else if (error.response?.status >= 500) {
-            // Server error
-            showNotification('Server error. Please try again later.', 'error');
-        } else {
-            // Other errors
-            showNotification('Network error. Please check your connection.', 'error');
-        }
-        
-        throw error;
-    }
-};
+// Export functions for global access (if needed)
+window.deletePortfolioItem = deletePortfolioItem;
+window.refreshData = refreshData;

@@ -3,228 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Indian Equity Portfolio Manager</title>
+    <title>Portfolio Manager - Indian Equity Markets</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Chart.js for visual reports -->
+    <!-- Chart.js for visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Custom CSS -->
     <style>
-        .card-header {
-            background-color: #0d6efd;
-            color: white;
+        .advisor-only {
+            display: none;
         }
-        .advisory-buy {
-            color: #198754;
-            font-weight: bold;
+        .role-advisor .advisor-only {
+            display: block;
         }
-        .advisory-sell {
-            color: #dc3545;
-            font-weight: bold;
+        .signal-buy { color: #28a745; }
+        .signal-hold { color: #ffc107; }
+        .signal-sell { color: #dc3545; }
+        .portfolio-card {
+            transition: transform 0.2s;
         }
-        .advisory-hold {
-            color: #ffc107;
-            font-weight: bold;
-        }
-        .portfolio-summary {
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        @media (max-width: 768px) {
-            .dashboard-card {
-                margin-bottom: 20px;
-            }
+        .portfolio-card:hover {
+            transform: translateY(-5px);
         }
     </style>
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+<body class="bg-light">
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">Indian Equity Portfolio Manager</a>
+            <a class="navbar-brand" href="#">Portfolio Manager</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
+                <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="#" id="dashboard-link">Dashboard</a>
+                        <a class="nav-link active" href="#" id="nav-portfolio">Portfolio</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="portfolio-link">Portfolio</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" id="reports-link">Reports</a>
+                    <li class="nav-item advisor-only">
+                        <a class="nav-link" href="#" id="nav-reports">Reports</a>
                     </li>
                 </ul>
+                <div class="d-flex">
+                    <span class="navbar-text me-3" id="user-role-display">User</span>
+                    <button class="btn btn-outline-light btn-sm" id="btn-login">Login</button>
+                    <button class="btn btn-outline-light btn-sm ms-2 d-none" id="btn-logout">Logout</button>
+                </div>
             </div>
         </div>
     </nav>
 
+    <!-- Main Content -->
     <div class="container mt-4">
-        <!-- Dashboard View -->
-        <div id="dashboard-view">
-            <div class="row">
-                <div class="col-md-6 dashboard-card">
-                    <div class="card">
-                        <div class="card-header">Portfolio Summary</div>
-                        <div class="card-body">
-                            <div class="portfolio-summary">
-                                <h5>Total Value: <span id="total-value">₹0.00</span></h5>
-                                <p>Number of Holdings: <span id="holdings-count">0</span></p>
-                                <p>Last Updated: <span id="last-updated">-</span></p>
-                            </div>
-                        </div>
+        <!-- Login Form (Initially Visible) -->
+        <div class="row justify-content-center" id="login-section">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Login to Portfolio Manager</h5>
                     </div>
-                </div>
-                <div class="col-md-6 dashboard-card">
-                    <div class="card">
-                        <div class="card-header">Advisory Signals Overview</div>
-                        <div class="card-body">
-                            <canvas id="advisory-chart" width="400" height="200"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">Top Holdings</div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Stock</th>
-                                            <th>Quantity</th>
-                                            <th>Current Price</th>
-                                            <th>Value</th>
-                                            <th>Advisory Signal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="top-holdings">
-                                        <!-- Will be populated by JavaScript -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Portfolio Management View -->
-        <div id="portfolio-view" style="display: none;">
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">Portfolio Management</div>
-                        <div class="card-body">
-                            <button class="btn btn-primary mb-3" id="add-holding-btn">Add New Holding</button>
-                            
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Stock Name</th>
-                                            <th>ISIN</th>
-                                            <th>Quantity</th>
-                                            <th>Average Price</th>
-                                            <th>Current Price</th>
-                                            <th>Value</th>
-                                            <th>Advisory</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="portfolio-table">
-                                        <!-- Will be populated by JavaScript -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Reports View -->
-        <div id="reports-view" style="display: none;">
-            <div class="row">
-                <div class="col-md-6 dashboard-card">
-                    <div class="card">
-                        <div class="card-header">Portfolio Allocation</div>
-                        <div class="card-body">
-                            <canvas id="allocation-chart" width="400" height="200"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 dashboard-card">
-                    <div class="card">
-                        <div class="card-header">Performance Trend</div>
-                        <div class="card-body">
-                            <canvas id="performance-chart" width="400" height="200"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">Detailed Advisory Report</div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Stock</th>
-                                            <th>Signal</th>
-                                            <th>Reasoning</th>
-                                            <th>Target Price</th>
-                                            <th>Stop Loss</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="advisory-report">
-                                        <!-- Will be populated by JavaScript -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add/Edit Holding Modal -->
-        <div class="modal fade" id="holdingModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modal-title">Add Holding</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="holding-form">
-                            <input type="hidden" id="holding-id">
+                    <div class="card-body">
+                        <form id="login-form">
                             <div class="mb-3">
-                                <label for="stock-isin" class="form-label">Stock ISIN</label>
-                                <input type="text" class="form-control" id="stock-isin" required>
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" required>
                             </div>
                             <div class="mb-3">
-                                <label for="quantity" class="form-label">Quantity</label>
-                                <input type="number" class="form-control" id="quantity" required min="1">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password" required>
                             </div>
-                            <div class="mb-3">
-                                <label for="avg-price" class="form-label">Average Price (₹)</label>
-                                <input type="number" class="form-control" id="avg-price" required step="0.01" min="0">
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="advisor-login">
+                                <label class="form-check-label" for="advisor-login">Login as Advisor</label>
                             </div>
+                            <button type="submit" class="btn btn-primary">Login</button>
                         </form>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary" id="save-holding">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Portfolio Dashboard (Hidden Initially) -->
+        <div class="d-none" id="dashboard-section">
+            <div class="row mb-4">
+                <div class="col">
+                    <h2>Portfolio Overview</h2>
+                    <p class="text-muted">Indian Equity Markets</p>
+                </div>
+            </div>
+
+            <!-- Portfolio Summary Cards -->
+            <div class="row" id="portfolio-summary">
+                <!-- Cards will be populated by JavaScript -->
+            </div>
+
+            <!-- Portfolio Details Table -->
+            <div class="row mt-4">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Portfolio Holdings</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Stock</th>
+                                            <th>Sector</th>
+                                            <th>Quantity</th>
+                                            <th>Avg. Price</th>
+                                            <th>Current Price</th>
+                                            <th>Value</th>
+                                            <th>P&L</th>
+                                            <th>Signal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="portfolio-table-body">
+                                        <!-- Data will be populated by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advisor Only Section -->
+            <div class="row mt-4 advisor-only" id="advisor-section">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Advisory Signals Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <canvas id="signals-chart" width="400" height="300"></canvas>
+                                </div>
+                                <div class="col-md-6">
+                                    <canvas id="sector-chart" width="400" height="300"></canvas>
+                                </div>
+                            </div>
+                            <div class="row mt-4">
+                                <div class="col">
+                                    <h6>Detailed Signal Analysis</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Stock</th>
+                                                    <th>Historical</th>
+                                                    <th>Technical</th>
+                                                    <th>Sector</th>
+                                                    <th>Market Buzz</th>
+                                                    <th>Final Signal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="signals-table-body">
+                                                <!-- Data will be populated by JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -233,278 +175,299 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
     <!-- Custom JavaScript -->
     <script>
+        // Global state
+        let currentUser = null;
+        let portfolioData = [];
+        let advisorySignals = [];
+
+        // DOM Elements
+        const loginSection = document.getElementById('login-section');
+        const dashboardSection = document.getElementById('dashboard-section');
+        const portfolioSummary = document.getElementById('portfolio-summary');
+        const portfolioTableBody = document.getElementById('portfolio-table-body');
+        const signalsTableBody = document.getElementById('signals-table-body');
+        const loginForm = document.getElementById('login-form');
+        const btnLogin = document.getElementById('btn-login');
+        const btnLogout = document.getElementById('btn-logout');
+        const userRoleDisplay = document.getElementById('user-role-display');
+        const navPortfolio = document.getElementById('nav-portfolio');
+        const navReports = document.getElementById('nav-reports');
+
+        // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize charts
-            initializeCharts();
-            
-            // Load initial data
-            loadDashboardData();
-            loadPortfolioData();
-            loadReportsData();
-            
-            // Set up navigation
-            document.getElementById('dashboard-link').addEventListener('click', function(e) {
+            // Event listeners
+            loginForm.addEventListener('submit', handleLogin);
+            btnLogout.addEventListener('click', handleLogout);
+            navPortfolio.addEventListener('click', function(e) {
                 e.preventDefault();
-                showView('dashboard-view');
+                showPortfolioView();
             });
-            
-            document.getElementById('portfolio-link').addEventListener('click', function(e) {
+            navReports.addEventListener('click', function(e) {
                 e.preventDefault();
-                showView('portfolio-view');
+                showReportsView();
+            });
+
+            // Check if user is already logged in (from sessionStorage)
+            const savedUser = sessionStorage.getItem('portfolioUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                updateUIAfterLogin();
                 loadPortfolioData();
-            });
-            
-            document.getElementById('reports-link').addEventListener('click', function(e) {
-                e.preventDefault();
-                showView('reports-view');
-                loadReportsData();
-            });
-            
-            // Portfolio management handlers
-            document.getElementById('add-holding-btn').addEventListener('click', function() {
-                openHoldingModal();
-            });
-            
-            document.getElementById('save-holding').addEventListener('click', function() {
-                saveHolding();
-            });
+            }
         });
 
-        function showView(viewId) {
-            // Hide all views
-            document.getElementById('dashboard-view').style.display = 'none';
-            document.getElementById('portfolio-view').style.display = 'none';
-            document.getElementById('reports-view').style.display = 'none';
+        // Handle login
+        async function handleLogin(e) {
+            e.preventDefault();
             
-            // Show selected view
-            document.getElementById(viewId).style.display = 'block';
-        }
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const isAdvisor = document.getElementById('advisor-login').checked;
 
-        function initializeCharts() {
-            // Placeholder for chart initialization
-            // Actual charts will be updated with data from API
-        }
+            // Simple validation
+            if (!username || !password) {
+                alert('Please enter both username and password');
+                return;
+            }
 
-        async function loadDashboardData() {
             try {
-                const response = await fetch('/api/portfolio/summary');
-                const data = await response.json();
+                // In a real application, this would call your backend API
+                // For demo purposes, we're using mock authentication
+                const response = await mockLogin(username, password, isAdvisor);
                 
-                // Update dashboard with real data
-                document.getElementById('total-value').textContent = `₹${data.totalValue.toLocaleString('en-IN')}`;
-                document.getElementById('holdings-count').textContent = data.holdingsCount;
-                document.getElementById('last-updated').textContent = new Date(data.lastUpdated).toLocaleDateString();
-                
-                // Update top holdings table
-                const topHoldingsBody = document.getElementById('top-holdings');
-                topHoldingsBody.innerHTML = '';
-                
-                data.topHoldings.forEach(holding => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${holding.name}</td>
-                        <td>${holding.quantity}</td>
-                        <td>₹${holding.currentPrice.toLocaleString('en-IN')}</td>
-                        <td>₹${holding.value.toLocaleString('en-IN')}</td>
-                        <td class="advisory-${holding.advisorySignal.toLowerCase()}">${holding.advisorySignal}</td>
-                    `;
-                    topHoldingsBody.appendChild(row);
-                });
-                
-                // Update advisory chart
-                updateAdvisoryChart(data.advisorySummary);
-                
+                if (response.success) {
+                    currentUser = {
+                        username: username,
+                        role: isAdvisor ? 'advisor' : 'client'
+                    };
+                    
+                    // Save to session storage
+                    sessionStorage.setItem('portfolioUser', JSON.stringify(currentUser));
+                    
+                    updateUIAfterLogin();
+                    loadPortfolioData();
+                } else {
+                    alert('Login failed: ' + response.message);
+                }
             } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                // Fallback to dummy data if API fails
-                loadDummyDashboardData();
+                console.error('Login error:', error);
+                alert('Login failed. Please try again.');
             }
         }
 
+        // Mock login function - replace with actual API call
+        async function mockLogin(username, password, isAdvisor) {
+            // Simulate API call delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Simple mock validation
+            if (username === 'admin' && password === 'password') {
+                return { success: true, role: isAdvisor ? 'advisor' : 'client' };
+            } else if (username === 'client' && password === 'client') {
+                return { success: true, role: 'client' };
+            } else {
+                return { success: false, message: 'Invalid credentials' };
+            }
+        }
+
+        // Handle logout
+        function handleLogout() {
+            sessionStorage.removeItem('portfolioUser');
+            currentUser = null;
+            
+            // Reset UI
+            loginSection.classList.remove('d-none');
+            dashboardSection.classList.add('d-none');
+            btnLogin.classList.remove('d-none');
+            btnLogout.classList.add('d-none');
+            userRoleDisplay.textContent = 'User';
+            document.body.classList.remove('role-advisor');
+            
+            // Reset form
+            loginForm.reset();
+        }
+
+        // Update UI after login
+        function updateUIAfterLogin() {
+            loginSection.classList.add('d-none');
+            dashboardSection.classList.remove('d-none');
+            btnLogin.classList.add('d-none');
+            btnLogout.classList.remove('d-none');
+            
+            userRoleDisplay.textContent = currentUser.role === 'advisor' ? 'Advisor' : 'Client';
+            
+            if (currentUser.role === 'advisor') {
+                document.body.classList.add('role-advisor');
+            } else {
+                document.body.classList.remove('role-advisor');
+            }
+        }
+
+        // Load portfolio data from backend
         async function loadPortfolioData() {
             try {
-                const response = await fetch('/api/portfolio/holdings');
-                const holdings = await response.json();
+                // In a real application, this would call your backend API
+                // For demo purposes, we're using mock data
+                const response = await fetch('/api/portfolio');
                 
-                const portfolioTable = document.getElementById('portfolio-table');
-                portfolioTable.innerHTML = '';
-                
-                holdings.forEach(holding => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${holding.name}</td>
-                        <td>${holding.isin}</td>
-                        <td>${holding.quantity}</td>
-                        <td>₹${holding.avgPrice.toLocaleString('en-IN')}</td>
-                        <td>₹${holding.currentPrice.toLocaleString('en-IN')}</td>
-                        <td>₹${holding.value.toLocaleString('en-IN')}</td>
-                        <td class="advisory-${holding.advisorySignal.toLowerCase()}">${holding.advisorySignal}</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary" onclick="editHolding('${holding.id}')">Edit</button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteHolding('${holding.id}')">Delete</button>
-                        </td>
-                    `;
-                    portfolioTable.appendChild(row);
-                });
-                
-            } catch (error) {
-                console.error('Error loading portfolio data:', error);
-                // Fallback to dummy data if API fails
-                loadDummyPortfolioData();
-            }
-        }
-
-        async function loadReportsData() {
-            try {
-                const [allocationResponse, performanceResponse, advisoryResponse] = await Promise.all([
-                    fetch('/api/portfolio/allocation'),
-                    fetch('/api/portfolio/performance'),
-                    fetch('/api/portfolio/advisory-report')
-                ]);
-                
-                const allocationData = await allocationResponse.json();
-                const performanceData = await performanceResponse.json();
-                const advisoryData = await advisoryResponse.json();
-                
-                // Update charts with real data
-                updateAllocationChart(allocationData);
-                updatePerformanceChart(performanceData);
-                
-                // Update advisory report table
-                const advisoryReportBody = document.getElementById('advisory-report');
-                advisoryReportBody.innerHTML = '';
-                
-                advisoryData.forEach(advice => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${advice.stockName}</td>
-                        <td class="advisory-${advice.signal.toLowerCase()}">${advice.signal}</td>
-                        <td>${advice.reasoning}</td>
-                        <td>₹${advice.targetPrice?.toLocaleString('en-IN') || 'N/A'}</td>
-                        <td>₹${advice.stopLoss?.toLocaleString('en-IN') || 'N/A'}</td>
-                    `;
-                    advisoryReportBody.appendChild(row);
-                });
-                
-            } catch (error) {
-                console.error('Error loading reports data:', error);
-                // Fallback to dummy data if API fails
-                loadDummyReportsData();
-            }
-        }
-
-        function openHoldingModal(holdingId = null) {
-            const modal = new bootstrap.Modal(document.getElementById('holdingModal'));
-            const form = document.getElementById('holding-form');
-            
-            if (holdingId) {
-                // Edit mode - load existing data
-                document.getElementById('modal-title').textContent = 'Edit Holding';
-                document.getElementById('holding-id').value = holdingId;
-                
-                // In a real implementation, we would fetch the holding data
-                // For now, we'll just show the modal
-            } else {
-                // Add mode - clear form
-                document.getElementById('modal-title').textContent = 'Add Holding';
-                form.reset();
-                document.getElementById('holding-id').value = '';
-            }
-            
-            modal.show();
-        }
-
-        async function saveHolding() {
-            const formData = {
-                isin: document.getElementById('stock-isin').value,
-                quantity: parseInt(document.getElementById('quantity').value),
-                avgPrice: parseFloat(document.getElementById('avg-price').value)
-            };
-            
-            const holdingId = document.getElementById('holding-id').value;
-            const url = holdingId ? `/api/portfolio/holdings/${holdingId}` : '/api/portfolio/holdings';
-            const method = holdingId ? 'PUT' : 'POST';
-            
-            try {
-                const response = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
-                });
-                
-                if (response.ok) {
-                    // Close modal and refresh data
-                    bootstrap.Modal.getInstance(document.getElementById('holdingModal')).hide();
-                    loadPortfolioData();
-                    loadDashboardData();
+                // For this demo, we'll use mock data if the API call fails
+                if (!response.ok) {
+                    console.warn('API call failed, using mock data');
+                    portfolioData = generateMockPortfolioData();
+                    advisorySignals = generateMockAdvisorySignals(portfolioData);
                 } else {
-                    alert('Error saving holding');
-                }
-            } catch (error) {
-                console.error('Error saving holding:', error);
-                alert('Error saving holding');
-            }
-        }
-
-        async function deleteHolding(holdingId) {
-            if (!confirm('Are you sure you want to delete this holding?')) return;
-            
-            try {
-                const response = await fetch(`/api/portfolio/holdings/${holdingId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    loadPortfolioData();
-                    loadDashboardData();
-                } else {
-                    alert('Error deleting holding');
-                }
-            } catch (error) {
-                console.error('Error deleting holding:', error);
-                alert('Error deleting holding');
-            }
-        }
-
-        function editHolding(holdingId) {
-            openHoldingModal(holdingId);
-            // In a real implementation, we would pre-fill the form with existing data
-        }
-
-        function updateAdvisoryChart(data) {
-            // Implementation for updating the advisory chart
-            const ctx = document.getElementById('advisory-chart').getContext('2d');
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Buy', 'Hold', 'Sell'],
-                    datasets: [{
-                        data: [data.buy, data.hold, data.sell],
-                        backgroundColor: ['#198754', '#ffc107', '#dc3545']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
+                    portfolioData = await response.json();
+                    // Load advisory signals if user is advisor
+                    if (currentUser.role === 'advisor') {
+                        const signalsResponse = await fetch('/api/advisory-signals');
+                        if (signalsResponse.ok) {
+                            advisorySignals = await signalsResponse.json();
+                        } else {
+                            advisorySignals = generateMockAdvisorySignals(portfolioData);
                         }
                     }
                 }
+                
+                renderPortfolioData();
+                if (currentUser.role === 'advisor') {
+                    renderAdvisorySignals();
+                }
+            } catch (error) {
+                console.error('Error loading portfolio data:', error);
+                // Fall back to mock data
+                portfolioData = generateMockPortfolioData();
+                advisorySignals = generateMockAdvisorySignals(portfolioData);
+                renderPortfolioData();
+                if (currentUser.role === 'advisor') {
+                    renderAdvisorySignals();
+                }
+            }
+        }
+
+        // Render portfolio data to UI
+        function renderPortfolioData() {
+            // Clear previous data
+            portfolioSummary.innerHTML = '';
+            portfolioTableBody.innerHTML = '';
+            
+            // Calculate totals
+            const totalInvestment = portfolioData.reduce((sum, item) => sum + (item.quantity * item.averagePrice), 0);
+            const totalCurrentValue = portfolioData.reduce((sum, item) => sum + (item.quantity * item.currentPrice), 0);
+            const totalProfitLoss = totalCurrentValue - totalInvestment;
+            const profitLossPercent = (totalProfitLoss / totalInvestment) * 100;
+            
+            // Create summary cards
+            portfolioSummary.innerHTML = `
+                <div class="col-md-3 mb-3">
+                    <div class="card portfolio-card">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">Total Investment</h6>
+                            <h4 class="card-title">₹${totalInvestment.toLocaleString('en-IN')}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card portfolio-card">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">Current Value</h6>
+                            <h4 class="card-title">₹${totalCurrentValue.toLocaleString('en-IN')}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card portfolio-card">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">P&L</h6>
+                            <h4 class="card-title ${totalProfitLoss >= 0 ? 'text-success' : 'text-danger'}">
+                                ₹${Math.abs(totalProfitLoss).toLocaleString('en-IN')} 
+                                ${totalProfitLoss >= 0 ? '↑' : '↓'}
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card portfolio-card">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">P&L %</h6>
+                            <h4 class="card-title ${profitLossPercent >= 0 ? 'text-success' : 'text-danger'}">
+                                ${profitLossPercent.toFixed(2)}%
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Populate table
+            portfolioData.forEach(item => {
+                const investment = item.quantity * item.averagePrice;
+                const currentValue = item.quantity * item.currentPrice;
+                const profitLoss = currentValue - investment;
+                const profitLossPercent = (profitLoss / investment) * 100;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.stockName} (${item.symbol})</td>
+                    <td>${item.sector}</td>
+                    <td>${item.quantity}</td>
+                    <td>₹${item.averagePrice.toLocaleString('en-IN')}</td>
+                    <td>₹${item.currentPrice.toLocaleString('en-IN')}</td>
+                    <td>₹${currentValue.toLocaleString('en-IN')}</td>
+                    <td class="${profitLoss >= 0 ? 'text-success' : 'text-danger'}">
+                        ₹${Math.abs(profitLoss).toLocaleString('en-IN')} (${profitLossPercent.toFixed(2)}%)
+                    </td>
+                    <td class="signal-${item.signal.toLowerCase()}">${item.signal}</td>
+                `;
+                portfolioTableBody.appendChild(row);
             });
         }
 
-        function updateAllocationChart(data) {
-            // Implementation for updating the allocation chart
-            const ctx = document.getElementById('allocation-chart').getContext('2d');
+        // Render advisory signals for advisors
+        function renderAdvisorySignals() {
+            if (!advisorySignals || advisorySignals.length === 0) return;
+            
+            // Clear previous data
+            signalsTableBody.innerHTML = '';
+            
+            // Populate signals table
+            advisorySignals.forEach(signal => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${signal.stockName} (${signal.symbol})</td>
+                    <td class="signal-${signal.historicalSignal.toLowerCase()}">${signal.historicalSignal}</td>
+                    <td class="signal-${signal.technicalSignal.toLowerCase()}">${signal.technicalSignal}</td>
+                    <td class="signal-${signal.sectorSignal.toLowerCase()}">${signal.sectorSignal}</td>
+                    <td class="signal-${signal.buzzSignal.toLowerCase()}">${signal.buzzSignal}</td>
+                    <td class="signal-${signal.finalSignal.toLowerCase()}"><strong>${signal.finalSignal}</strong></td>
+                `;
+                signalsTableBody.appendChild(row);
+            });
+            
+            // Create charts
+            createSignalsChart();
+            createSectorChart();
+        }
+
+        // Create signals distribution chart
+        function createSignalsChart() {
+            const signalsCount = {
+                Buy: 0,
+                Hold: 0,
+                Sell: 0
+            };
+            
+            advisorySignals.forEach(signal => {
+                signalsCount[signal.finalSignal]++;
+            });
+            
+            const ctx = document.getElementById('signals-chart').getContext('2d');
             new Chart(ctx, {
                 type: 'pie',
                 data: {
-                    labels: data.labels,
+                    labels: ['Buy', 'Hold', 'Sell'],
                     datasets: [{
-                        data: data.values,
-                        backgroundColor: ['#0d6efd', '#6610f2', '#6f42c1
+                        data: [signalsCount.Buy, signalsCount.Hold, signalsCount.Sell],
+                        backgroundColor: ['#28a745', '#ffc107', '#dc3545']
+                   

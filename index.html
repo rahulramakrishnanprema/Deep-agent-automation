@@ -1,1 +1,465 @@
-Error calling LLM: 429 Client Error: Too Many Requests for url: https://openrouter.ai/api/v1/chat/completions
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Advisor - Indian Equity Markets</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar-brand {
+            font-weight: bold;
+            color: #0d6efd !important;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .signal-buy {
+            color: #198754;
+            font-weight: bold;
+        }
+        .signal-sell {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .signal-hold {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .sector-card {
+            transition: transform 0.2s;
+        }
+        .sector-card:hover {
+            transform: translateY(-5px);
+        }
+        @media (max-width: 768px) {
+            .dashboard-card {
+                margin-bottom: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Portfolio Advisor</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Portfolio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Reports</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Market Buzz</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <button class="btn btn-outline-light me-2" onclick="login()">Advisor Login</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Portfolio Summary -->
+            <div class="col-lg-3 col-md-6">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">Portfolio Value</h5>
+                    </div>
+                    <div class="card-body">
+                        <h2 class="card-text">₹4,82,567</h2>
+                        <p class="text-success">+12.4% ↑</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advisory Signals -->
+            <div class="col-lg-3 col-md-6">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">Advisory Signals</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <span>Buy:</span>
+                            <span class="signal-buy">4 stocks</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Hold:</span>
+                            <span class="signal-hold">3 stocks</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Sell:</span>
+                            <span class="signal-sell">2 stocks</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Market Status -->
+            <div class="col-lg-3 col-md-6">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">Nifty 50</h5>
+                    </div>
+                    <div class="card-body">
+                        <h2 class="card-text">18,245.30</h2>
+                        <p class="text-success">+0.8% ↑</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sector Performance -->
+            <div class="col-lg-3 col-md-6">
+                <div class="card dashboard-card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="card-title mb-0">Top Sector</h5>
+                    </div>
+                    <div class="card-body">
+                        <h2 class="card-text">IT</h2>
+                        <p class="text-success">+15.2% ↑</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- Performance Chart -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Portfolio Performance</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="performanceChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Technical Indicators -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Technical Indicators</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6>RSI (Relative Strength Index)</h6>
+                            <div class="progress">
+                                <div class="progress-bar" role="progressbar" style="width: 45%;">45</div>
+                            </div>
+                            <small>Neutral</small>
+                        </div>
+                        <div class="mb-3">
+                            <h6>MACD (Moving Average Convergence Divergence)</h6>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: 60%;">Positive</div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Bollinger Bands</h6>
+                            <div class="progress">
+                                <div class="progress-bar bg-info" role="progressbar" style="width: 70%;">Upper Band</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- Sector Analysis -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Sector Potential Analysis</h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadSectorAnalysis()">Refresh</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <div class="card sector-card bg-light">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Information Technology</h5>
+                                        <p class="card-text">Growth Potential: High</p>
+                                        <span class="badge bg-success">Buy Recommendation</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <div class="card sector-card bg-light">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Banking & Finance</h5>
+                                        <p class="card-text">Growth Potential: Medium</p>
+                                        <span class="badge bg-warning text-dark">Hold Recommendation</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <div class="card sector-card bg-light">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Healthcare</h5>
+                                        <p class="card-text">Growth Potential: High</p>
+                                        <span class="badge bg-success">Buy Recommendation</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6 mb-3">
+                                <div class="card sector-card bg-light">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Automobile</h5>
+                                        <p class="card-text">Growth Potential: Low</p>
+                                        <span class="badge bg-danger">Sell Recommendation</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- Market Buzz -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Market Buzz</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="marketNews" class="overflow-auto" style="max-height: 300px;">
+                            <div class="card mb-2">
+                                <div class="card-body py-2">
+                                    <h6 class="card-title mb-1">RBI keeps repo rate unchanged at 6.5%</h6>
+                                    <p class="card-text mb-0 small">The Reserve Bank of India maintained the status quo on key policy rates in its latest monetary policy review.</p>
+                                </div>
+                            </div>
+                            <div class="card mb-2">
+                                <div class="card-body py-2">
+                                    <h6 class="card-title mb-1">IT sector shows strong Q2 results</h6>
+                                    <p class="card-text mb-0 small">Major IT companies report better-than-expected earnings driven by digital transformation demand.</p>
+                                </div>
+                            </div>
+                            <div class="card mb-2">
+                                <div class="card-body py-2">
+                                    <h6 class="card-title mb-1">Government announces infrastructure push</h6>
+                                    <p class="card-text mb-0 small">New infrastructure projects worth ₹1.5 lakh crore approved, boosting construction and materials sectors.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stock Recommendations -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Top Stock Recommendations</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Stock</th>
+                                        <th>Price</th>
+                                        <th>Signal</th>
+                                        <th>Target</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>INFY</td>
+                                        <td>₹1,850</td>
+                                        <td class="signal-buy">BUY</td>
+                                        <td>₹2,100</td>
+                                    </tr>
+                                    <tr>
+                                        <td>TCS</td>
+                                        <td>₹3,425</td>
+                                        <td class="signal-buy">BUY</td>
+                                        <td>₹3,800</td>
+                                    </tr>
+                                    <tr>
+                                        <td>HDFC Bank</td>
+                                        <td>₹1,650</td>
+                                        <td class="signal-hold">HOLD</td>
+                                        <td>₹1,720</td>
+                                    </tr>
+                                    <tr>
+                                        <td>RELIANCE</td>
+                                        <td>₹2,550</td>
+                                        <td class="signal-hold">HOLD</td>
+                                        <td>₹2,650</td>
+                                    </tr>
+                                    <tr>
+                                        <td>TATA Motors</td>
+                                        <td>₹645</td>
+                                        <td class="signal-sell">SELL</td>
+                                        <td>₹580</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Advisor Login</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" required>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="rememberMe">
+                            <label class="form-check-label" for="rememberMe">Remember me</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="submitLogin()">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize charts
+        document.addEventListener('DOMContentLoaded', function() {
+            // Performance Chart
+            const perfCtx = document.getElementById('performanceChart').getContext('2d');
+            const performanceChart = new Chart(perfCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    datasets: [{
+                        label: 'Portfolio Value (₹)',
+                        data: [380000, 395000, 410000, 402000, 415000, 428000, 435000, 445000, 462000, 475000, 478000, 482567],
+                        borderColor: '#0d6efd',
+                        tension: 0.1,
+                        fill: true,
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Year-to-Date Performance'
+                        }
+                    }
+                }
+            });
+
+            // Load initial data
+            loadPortfolioData();
+            loadMarketBuzz();
+        });
+
+        // API Integration Functions
+        async function loadPortfolioData() {
+            try {
+                const response = await fetch('/api/portfolio');
+                const portfolioData = await response.json();
+                console.log('Portfolio data loaded:', portfolioData);
+                // Update UI with portfolio data
+            } catch (error) {
+                console.error('Error loading portfolio data:', error);
+            }
+        }
+
+        async function loadSectorAnalysis() {
+            try {
+                const response = await fetch('/api/sector-analysis');
+                const sectorData = await response.json();
+                console.log('Sector analysis loaded:', sectorData);
+                // Update UI with sector analysis data
+            } catch (error) {
+                console.error('Error loading sector analysis:', error);
+            }
+        }
+
+        async function loadMarketBuzz() {
+            try {
+                const response = await fetch('/api/market-buzz');
+                const buzzData = await response.json();
+                console.log('Market buzz loaded:', buzzData);
+                // Update UI with market buzz data
+            } catch (error) {
+                console.error('Error loading market buzz:', error);
+            }
+        }
+
+        function login() {
+            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            loginModal.show();
+        }
+
+        async function submitLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Login successful:', result);
+                    // Handle successful login (e.g., redirect or update UI)
+                    const loginModal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+                    loginModal.hide();
+                } else {
+                    console.error('Login failed');
+                    alert('Login failed. Please check your credentials.');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login error. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>

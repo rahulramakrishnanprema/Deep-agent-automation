@@ -1,354 +1,287 @@
-/* 
- * style.css - Main stylesheet for Stock Portfolio Management System
- * Responsive design for web application managing Indian equity portfolios
- * Features: Bootstrap integration, advisor dashboard, portfolio management UI
- */
+/* style.css - Main CSS file for Portfolio Management System */
 
-/* Global Styles and Variables */
+/* Global Styles */
 :root {
-    --primary-color: #2c3e50;
-    --secondary-color: #3498db;
-    --accent-color: #e74c3c;
-    --success-color: #27ae60;
-    --warning-color: #f39c12;
-    --light-bg: #ecf0f1;
-    --dark-text: #2c3e50;
-    --light-text: #ffffff;
-    --border-radius: 8px;
-    --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --transition: all 0.3s ease;
+  --primary-color: #2c3e50;
+  --secondary-color: #3498db;
+  --accent-color: #e74c3c;
+  --success-color: #27ae60;
+  --warning-color: #f39c12;
+  --light-gray: #ecf0f1;
+  --dark-gray: #7f8c8d;
+  --text-color: #2c3e50;
+  --background-color: #ffffff;
 }
 
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    line-height: 1.6;
-    color: var(--dark-text);
-    background-color: var(--light-bg);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.6;
 }
 
 /* Header and Navigation */
 .navbar {
-    background-color: var(--primary-color);
-    box-shadow: var(--box-shadow);
-    padding: 1rem 2rem;
+  background-color: var(--primary-color);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .navbar-brand {
-    color: var(--light-text);
-    font-size: 1.5rem;
-    font-weight: bold;
+  font-weight: bold;
+  color: white !important;
 }
 
 .navbar-nav .nav-link {
-    color: var(--light-text);
-    transition: var(--transition);
+  color: white !important;
+  transition: color 0.3s ease;
 }
 
 .navbar-nav .nav-link:hover {
-    color: var(--secondary-color);
+  color: var(--secondary-color) !important;
 }
 
-/* Main Content Layout */
+/* Main Content Container */
 .container-fluid {
-    padding: 2rem;
+  padding: 20px;
 }
 
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
-    margin-bottom: 2rem;
+/* Dashboard Cards */
+.dashboard-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  transition: transform 0.3s ease;
 }
 
-/* Cards and Components */
-.card {
-    background: white;
-    border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
-    transition: var(--transition);
-    margin-bottom: 1.5rem;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+.dashboard-card:hover {
+  transform: translateY(-2px);
 }
 
 .card-header {
-    background-color: var(--primary-color);
-    color: var(--light-text);
-    padding: 1rem 1.5rem;
-    border-radius: var(--border-radius) var(--border-radius) 0 0;
+  background-color: var(--primary-color);
+  color: white;
+  padding: 15px;
+  border-radius: 8px 8px 0 0;
 }
 
 .card-body {
-    padding: 1.5rem;
+  padding: 20px;
 }
 
-/* Portfolio Table Styles */
+/* Portfolio Table */
 .portfolio-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1rem 0;
+  width: 100%;
+  border-collapse: collapse;
 }
 
 .portfolio-table th,
 .portfolio-table td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--light-gray);
 }
 
 .portfolio-table th {
-    background-color: var(--primary-color);
-    color: var(--light-text);
-    font-weight: 600;
+  background-color: var(--light-gray);
+  font-weight: bold;
 }
 
 .portfolio-table tr:hover {
-    background-color: #f5f5f5;
+  background-color: #f8f9fa;
 }
 
 /* Signal Indicators */
 .signal-buy {
-    color: var(--success-color);
-    font-weight: bold;
+  color: var(--success-color);
+  font-weight: bold;
 }
 
 .signal-hold {
-    color: var(--warning-color);
-    font-weight: bold;
+  color: var(--warning-color);
+  font-weight: bold;
 }
 
 .signal-sell {
-    color: var(--accent-color);
-    font-weight: bold;
+  color: var(--accent-color);
+  font-weight: bold;
 }
 
-.signal-indicator {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.875rem;
-    margin-right: 0.5rem;
-}
-
-/* Charts and Analytics */
-.chart-container {
-    position: relative;
-    height: 300px;
-    margin: 1rem 0;
-}
-
-.analytics-panel {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: var(--border-radius);
-    padding: 1.5rem;
-}
-
-/* Forms and Inputs */
-.form-group {
-    margin-bottom: 1.5rem;
-}
-
+/* Forms */
 .form-control {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid #ddd;
-    border-radius: var(--border-radius);
-    transition: var(--transition);
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 15px;
 }
 
 .form-control:focus {
-    border-color: var(--secondary-color);
-    outline: none;
-}
-
-.btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    transition: var(--transition);
-    font-weight: 600;
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
 }
 
 .btn-primary {
-    background-color: var(--secondary-color);
-    color: white;
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  padding: 10px 20px;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
 }
 
 .btn-primary:hover {
-    background-color: #2980b9;
+  background-color: #2980b9;
+  border-color: #2980b9;
 }
 
-.btn-success {
-    background-color: var(--success-color);
-    color: white;
-}
-
-.btn-danger {
-    background-color: var(--accent-color);
-    color: white;
-}
-
-/* Modal Styles */
-.modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: white;
-    padding: 2rem;
-    border-radius: var(--border-radius);
-    max-width: 500px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
+/* Charts and Graphs */
+.chart-container {
+  position: relative;
+  height: 300px;
+  margin: 20px 0;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .container-fluid {
-        padding: 1rem;
-    }
-    
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-    
-    .navbar {
-        padding: 1rem;
-    }
-    
-    .portfolio-table {
-        font-size: 0.875rem;
-    }
-    
-    .portfolio-table th,
-    .portfolio-table td {
-        padding: 0.5rem;
-    }
+  .container-fluid {
+    padding: 10px;
+  }
+  
+  .dashboard-card {
+    margin-bottom: 15px;
+  }
+  
+  .portfolio-table {
+    font-size: 14px;
+  }
+  
+  .portfolio-table th,
+  .portfolio-table td {
+    padding: 8px;
+  }
 }
 
 @media (max-width: 576px) {
-    .card {
-        margin-bottom: 1rem;
-    }
-    
-    .btn {
-        width: 100%;
-        margin-bottom: 0.5rem;
-    }
-    
-    .modal-content {
-        width: 95%;
-        padding: 1rem;
-    }
+  .navbar-brand {
+    font-size: 1.2rem;
+  }
+  
+  .card-header h5 {
+    font-size: 1.1rem;
+  }
+  
+  .btn-primary {
+    width: 100%;
+    margin-bottom: 10px;
+  }
 }
 
 /* Loading States */
 .loading-spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid var(--secondary-color);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 2rem auto;
+  border: 4px solid var(--light-gray);
+  border-top: 4px solid var(--secondary-color);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-/* Utility Classes */
-.text-center { text-align: center; }
-.text-right { text-align: right; }
-.mt-1 { margin-top: 0.25rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mt-3 { margin-top: 1rem; }
-.mb-1 { margin-bottom: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-3 { margin-bottom: 1rem; }
-.p-1 { padding: 0.25rem; }
-.p-2 { padding: 0.5rem; }
-.p-3 { padding: 1rem; }
+/* Alert Messages */
+.alert {
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
 
-/* Advisor-only Dashboard Components */
+.alert-success {
+  color: #155724;
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+
+.alert-error {
+  color: #721c24;
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+}
+
+.alert-warning {
+  color: #856404;
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+}
+
+/* Advisor Dashboard Specific Styles */
 .advisor-dashboard {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: var(--border-radius);
-    padding: 2rem;
+  background-color: #f8f9fa;
 }
 
 .advisor-section {
-    display: none; /* Hidden by default, shown only for advisor users */
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.advisor-visible .advisor-section {
-    display: block;
+.advisor-chart {
+  height: 250px;
+  margin: 15px 0;
+}
+
+/* Performance Metrics */
+.metric-card {
+  text-align: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+.metric-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* Custom Bootstrap Overrides */
+.navbar-dark .navbar-nav .nav-link {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+  color: var(--secondary-color) !important;
 }
 
 /* Print Styles */
 @media print {
-    .navbar, .btn, .modal-backdrop {
-        display: none;
-    }
-    
-    .card {
-        box-shadow: none;
-        border: 1px solid #ddd;
-    }
-    
-    body {
-        background: white;
-        color: black;
-    }
-}
-
-/* High Contrast Mode Support */
-@media (prefers-contrast: high) {
-    :root {
-        --primary-color: #000000;
-        --secondary-color: #0000ff;
-        --accent-color: #ff0000;
-        --light-bg: #ffffff;
-        --dark-text: #000000;
-    }
-    
-    .card {
-        border: 2px solid black;
-    }
-}
-
-/* Reduced Motion Support */
-@media (prefers-reduced-motion: reduce) {
-    * {
-        transition: none;
-        animation: none;
-    }
-    
-    .card:hover {
-        transform: none;
-    }
+  .navbar, .btn, .no-print {
+    display: none !important;
+  }
+  
+  .container-fluid {
+    padding: 0;
+  }
+  
+  body {
+    background-color: white !important;
+  }
 }

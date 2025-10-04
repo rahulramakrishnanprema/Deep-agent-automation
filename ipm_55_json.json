@@ -1,0 +1,230 @@
+{
+  "name": "Indian Portfolio Manager",
+  "version": "1.0.0",
+  "description": "A web application for managing Indian equity portfolios with advisory signals",
+  "config": {
+    "database": {
+      "host": "localhost",
+      "port": 5432,
+      "name": "ipm_db",
+      "user": "ipm_user",
+      "password": "secure_password_here"
+    },
+    "api": {
+      "port": 3000,
+      "cors_origins": ["http://localhost:3000", "http://localhost:8080"],
+      "rate_limit": {
+        "window_ms": 900000,
+        "max_requests": 100
+      }
+    },
+    "market_data": {
+      "nse_base_url": "https://www.nseindia.com/api",
+      "bse_base_url": "https://api.bseindia.com/BseIndiaAPI/api",
+      "news_sources": [
+        "https://economictimes.indiatimes.com",
+        "https://www.moneycontrol.com",
+        "https://www.business-standard.com"
+      ],
+      "update_interval_minutes": 15
+    },
+    "authentication": {
+      "jwt_secret": "your_jwt_secret_here",
+      "token_expiry_hours": 24,
+      "password_hashing_rounds": 12
+    },
+    "signal_generation": {
+      "confidence_thresholds": {
+        "high": 0.7,
+        "medium": 0.5,
+        "low": 0.3
+      },
+      "reanalysis_interval_hours": 6,
+      "max_signals_per_user": 50
+    },
+    "technical_indicators": {
+      "sma_periods": [20, 50, 200],
+      "rsi_period": 14,
+      "macd_fast": 12,
+      "macd_slow": 26,
+      "macd_signal": 9,
+      "bollinger_period": 20,
+      "bollinger_std_dev": 2
+    },
+    "sentiment_analysis": {
+      "api_endpoint": "https://api.sentimentanalysis.com/v1/analyze",
+      "update_frequency_hours": 4,
+      "confidence_threshold": 0.6
+    }
+  },
+  "database_schema": {
+    "users": {
+      "id": "UUID PRIMARY KEY",
+      "email": "VARCHAR(255) UNIQUE NOT NULL",
+      "password_hash": "VARCHAR(255) NOT NULL",
+      "first_name": "VARCHAR(100)",
+      "last_name": "VARCHAR(100)",
+      "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "is_active": "BOOLEAN DEFAULT TRUE"
+    },
+    "portfolios": {
+      "id": "UUID PRIMARY KEY",
+      "user_id": "UUID REFERENCES users(id)",
+      "name": "VARCHAR(255) NOT NULL",
+      "description": "TEXT",
+      "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "is_active": "BOOLEAN DEFAULT TRUE"
+    },
+    "holdings": {
+      "id": "UUID PRIMARY KEY",
+      "portfolio_id": "UUID REFERENCES portfolios(id)",
+      "symbol": "VARCHAR(50) NOT NULL",
+      "exchange": "VARCHAR(10) DEFAULT 'NSE'",
+      "quantity": "DECIMAL(15,4) NOT NULL",
+      "average_price": "DECIMAL(15,4) NOT NULL",
+      "purchase_date": "DATE",
+      "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    },
+    "advisory_signals": {
+      "id": "UUID PRIMARY KEY",
+      "user_id": "UUID REFERENCES users(id)",
+      "symbol": "VARCHAR(50) NOT NULL",
+      "exchange": "VARCHAR(10) DEFAULT 'NSE'",
+      "signal_type": "VARCHAR(20) NOT NULL",
+      "confidence_score": "DECIMAL(5,4) NOT NULL",
+      "reasoning": "TEXT NOT NULL",
+      "generated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "valid_until": "TIMESTAMP",
+      "is_active": "BOOLEAN DEFAULT TRUE"
+    },
+    "market_data": {
+      "id": "UUID PRIMARY KEY",
+      "symbol": "VARCHAR(50) NOT NULL",
+      "exchange": "VARCHAR(10) NOT NULL",
+      "last_price": "DECIMAL(15,4)",
+      "change": "DECIMAL(15,4)",
+      "change_percent": "DECIMAL(10,4)",
+      "volume": "BIGINT",
+      "market_cap": "DECIMAL(20,4)",
+      "timestamp": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "data_source": "VARCHAR(100)"
+    },
+    "technical_indicators": {
+      "id": "UUID PRIMARY KEY",
+      "symbol": "VARCHAR(50) NOT NULL",
+      "exchange": "VARCHAR(10) NOT NULL",
+      "indicator_type": "VARCHAR(50) NOT NULL",
+      "value": "DECIMAL(15,4)",
+      "timestamp": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "period": "INTEGER"
+    },
+    "sentiment_scores": {
+      "id": "UUID PRIMARY KEY",
+      "symbol": "VARCHAR(50) NOT NULL",
+      "exchange": "VARCHAR(10) NOT NULL",
+      "sentiment_score": "DECIMAL(5,4)",
+      "confidence": "DECIMAL(5,4)",
+      "source": "VARCHAR(100)",
+      "timestamp": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    },
+    "user_preferences": {
+      "id": "UUID PRIMARY KEY",
+      "user_id": "UUID REFERENCES users(id)",
+      "preference_key": "VARCHAR(100) NOT NULL",
+      "preference_value": "TEXT",
+      "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    }
+  },
+  "api_endpoints": {
+    "authentication": {
+      "POST /api/auth/register": "Register new user",
+      "POST /api/auth/login": "User login",
+      "POST /api/auth/logout": "User logout",
+      "POST /api/auth/refresh": "Refresh access token"
+    },
+    "portfolios": {
+      "GET /api/portfolios": "Get user portfolios",
+      "POST /api/portfolios": "Create new portfolio",
+      "GET /api/portfolios/{id}": "Get portfolio details",
+      "PUT /api/portfolios/{id}": "Update portfolio",
+      "DELETE /api/portfolios/{id}": "Delete portfolio"
+    },
+    "holdings": {
+      "GET /api/portfolios/{portfolio_id}/holdings": "Get portfolio holdings",
+      "POST /api/portfolios/{portfolio_id}/holdings": "Add holding",
+      "PUT /api/holdings/{id}": "Update holding",
+      "DELETE /api/holdings/{id}": "Remove holding"
+    },
+    "signals": {
+      "GET /api/signals": "Get user signals",
+      "GET /api/signals/{id}": "Get signal details",
+      "POST /api/signals/generate": "Generate new signals",
+      "GET /api/signals/history": "Get signal history"
+    },
+    "market_data": {
+      "GET /api/market/quotes": "Get stock quotes",
+      "GET /api/market/indicators": "Get technical indicators",
+      "GET /api/market/sentiment": "Get sentiment analysis",
+      "GET /api/market/news": "Get market news"
+    },
+    "dashboard": {
+      "GET /api/dashboard/overview": "Get dashboard overview",
+      "GET /api/dashboard/performance": "Get performance metrics",
+      "GET /api/dashboard/reports": "Generate reports"
+    },
+    "configuration": {
+      "GET /api/config": "Get application configuration",
+      "PUT /api/config": "Update configuration",
+      "GET /api/config/user": "Get user preferences",
+      "PUT /api/config/user": "Update user preferences"
+    }
+  },
+  "security": {
+    "password_policy": {
+      "min_length": 8,
+      "require_uppercase": true,
+      "require_lowercase": true,
+      "require_numbers": true,
+      "require_special_chars": true
+    },
+    "jwt": {
+      "algorithm": "HS256",
+      "expiry_hours": 24
+    },
+    "rate_limiting": {
+      "enabled": true,
+      "requests_per_minute": 60
+    },
+    "cors": {
+      "enabled": true,
+      "allowed_origins": ["http://localhost:3000", "http://localhost:8080"]
+    }
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/application.log",
+    "max_size_mb": 100,
+    "max_files": 10,
+    "console_output": true
+  },
+  "scalability": {
+    "database_connection_pool": {
+      "max_connections": 20,
+      "idle_timeout_ms": 30000,
+      "connection_timeout_ms": 2000
+    },
+    "caching": {
+      "enabled": true,
+      "redis_url": "redis://localhost:6379",
+      "default_ttl_seconds": 300
+    },
+    "background_workers": {
+      "signal_generation_interval_minutes": 30,
+      "market_data_update_interval_minutes": 15,
+      "max_concurrent_jobs": 5
+    }
+  }
+}

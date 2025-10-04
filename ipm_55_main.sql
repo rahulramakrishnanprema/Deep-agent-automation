@@ -1,379 +1,304 @@
--- IPM-55: Main SQL Schema for Indian Portfolio Management MVP
--- This file creates the complete database schema for the stock portfolio management system
--- Focuses on Indian equity markets with support for portfolio storage, technical indicators, and advisory signals
+-- Portfolio Management System Database Schema for Indian Equity Market
+-- This SQL file creates the necessary tables for an MVP web application
+-- that manages Indian equity portfolios with advisory signals and reporting
 
--- Enable UUID extension for unique identifiers
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Create main database schema
-CREATE SCHEMA IF NOT EXISTS ipm_portfolio;
-SET search_path TO ipm_portfolio;
-
--- Users table for advisor access control
-CREATE TABLE users (
-    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) DEFAULT 'advisor' CHECK (role IN ('advisor', 'admin')),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP,
-    CONSTRAINT chk_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
-);
-
--- Indian stock symbols reference table
-CREATE TABLE indian_stocks (
-    stock_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    symbol VARCHAR(20) NOT NULL,
-    company_name VARCHAR(200) NOT NULL,
+-- Securities table to store Indian equity instruments
+CREATE TABLE IF NOT EXISTS securities (
+    id SERIAL PRIMARY KEY,
+    isin_code VARCHAR(12) UNIQUE NOT NULL,  -- ISIN code for Indian securities
+    bse_code VARCHAR(10),                   -- BSE security code
+    nse_symbol VARCHAR(20),                 -- NSE trading symbol
+    company_name VARCHAR(255) NOT NULL,
     sector VARCHAR(100) NOT NULL,
     industry VARCHAR(100),
-    exchange VARCHAR(50) DEFAULT 'NSE' CHECK (exchange IN ('NSE', 'BSE')),
-    isin_code VARCHAR(12) UNIQUE NOT NULL,
-    market_cap DECIMAL(20, 2),
-    listing_date DATE,
-    is_active BOOLEAN DEFAULT TRUE,
+    market_cap_category VARCHAR(20) CHECK (market_cap_category IN ('Large Cap', 'Mid Cap', 'Small Cap')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(symbol, exchange)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Portfolio master table
-CREATE TABLE portfolios (
-    portfolio_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    portfolio_name VARCHAR(100) NOT NULL,
-    client_name VARCHAR(100) NOT NULL,
-    description TEXT,
-    initial_investment DECIMAL(15, 2) DEFAULT 0,
-    currency VARCHAR(3) DEFAULT 'INR',
-    risk_profile VARCHAR(20) CHECK (risk_profile IN ('Low', 'Medium', 'High', 'Very High')),
-    created_by UUID REFERENCES users(user_id),
+-- Indexes for faster queries on Indian market codes
+CREATE INDEX IF NOT EXISTS idx_securities_isin ON securities(isin_code);
+CREATE INDEX IF NOT EXISTS idx_securities_bse ON securities(bse_code);
+CREATE INDEX IF NOT EXISTS idx_securities_nse ON securities(nse_symbol);
+CREATE INDEX IF NOT EXISTS idx_securities_sector ON securities(sector);
+
+-- Portfolios table to store client portfolio information
+CREATE TABLE IF NOT EXISTS portfolios (
+    id SERIAL PRIMARY KEY,
+    portfolio_name VARCHAR(255) NOT NULL,
+    client_name VARCHAR(255) NOT NULL,
+    client_email VARCHAR(255),
+    total_value DECIMAL(15,2) DEFAULT 0.00,
+    risk_profile VARCHAR(20) CHECK (risk_profile IN ('Low', 'Medium', 'High')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Transactions table to record all portfolio transactions
+CREATE TABLE IF NOT EXISTS transactions (
+    id SERIAL PRIMARY KEY,
+    portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    security_id INTEGER NOT NULL REFERENCES securities(id),
+    transaction_type VARCHAR(4) CHECK (transaction_type IN ('BUY', 'SELL')) NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    price DECIMAL(10,2) NOT NULL CHECK (price > 0),
+    transaction_date DATE NOT NULL,
+    exchange VARCHAR(3) CHECK (exchange IN ('BSE', 'NSE')) NOT NULL,
+    brokerages DECIMAL(10,2) DEFAULT 0.00,
+    taxes DECIMAL(10,2) DEFAULT 0.00,
+    total_amount DECIMAL(15,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for transaction queries
+CREATE INDEX IF NOT EXISTS idx_transactions_portfolio ON transactions(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_security ON transactions(security_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date);
+
+-- Holdings table to track current portfolio positions
+CREATE TABLE IF NOT EXISTS holdings (
+    id SERIAL PRIMARY KEY,
+    portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    security_id INTEGER NOT NULL REFERENCES securities(id),
+    quantity INTEGER NOT NULL DEFAULT 0,
+    average_buy_price DECIMAL(10,2) NOT NULL,
+    total_investment DECIMAL(15,2) NOT NULL,
+    current_value DECIMAL(15,2) DEFAULT 0.00,
+    unrealized_pnl DECIMAL(15,2) DEFAULT 0.00,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(portfolio_id, security_id)
+);
+
+-- Index for holdings queries
+CREATE INDEX IF NOT EXISTS idx_holdings_portfolio ON holdings(portfolio_id);
+
+-- Market data table for storing current and historical prices
+CREATE TABLE IF NOT EXISTS market_data (
+    id SERIAL PRIMARY KEY,
+    security_id INTEGER NOT NULL REFERENCES securities(id),
+    price_date DATE NOT NULL,
+    open_price DECIMAL(10,2),
+    high_price DECIMAL(10,2),
+    low_price DECIMAL(10,2),
+    close_price DECIMAL(10,2) NOT NULL,
+    volume BIGINT,
+    exchange VARCHAR(3) CHECK (exchange IN ('BSE', 'NSE')) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(security_id, price_date, exchange)
+);
+
+-- Index for market data queries
+CREATE INDEX IF NOT EXISTS idx_market_data_security ON market_data(security_id);
+CREATE INDEX IF NOT EXISTS idx_market_data_date ON market_data(price_date);
+
+-- Advisory signals table for storing Buy/Hold/Sell recommendations
+CREATE TABLE IF NOT EXISTS advisory_signals (
+    id SERIAL PRIMARY KEY,
+    security_id INTEGER NOT NULL REFERENCES securities(id),
+    signal_type VARCHAR(10) CHECK (signal_type IN ('BUY', 'HOLD', 'SELL')) NOT NULL,
+    confidence_score DECIMAL(5,2) CHECK (confidence_score BETWEEN 0 AND 100),
+    rationale TEXT NOT NULL,
+    target_price DECIMAL(10,2),
+    stop_loss DECIMAL(10,2),
+    time_horizon VARCHAR(20) CHECK (time_horizon IN ('Short Term', 'Medium Term', 'Long Term')),
+    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    valid_until TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
 );
 
--- Portfolio holdings table
-CREATE TABLE portfolio_holdings (
-    holding_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    portfolio_id UUID REFERENCES portfolios(portfolio_id) ON DELETE CASCADE,
-    stock_id UUID REFERENCES indian_stocks(stock_id),
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
-    average_price DECIMAL(10, 2) NOT NULL CHECK (average_price > 0),
-    purchase_date DATE NOT NULL,
-    sector VARCHAR(100),
-    current_price DECIMAL(10, 2),
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(portfolio_id, stock_id)
-);
+-- Index for advisory signals queries
+CREATE INDEX IF NOT EXISTS idx_advisory_signals_security ON advisory_signals(security_id);
+CREATE INDEX IF NOT EXISTS idx_advisory_signals_active ON advisory_signals(is_active);
+CREATE INDEX IF NOT EXISTS idx_advisory_signals_type ON advisory_signals(signal_type);
 
--- Historical price data for technical analysis
-CREATE TABLE stock_prices (
-    price_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    stock_id UUID REFERENCES indian_stocks(stock_id),
-    date DATE NOT NULL,
-    open_price DECIMAL(10, 2),
-    high_price DECIMAL(10, 2),
-    low_price DECIMAL(10, 2),
-    close_price DECIMAL(10, 2) NOT NULL,
-    volume BIGINT,
-    adjusted_close DECIMAL(10, 2),
+-- Portfolio signals table linking signals to specific portfolios
+CREATE TABLE IF NOT EXISTS portfolio_signals (
+    id SERIAL PRIMARY KEY,
+    portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    advisory_signal_id INTEGER NOT NULL REFERENCES advisory_signals(id),
+    action_taken VARCHAR(20) CHECK (action_taken IN ('FOLLOWED', 'IGNORED', 'PENDING')),
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(stock_id, date)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Technical indicators table
-CREATE TABLE technical_indicators (
-    indicator_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    stock_id UUID REFERENCES indian_stocks(stock_id),
-    date DATE NOT NULL,
-    sma_20 DECIMAL(10, 2),  -- Simple Moving Average 20 days
-    sma_50 DECIMAL(10, 2),  -- Simple Moving Average 50 days
-    ema_12 DECIMAL(10, 2),  -- Exponential Moving Average 12 days
-    ema_26 DECIMAL(10, 2),  -- Exponential Moving Average 26 days
-    rsi DECIMAL(5, 2) CHECK (rsi BETWEEN 0 AND 100),  -- Relative Strength Index
-    macd DECIMAL(10, 2),    -- MACD line
-    macd_signal DECIMAL(10, 2),  -- MACD signal line
-    macd_histogram DECIMAL(10, 2),  -- MACD histogram
-    bollinger_upper DECIMAL(10, 2),  -- Bollinger Bands upper
-    bollinger_lower DECIMAL(10, 2),  -- Bollinger Bands lower
-    stochastic_k DECIMAL(5, 2),  -- Stochastic %K
-    stochastic_d DECIMAL(5, 2),  -- Stochastic %D
+-- Dashboard reports table for storing visual report configurations
+CREATE TABLE IF NOT EXISTS dashboard_reports (
+    id SERIAL PRIMARY KEY,
+    report_name VARCHAR(255) NOT NULL,
+    report_type VARCHAR(50) CHECK (report_type IN ('Portfolio Performance', 'Sector Allocation', 'Risk Analysis', 'Advisory Summary')),
+    portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE CASCADE,
+    config_json JSONB NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(stock_id, date)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Advisory signals table
-CREATE TABLE advisory_signals (
-    signal_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    stock_id UUID REFERENCES indian_stocks(stock_id),
-    signal_date DATE NOT NULL,
-    signal_type VARCHAR(10) CHECK (signal_type IN ('BUY', 'SELL', 'HOLD')),
-    confidence_score DECIMAL(5, 2) CHECK (confidence_score BETWEEN 0 AND 100),
-    rationale TEXT,
-    technical_score INTEGER CHECK (technical_score BETWEEN 0 AND 100),
-    fundamental_score INTEGER CHECK (fundamental_score BETWEEN 0 AND 100),
-    market_sentiment_score INTEGER CHECK (market_sentiment_score BETWEEN 0 AND 100),
-    target_price DECIMAL(10, 2),
-    stop_loss DECIMAL(10, 2),
-    time_horizon VARCHAR(20) CHECK (time_horizon IN ('Short', 'Medium', 'Long')),
-    generated_by UUID REFERENCES users(user_id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(stock_id, signal_date)
-);
-
--- Sector analysis table
-CREATE TABLE sector_analysis (
-    analysis_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    sector VARCHAR(100) NOT NULL,
-    analysis_date DATE NOT NULL,
-    overall_score INTEGER CHECK (overall_score BETWEEN 0 AND 100),
-    growth_potential VARCHAR(20) CHECK (growth_potential IN ('Low', 'Medium', 'High', 'Very High')),
-    risk_level VARCHAR(20) CHECK (risk_level IN ('Low', 'Medium', 'High', 'Very High')),
-    market_cap_contribution DECIMAL(5, 2),
-    pe_ratio_avg DECIMAL(10, 2),
-    dividend_yield_avg DECIMAL(5, 2),
-    top_performers JSONB,  -- JSON array of top performing stocks in sector
-    analyst_recommendations TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(sector, analysis_date)
-);
-
--- Market buzz and news integration
-CREATE TABLE market_buzz (
-    buzz_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    stock_id UUID REFERENCES indian_stocks(stock_id),
-    buzz_date TIMESTAMP NOT NULL,
-    source VARCHAR(100) NOT NULL,
-    headline VARCHAR(500) NOT NULL,
-    content TEXT,
-    sentiment_score INTEGER CHECK (sentiment_score BETWEEN -100 AND 100),
-    impact_level VARCHAR(20) CHECK (impact_level IN ('Low', 'Medium', 'High')),
-    category VARCHAR(50) CHECK (category IN ('News', 'Social Media', 'Analyst Report', 'Regulatory')),
-    url VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Portfolio performance history
-CREATE TABLE portfolio_performance (
-    performance_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    portfolio_id UUID REFERENCES portfolios(portfolio_id) ON DELETE CASCADE,
-    snapshot_date DATE NOT NULL,
-    total_value DECIMAL(15, 2) NOT NULL,
-    daily_return DECIMAL(10, 4),
-    weekly_return DECIMAL(10, 4),
-    monthly_return DECIMAL(10, 4),
-    quarterly_return DECIMAL(10, 4),
-    yearly_return DECIMAL(10, 4),
-    volatility DECIMAL(10, 4),
-    sharpe_ratio DECIMAL(10, 4),
-    beta DECIMAL(10, 4),
-    alpha DECIMAL(10, 4),
-    sector_allocation JSONB,  -- JSON object with sector allocations
-    top_holdings JSONB,      -- JSON array of top holdings
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(portfolio_id, snapshot_date)
-);
-
--- User sessions for access control
-CREATE TABLE user_sessions (
-    session_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(user_id),
-    session_token VARCHAR(500) NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Audit log table
-CREATE TABLE audit_log (
-    log_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(user_id),
-    action_type VARCHAR(50) NOT NULL,
-    table_name VARCHAR(100),
-    record_id UUID,
-    old_values JSONB,
-    new_values JSONB,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Indexes for performance optimization
-CREATE INDEX idx_portfolio_holdings_portfolio ON portfolio_holdings(portfolio_id);
-CREATE INDEX idx_portfolio_holdings_stock ON portfolio_holdings(stock_id);
-CREATE INDEX idx_stock_prices_stock_date ON stock_prices(stock_id, date);
-CREATE INDEX idx_technical_indicators_stock_date ON technical_indicators(stock_id, date);
-CREATE INDEX idx_advisory_signals_stock_date ON advisory_signals(stock_id, signal_date);
-CREATE INDEX idx_market_buzz_stock_date ON market_buzz(stock_id, buzz_date);
-CREATE INDEX idx_portfolio_performance_portfolio_date ON portfolio_performance(portfolio_id, snapshot_date);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_indian_stocks_symbol ON indian_stocks(symbol);
-CREATE INDEX idx_indian_stocks_sector ON indian_stocks(sector);
-
--- Views for common queries
-
--- Portfolio summary view
-CREATE OR REPLACE VIEW portfolio_summary AS
-SELECT 
-    p.portfolio_id,
-    p.portfolio_name,
-    p.client_name,
-    p.initial_investment,
-    COALESCE(SUM(ph.quantity * COALESCE(ph.current_price, sp.close_price)), 0) AS current_value,
-    COALESCE(SUM(ph.quantity * ph.average_price), 0) AS invested_amount,
-    COUNT(ph.holding_id) AS number_of_holdings,
-    MAX(pp.snapshot_date) AS last_updated
-FROM portfolios p
-LEFT JOIN portfolio_holdings ph ON p.portfolio_id = ph.portfolio_id
-LEFT JOIN stock_prices sp ON ph.stock_id = sp.stock_id 
-    AND sp.date = (SELECT MAX(date) FROM stock_prices WHERE stock_id = ph.stock_id)
-LEFT JOIN portfolio_performance pp ON p.portfolio_id = pp.portfolio_id
-WHERE p.is_active = TRUE
-GROUP BY p.portfolio_id, p.portfolio_name, p.client_name, p.initial_investment;
-
--- Stock signals with latest prices view
-CREATE OR REPLACE VIEW stock_signals_with_prices AS
-SELECT 
-    s.stock_id,
-    s.symbol,
-    s.company_name,
-    s.sector,
-    asp.signal_type,
-    asp.confidence_score,
-    asp.target_price,
-    sp.close_price AS current_price,
-    sp.date AS price_date,
-    CASE 
-        WHEN asp.signal_type = 'BUY' AND sp.close_price < asp.target_price THEN 'Undervalued'
-        WHEN asp.signal_type = 'SELL' AND sp.close_price > asp.target_price THEN 'Overvalued'
-        ELSE 'Fair Value'
-    END AS valuation_status
-FROM indian_stocks s
-LEFT JOIN advisory_signals asp ON s.stock_id = asp.stock_id 
-    AND asp.signal_date = (SELECT MAX(signal_date) FROM advisory_signals WHERE stock_id = s.stock_id)
-LEFT JOIN stock_prices sp ON s.stock_id = sp.stock_id 
-    AND sp.date = (SELECT MAX(date) FROM stock_prices WHERE stock_id = s.stock_id)
-WHERE s.is_active = TRUE;
-
--- Sector performance view
-CREATE OR REPLACE VIEW sector_performance AS
-SELECT 
-    s.sector,
-    COUNT(DISTINCT s.stock_id) AS number_of_stocks,
-    AVG(sp.close_price) AS avg_price,
-    AVG(ti.rsi) AS avg_rsi,
-    AVG(asp.confidence_score) FILTER (WHERE asp.signal_type = 'BUY') AS avg_buy_confidence,
-    AVG(asp.confidence_score) FILTER (WHERE asp.signal_type = 'SELL') AS avg_sell_confidence,
-    COUNT(asp.signal_id) FILTER (WHERE asp.signal_type = 'BUY') AS buy_signals,
-    COUNT(asp.signal_id) FILTER (WHERE asp.signal_type = 'SELL') AS sell_signals,
-    MAX(sa.overall_score) AS sector_score
-FROM indian_stocks s
-LEFT JOIN stock_prices sp ON s.stock_id = sp.stock_id 
-    AND sp.date = (SELECT MAX(date) FROM stock_prices WHERE stock_id = s.stock_id)
-LEFT JOIN technical_indicators ti ON s.stock_id = ti.stock_id 
-    AND ti.date = (SELECT MAX(date) FROM technical_indicators WHERE stock_id = s.stock_id)
-LEFT JOIN advisory_signals asp ON s.stock_id = asp.stock_id 
-    AND asp.signal_date = (SELECT MAX(signal_date) FROM advisory_signals WHERE stock_id = s.stock_id)
-LEFT JOIN sector_analysis sa ON s.sector = sa.sector 
-    AND sa.analysis_date = (SELECT MAX(analysis_date) FROM sector_analysis WHERE sector = s.sector)
-WHERE s.is_active = TRUE
-GROUP BY s.sector;
-
--- Functions for common operations
-
--- Function to calculate portfolio value
-CREATE OR REPLACE FUNCTION calculate_portfolio_value(p_portfolio_id UUID)
-RETURNS DECIMAL(15, 2) AS $$
-DECLARE
-    total_value DECIMAL(15, 2);
-BEGIN
-    SELECT COALESCE(SUM(ph.quantity * COALESCE(ph.current_price, sp.close_price)), 0)
-    INTO total_value
-    FROM portfolio_holdings ph
-    LEFT JOIN stock_prices sp ON ph.stock_id = sp.stock_id 
-        AND sp.date = (SELECT MAX(date) FROM stock_prices WHERE stock_id = ph.stock_id)
-    WHERE ph.portfolio_id = p_portfolio_id;
-    
-    RETURN total_value;
-END;
-$$ LANGUAGE plpgsql;
-
--- Function to update portfolio holdings current prices
-CREATE OR REPLACE FUNCTION update_holding_prices()
+-- Function to update portfolio total value
+CREATE OR REPLACE FUNCTION update_portfolio_value()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE portfolio_holdings ph
-    SET current_price = sp.close_price,
-        last_updated = CURRENT_TIMESTAMP
-    FROM stock_prices sp
-    WHERE ph.stock_id = sp.stock_id
-        AND sp.date = (SELECT MAX(date) FROM stock_prices WHERE stock_id = ph.stock_id)
-        AND ph.current_price IS DISTINCT FROM sp.close_price;
-    
+    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+        UPDATE portfolios 
+        SET total_value = (
+            SELECT COALESCE(SUM(current_value), 0)
+            FROM holdings 
+            WHERE portfolio_id = NEW.portfolio_id
+        ),
+        updated_at = CURRENT_TIMESTAMP
+        WHERE id = NEW.portfolio_id;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE portfolios 
+        SET total_value = (
+            SELECT COALESCE(SUM(current_value), 0)
+            FROM holdings 
+            WHERE portfolio_id = OLD.portfolio_id
+        ),
+        updated_at = CURRENT_TIMESTAMP
+        WHERE id = OLD.portfolio_id;
+    END IF;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to generate advisory signal based on technical indicators
-CREATE OR REPLACE FUNCTION generate_advisory_signal(p_stock_id UUID, p_date DATE)
-RETURNS TABLE (
-    signal_type VARCHAR(10),
-    confidence_score DECIMAL(5, 2),
-    rationale TEXT
-) AS $$
+-- Trigger to automatically update portfolio value when holdings change
+CREATE TRIGGER trigger_update_portfolio_value
+    AFTER INSERT OR UPDATE OR DELETE ON holdings
+    FOR EACH ROW
+    EXECUTE FUNCTION update_portfolio_value();
+
+-- Function to update holding when transaction occurs
+CREATE OR REPLACE FUNCTION update_holding_on_transaction()
+RETURNS TRIGGER AS $$
 DECLARE
-    v_rsi DECIMAL(5, 2);
-    v_macd_histogram DECIMAL(10, 2);
-    v_sma_20 DECIMAL(10, 2);
-    v_sma_50 DECIMAL(10, 2);
-    v_current_price DECIMAL(10, 2);
-    v_signal_type VARCHAR(10);
-    v_confidence DECIMAL(5, 2);
-    v_rationale TEXT;
+    current_quantity INTEGER;
+    current_avg_price DECIMAL(10,2);
+    new_avg_price DECIMAL(10,2);
 BEGIN
-    -- Get latest technical indicators
-    SELECT rsi, macd_histogram, sma_20, sma_50
-    INTO v_rsi, v_macd_histogram, v_sma_20, v_sma_50
-    FROM technical_indicators
-    WHERE stock_id = p_stock_id AND date = p_date;
+    -- Get current holding if exists
+    SELECT quantity, average_buy_price INTO current_quantity, current_avg_price
+    FROM holdings 
+    WHERE portfolio_id = NEW.portfolio_id AND security_id = NEW.security_id;
     
-    -- Get current price
-    SELECT close_price INTO v_current_price
-    FROM stock_prices
-    WHERE stock_id = p_stock_id AND date = p_date;
-    
-    -- Generate signal based on multiple indicators
-    v_confidence := 0;
-    v_rationale := '';
-    
-    -- RSI based signal
-    IF v_rsi < 30 THEN
-        v_signal_type := 'BUY';
-        v_confidence := v_confidence + 25;
-        v_rationale := v_rationale || 'RSI indicates oversold condition. ';
-    ELSIF v_rsi > 70 THEN
-        v_signal_type := 'SELL';
-        v_confidence := v_confidence + 25;
-        v_rationale := v_rationale || 'RSI indicates overbought condition. ';
-    ELSE
-        v_signal_type := 'HOLD';
-        v_confidence := v_confidence + 10;
+    IF NOT FOUND THEN
+        current_quantity := 0;
+        current_avg_price := 0;
     END IF;
     
-    -- MACD based signal
-    IF v_macd_histogram > 0 THEN
-        IF v_signal_type = 'BUY' THEN
-            v_confidence := v_confidence + 25;
+    IF NEW.transaction_type = 'BUY' THEN
+        -- Calculate new average price for BUY
+        new_avg_price := ((current_quantity * current_avg_price) + (NEW.quantity * NEW.price)) / 
+                         (current_quantity + NEW.quantity);
+        
+        INSERT INTO holdings (portfolio_id, security_id, quantity, average_buy_price, total_investment)
+        VALUES (NEW.portfolio_id, NEW.security_id, current_quantity + NEW.quantity, 
+                new_avg_price, (current_quantity + NEW.quantity) * new_avg_price)
+        ON CONFLICT (portfolio_id, security_id) 
+        DO UPDATE SET 
+            quantity = EXCLUDED.quantity,
+            average_buy_price = EXCLUDED.average_buy_price,
+            total_investment = EXCLUDED.total_investment,
+            last_updated = CURRENT_TIMESTAMP;
+            
+    ELSIF NEW.transaction_type = 'SELL' THEN
+        IF current_quantity < NEW.quantity THEN
+            RAISE EXCEPTION 'Insufficient holdings for sell transaction';
         END IF;
-        v_rationale := v_rationale || 'MACD histogram positive. ';
-    ELSIF v_macd_histogram < 0 THEN
-        IF v_signal_type = 'SELL' THEN
-            v_confidence := v_confidence + 25;
-        END IF;
-        v_rationale := v_rationale || 'MACD histogram negative. ';
+        
+        -- For SELL, we reduce quantity but keep average buy price unchanged
+        INSERT INTO holdings (portfolio_id, security_id, quantity, average_buy_price, total_investment)
+        VALUES (NEW.portfolio_id, NEW.security_id, current_quantity - NEW.quantity, 
+                current_avg_price, (current_quantity - NEW.quantity) * current_avg_price)
+        ON CONFLICT (portfolio_id, security_id) 
+        DO UPDATE SET 
+            quantity = EXCLUDED.quantity,
+            total_investment = EXCLUDED.total_investment,
+            last_updated = CURRENT_TIMESTAMP;
     END IF;
     
-    -- Moving averages crossover
-    IF v_sma_20 > v
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to update holdings after transaction insertion
+CREATE TRIGGER trigger_update_holding
+    AFTER INSERT ON transactions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_holding_on_transaction();
+
+-- View for portfolio performance summary
+CREATE OR REPLACE VIEW portfolio_performance AS
+SELECT 
+    p.id as portfolio_id,
+    p.portfolio_name,
+    p.client_name,
+    p.total_value,
+    COUNT(DISTINCT h.security_id) as number_of_holdings,
+    COALESCE(SUM(h.unrealized_pnl), 0) as total_unrealized_pnl,
+    COALESCE(SUM(h.total_investment), 0) as total_investment,
+    p.created_at
+FROM portfolios p
+LEFT JOIN holdings h ON p.id = h.portfolio_id
+GROUP BY p.id, p.portfolio_name, p.client_name, p.total_value, p.created_at;
+
+-- View for sector allocation
+CREATE OR REPLACE VIEW sector_allocation AS
+SELECT 
+    p.id as portfolio_id,
+    s.sector,
+    SUM(h.current_value) as sector_value,
+    ROUND((SUM(h.current_value) / NULLIF(p.total_value, 0)) * 100, 2) as allocation_percentage
+FROM portfolios p
+JOIN holdings h ON p.id = h.portfolio_id
+JOIN securities s ON h.security_id = s.id
+GROUP BY p.id, s.sector, p.total_value;
+
+-- Insert sample Indian securities data
+INSERT INTO securities (isin_code, bse_code, nse_symbol, company_name, sector, industry, market_cap_category) VALUES
+('INE009A01021', '500325', 'RELIANCE', 'Reliance Industries Limited', 'Energy', 'Oil & Gas Refining', 'Large Cap'),
+('INE002A01018', '500112', 'TCS', 'Tata Consultancy Services Limited', 'Information Technology', 'Software', 'Large Cap'),
+('INE101A01026', '532540', 'HDFCBANK', 'HDFC Bank Limited', 'Financial Services', 'Banking', 'Large Cap'),
+('INE238A01034', '500510', 'LT', 'Larsen & Toubro Limited', 'Industrials', 'Construction', 'Large Cap'),
+('INE154A01025', '500209', 'INFY', 'Infosys Limited', 'Information Technology', 'Software', 'Large Cap'),
+('INE018A01026', '532555', 'ITC', 'ITC Limited', 'Consumer Goods', 'Tobacco', 'Large Cap'),
+('INE079A01024', '500696', 'HINDUNILVR', 'Hindustan Unilever Limited', 'Consumer Goods', 'FMCG', 'Large Cap'),
+('INE040A01034', '500520', 'WIPRO', 'Wipro Limited', 'Information Technology', 'Software', 'Large Cap'),
+('INE319A01026', '532281', 'HINDALCO', 'Hindalco Industries Limited', 'Materials', 'Metals', 'Large Cap'),
+('INE002A01018', '500180', 'HDFC', 'Housing Development Finance Corporation Limited', 'Financial Services', 'NBFC', 'Large Cap');
+
+-- Insert sample portfolio data
+INSERT INTO portfolios (portfolio_name, client_name, client_email, risk_profile) VALUES
+('Growth Portfolio', 'Rajesh Kumar', 'rajesh.kumar@email.com', 'High'),
+('Conservative Portfolio', 'Priya Sharma', 'priya.sharma@email.com', 'Low'),
+('Balanced Portfolio', 'Amit Patel', 'amit.patel@email.com', 'Medium');
+
+-- Insert sample market data
+INSERT INTO market_data (security_id, price_date, open_price, high_price, low_price, close_price, volume, exchange) VALUES
+(1, CURRENT_DATE, 2750.00, 2780.00, 2745.00, 2775.00, 5000000, 'NSE'),
+(2, CURRENT_DATE, 3850.00, 3880.00, 3830.00, 3865.00, 3000000, 'NSE'),
+(3, CURRENT_DATE, 1650.00, 1670.00, 1640.00, 1665.00, 4000000, 'NSE');
+
+-- Insert sample advisory signals
+INSERT INTO advisory_signals (security_id, signal_type, confidence_score, rationale, target_price, stop_loss, time_horizon, valid_until) VALUES
+(1, 'BUY', 85.00, 'Strong quarterly results and expanding market share', 3000.00, 2600.00, 'Medium Term', CURRENT_DATE + INTERVAL '30 days'),
+(2, 'HOLD', 70.00, 'Stable performance but facing margin pressures', 4000.00, 3700.00, 'Short Term', CURRENT_DATE + INTERVAL '15 days'),
+(3, 'SELL', 60.00, 'Valuation concerns and regulatory headwinds', 1500.00, 1700.00, 'Short Term', CURRENT_DATE + INTERVAL '15 days');
+
+-- Create indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_transactions_portfolio_date ON transactions(portfolio_id, transaction_date);
+CREATE INDEX IF NOT EXISTS idx_market_data_recent ON market_data(price_date DESC);
+CREATE INDEX IF NOT EXISTS idx_advisory_signals_validity ON advisory_signals(valid_until, is_active);
+
+-- Comments for documentation
+COMMENT ON TABLE securities IS 'Stores metadata for Indian equity securities with BSE/NSE codes';
+COMMENT ON TABLE portfolios IS 'Client portfolio information with risk profiling';
+COMMENT ON TABLE transactions IS 'Records all buy/sell transactions with Indian market specifics';
+COMMENT ON TABLE holdings IS 'Current portfolio positions with valuation data';
+COMMENT ON TABLE market_data IS 'Historical and current market prices for Indian securities';
+COMMENT ON TABLE advisory_signals IS 'Buy/Hold/Sell recommendations with rationale and targets';
+COMMENT ON TABLE portfolio_signals IS 'Links advisory signals to specific client portfolios';
+COMMENT ON TABLE dashboard_reports IS 'Stores configuration for visual reports and dashboards';
+
+-- Grant necessary permissions (adjust based on your deployment setup)
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO application_user;
+-- GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO application_user;
